@@ -42,10 +42,13 @@ class DanbooruWindow(QMainWindow):
 
 		self.hMLayout   = QVBoxLayout(self.hMiddle, 0, 0, "Horiz Middle Layout")
 		self.quitButton = QPushButton("Quit", self.hMiddle)
+		self.imgScroll  = QScrollView(self.hMiddle, "Image scroller")
+		self.imgScroll.setResizePolicy(QScrollView.AutoOneFit)
 		self.imgLabel   = QLabel("No image", self.hMiddle, "Image")
+		self.imgScroll.addChild(self.imgLabel)
 		self.md5Label   = QLabel("md5: ", self.hMiddle, "md5")
 		self.hMLayout.addWidget(self.quitButton)
-		self.hMLayout.addWidget(self.imgLabel)
+		self.hMLayout.addWidget(self.imgScroll)
 		self.hMLayout.addWidget(self.md5Label)
 		self.setCentralWidget(self.top)
 
