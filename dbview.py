@@ -71,6 +71,7 @@ win = DanbooruWindow()
 for filename in os.listdir("."):
 	if is_probably_image(filename):
 		win.fileList.insertItem(filename)
+win.fileList.sort()
 app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))
 app.connect(win.quitButton, SIGNAL("clicked()"), app, SLOT("quit()"))
 app.connect(win.fileList, SIGNAL("highlighted(const QString &)"), win.showImage)
