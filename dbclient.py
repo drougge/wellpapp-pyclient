@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-import socket
+import socket, types
 
 class EResponse(Exception): pass
 
@@ -58,16 +58,20 @@ class dbclient:
 		posts = self._search_post("SPM" + md5 + " Ftagname Ftagguid Fext Fcreated Fwidth Fheight")
 		if not md5 in posts: return None
 		return posts[md5]
+	def _list(self, data):
+		if type(data) == types.NoneType: return []
+		if type(data) == types.StringType: return [data]
+		return data
 	def search_post(self, tags=None, guids=None, excl_tags=None, excl_guids=None , wanted=None):
 		search = "SP"
-		for want in wanted or []:
+		for want in self._list(wanted):
 			search += "F" + want + " "
-		for tag in tags or []:
+		for tag in self._list(tags):
 			search += "TN" + tag + " "
-		for guid in guids or []:
+		for guid in self._list(guids):
 			search += "TG" + guid + " "
-		for tag in excl_tags or []:
+		for tag in self._list(excl_tags):
 			search += "tN" + tag + " "
-		for guid in excl_guids or []:
+		for guid in self._list(excl_guids):
 			search += "tG" + guid + " "
 		return self._search_post(search)
