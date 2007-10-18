@@ -30,7 +30,7 @@ class dbclient:
 		if line[0] != "R": raise EResponse(line)
 		tags = []
 		guids = []
-		ext = None
+		f = {}
 		md5 = None
 		for token in line[1:].split():
 			type = token[0]
@@ -41,20 +41,21 @@ class dbclient:
 				tags.append(data)
 			elif type == "G":
 				guids.append(data)
-			elif type == "E":
-				ext = data
+			elif type == "F":
+				field, value = data.split("=", 1)
+				f[field] = value
 			else:
 				raise EResponse(line)
 		if not md5: raise EResponse(line)
 		if md5 in posts: raise "Duplicate response " + md5
-		posts[md5] = (tags, guids, ext)
+		posts[md5] = (tags, guids, f)
 	def _search_post(self, search):
 		self._writeline(search)
 		posts = {}
 		while not self._parse_search(self._readline(), posts): pass
 		return posts
 	def get_post(self, md5):
-		posts = self._search_post("SPM" + md5 + " Fext Ftagname Ftagid")
+		posts = self._search_post("SPM" + md5 + " Ftagname Ftagguid Fext Fcreated Fwidth Fheight")
 		if not md5 in posts: return None
 		return posts[md5]
 	def search_post(self, tags=None, guids=None, excl_tags=None, excl_guids=None , wanted=None):
