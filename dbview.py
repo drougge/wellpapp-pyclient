@@ -25,7 +25,7 @@ class SizedListBox(QListBox):
 	def sizeHint(self):
 		height = QListBox.sizeHint(self).height()
 		width = self.maxItemWidth()
-		return QSize(width, height)
+		return QSize(width + 4, height)
 
 class DanbooruWindow(QMainWindow):
 	def __init__(self, *args):
