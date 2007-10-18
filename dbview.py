@@ -11,6 +11,12 @@ def md5file(filename):
 		m.update(data)
 	return m.hexdigest()
 
+exts = ("jpeg", "jpg", "gif", "png", "bmp")
+def is_probably_image(filename):
+	if not os.path.isfile(filename): return False
+	if filename.split(".")[-1].lower() in exts: return True
+	return False
+
 class DanbooruWindow(QMainWindow):
 	def __init__(self, *args):
 		def sizepolicy(obj, *args):
@@ -36,7 +42,7 @@ class DanbooruWindow(QMainWindow):
 		self.hMLayout.addWidget(self.md5Label)
 		self.setCentralWidget(self.top)
 
-		self.current_dir = "/home/drougge"
+		self.current_dir = "."
 		self.current_image = None
 		self.quitButton.setFocus()
 
@@ -44,7 +50,6 @@ class DanbooruWindow(QMainWindow):
 		sizepolicy(self.imgLabel, QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 	def showImage(self, name):
-		print "ohh:", name
 		if self.current_image == name: return
 		filename = self.current_dir + os.path.sep + name
 		self.md5Label.setText("md5: " + md5file(filename))
@@ -53,8 +58,9 @@ class DanbooruWindow(QMainWindow):
 
 app = QApplication(sys.argv)
 win = DanbooruWindow()
-for img in ["1093607539792.jpg", "1093607692688.jpg", "1093603071292.jpg", "1093575914759.jpg"]:
-	win.fileList.insertItem(img)
+for filename in os.listdir("."):
+	if is_probably_image(filename):
+		win.fileList.insertItem(filename)
 app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))
 app.connect(win.quitButton, SIGNAL("clicked()"), app, SLOT("quit()"))
 app.connect(win.fileList, SIGNAL("highlighted(const QString &)"), win.showImage)
