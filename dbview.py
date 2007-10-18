@@ -5,7 +5,7 @@ import sys, os, md5
 from qt import *
 import dbclient
 
-client = dbclient.dbclient("book", 2225)
+client = dbclient.dbclient("book.lundagatan.com", 2225)
 
 def md5file(filename):
 	m = md5.new()
@@ -32,16 +32,12 @@ class DanbooruWindow(QMainWindow):
 		def sizepolicy(obj, *args):
 			obj.setSizePolicy(QSizePolicy(*args))
 		QMainWindow.__init__(self, *args)
-		self.top        = QWidget(self, "Main")
-		self.hlayout    = QHBoxLayout(self.top, 0, 0, "hLayout")
+		self.top        = QSplitter(self, "Main")
 		self.fileList   = SizedListBox(self.top, "FileList")
 		sizepolicy(self.fileList, QSizePolicy.Preferred, QSizePolicy.Expanding)
 		self.hMiddle    = QWidget(self.top, "Horizontal Middle")
 		self.tagList    = SizedListBox(self.top, "TagList")
 		sizepolicy(self.tagList, QSizePolicy.Preferred, QSizePolicy.Expanding)
-		self.hlayout.addWidget(self.fileList)
-		self.hlayout.addWidget(self.hMiddle)
-		self.hlayout.addWidget(self.tagList)
 
 		self.hMLayout   = QVBoxLayout(self.hMiddle, 0, 0, "Horiz Middle Layout")
 		self.quitButton = QPushButton("Quit", self.hMiddle)
