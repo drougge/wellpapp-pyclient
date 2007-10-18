@@ -17,6 +17,13 @@ def is_probably_image(filename):
 	if filename.split(".")[-1].lower() in exts: return True
 	return False
 
+# Surely there is some standard way of getting this (without subclassing)?
+class SizedListBox(QListBox):
+	def sizeHint(self):
+		height = QListBox.sizeHint(self).height()
+		width = self.maxItemWidth()
+		return QSize(width, height)
+
 class DanbooruWindow(QMainWindow):
 	def __init__(self, *args):
 		def sizepolicy(obj, *args):
@@ -24,10 +31,10 @@ class DanbooruWindow(QMainWindow):
 		QMainWindow.__init__(self, *args)
 		self.top        = QWidget(self, "Main")
 		self.hlayout    = QHBoxLayout(self.top, 0, 0, "hLayout")
-		self.fileList   = QListBox(self.top, "FileList")
+		self.fileList   = SizedListBox(self.top, "FileList")
 		sizepolicy(self.fileList, QSizePolicy.Preferred, QSizePolicy.Expanding)
 		self.hMiddle    = QWidget(self.top, "Horizontal Middle")
-		self.tagList    = QListBox(self.top, "TagList")
+		self.tagList    = SizedListBox(self.top, "TagList")
 		sizepolicy(self.tagList, QSizePolicy.Preferred, QSizePolicy.Expanding)
 		self.hlayout.addWidget(self.fileList)
 		self.hlayout.addWidget(self.hMiddle)
