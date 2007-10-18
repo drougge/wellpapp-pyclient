@@ -13,12 +13,16 @@ def md5file(filename):
 
 class DanbooruWindow(QMainWindow):
 	def __init__(self, *args):
+		def sizepolicy(obj, *args):
+			obj.setSizePolicy(QSizePolicy(*args))
 		QMainWindow.__init__(self, *args)
 		self.top        = QWidget(self, "Main")
 		self.hlayout    = QHBoxLayout(self.top, 0, 0, "hLayout")
 		self.fileList   = QListBox(self.top, "FileList")
+		sizepolicy(self.fileList, QSizePolicy.Preferred, QSizePolicy.Expanding)
 		self.hMiddle    = QWidget(self.top, "Horizontal Middle")
 		self.tagList    = QListBox(self.top, "TagList")
+		sizepolicy(self.tagList, QSizePolicy.Preferred, QSizePolicy.Expanding)
 		self.hlayout.addWidget(self.fileList)
 		self.hlayout.addWidget(self.hMiddle)
 		self.hlayout.addWidget(self.tagList)
@@ -35,6 +39,9 @@ class DanbooruWindow(QMainWindow):
 		self.current_dir = "/home/drougge"
 		self.current_image = None
 		self.quitButton.setFocus()
+
+		self.imgLabel.setAlignment(QLabel.AlignCenter)
+		sizepolicy(self.imgLabel, QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 	def showImage(self, name):
 		print "ohh:", name
