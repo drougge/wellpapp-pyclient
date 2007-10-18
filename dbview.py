@@ -3,6 +3,9 @@
 
 import sys, os, md5
 from qt import *
+import dbclient
+
+client = dbclient.dbclient("book", 2225)
 
 def md5file(filename):
 	m = md5.new()
@@ -61,8 +64,17 @@ class DanbooruWindow(QMainWindow):
 
 	def showImage(self, name):
 		if self.current_image == name: return
+		self.imgLabel.clear()
+		self.tagList.clear()
 		filename = self.current_dir + os.path.sep + name
-		self.md5Label.setText("md5: " + md5file(filename))
+		md5 = md5file(filename)
+		self.md5Label.setText("md5: " + md5)
+		try:
+			for tag in client.get_tags(md5)[0]:
+				self.tagList.insertItem(tag)
+		except:
+			self.tagList.clear()
+			self.tagList.insertItem("*ERROR*")
 		img = QPixmap(filename)
 		self.imgLabel.setPixmap(img)
 
