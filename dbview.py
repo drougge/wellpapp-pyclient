@@ -21,6 +21,14 @@ def is_probably_image(filename):
 	if filename.split(".")[-1].lower() in exts: return True
 	return False
 
+def danbooru_path(md5, ext):
+	base = "/home/danbooru/images/" + md5[0] + "/" + md5[1:3] + "/" + md5 + "."
+	# A bit of magic because the DB and filesystem don't agree
+	for test_ext in (ext, "jpg", "JPEG", "JPG", "GIF", "PNG"):
+		filename = base + test_ext
+		if os.path.exists(filename): return filename
+	return "NO"
+
 # Surely there is some standard way of getting this (without subclassing)?
 class SizedListBox(QListBox):
 	def sizeHint(self):
@@ -69,26 +77,42 @@ class DanbooruWindow(QMainWindow):
 		sizepolicy(self.imgLabel, QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 	def showImage(self, name):
+		name = str(name)
 		if self.current_image == name: return
 		self.imgLabel.clear()
 		self.tagList.clear()
-		filename = self.current_dir + os.path.sep + name
-		md5 = md5file(filename)
-		self.md5Label.setText("md5: " + md5)
-		try:
-			for tag in client.get_post(md5)[0]:
+		if self.mode == "files":
+			filename = self.current_dir + os.path.sep + name
+			md5 = md5file(filename)
+			self.md5Label.setText("md5: " + md5)
+			try:
+				for tag in client.get_post(md5)[0]:
+					self.tagList.insertItem(tag)
+			except:
+				self.tagList.clear()
+				self.tagList.insertItem("*ERROR*")
+		else:
+			post = self.search[name]
+			filename = danbooru_path(name, post[2]["ext"])
+			self.md5Label.setText("md5: " + name)
+			for tag in post[0]:
 				self.tagList.insertItem(tag)
-		except:
-			self.tagList.clear()
-			self.tagList.insertItem("*ERROR*")
 		img = QPixmap(filename)
 		self.imgLabel.setPixmap(img)
 
 app = QApplication(sys.argv)
 win = DanbooruWindow()
-for filename in os.listdir("."):
-	if is_probably_image(filename):
-		win.fileList.insertItem(filename)
+tags = sys.argv[1:]
+if tags:
+	win.mode = "search"
+	win.search = client.search_post(wanted=("tagname", "ext"), tags=tags)
+	for md5 in win.search.keys():
+		win.fileList.insertItem(md5)
+else:
+	win.mode = "files"
+	for filename in os.listdir("."):
+		if is_probably_image(filename):
+			win.fileList.insertItem(filename)
 win.fileList.sort()
 app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))
 app.connect(win.quitButton, SIGNAL("clicked()"), app, SLOT("quit()"))
