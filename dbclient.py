@@ -26,7 +26,7 @@ class dbclient:
 			self.sock.send(line)
 	def _readline(self):
 		return self.fh.readline()
-	def _parse_search(self, line, posts):
+	def _parse_search(self, line, posts, wanted):
 		if line == "OK\n": return True
 		if line[0] != "R": raise EResponse(line)
 		tags = []
@@ -49,11 +49,13 @@ class dbclient:
 				raise EResponse(line)
 		if not md5: raise EResponse(line)
 		if md5 in posts: raise EDuplicate(md5)
-		posts[md5] = (tags, guids, f)
-	def _search_post(self, search):
+		if not wanted or "tagname" in wanted: f["tagname"] = tags
+		if not wanted or "tagguid" in wanted: f["tagguid"] = guids
+		posts[md5] = f
+	def _search_post(self, search, wanted = None):
 		self._writeline(search)
 		posts = {}
-		while not self._parse_search(self._readline(), posts): pass
+		while not self._parse_search(self._readline(), posts, wanted): pass
 		return posts
 	def get_post(self, md5):
 		posts = self._search_post("SPM" + md5 + " Ftagname Ftagguid Fext Fcreated Fwidth Fheight")
@@ -75,4 +77,4 @@ class dbclient:
 			search += "tN" + tag + " "
 		for guid in self._list(excl_guids):
 			search += "tG" + guid + " "
-		return self._search_post(search)
+		return self._search_post(search, wanted)

@@ -93,9 +93,9 @@ class DanbooruWindow(QMainWindow):
 				self.tagList.insertItem("*ERROR*")
 		else:
 			post = self.search[name]
-			filename = danbooru_path(name, post[2]["ext"])
+			filename = danbooru_path(name, post["ext"])
 			self.md5Label.setText("md5: " + name)
-			for tag in post[0]:
+			for tag in post["tagname"]:
 				self.tagList.insertItem(tag)
 		if file(filename).read(6) == "GIF89a":
 			mov = QMovie(filename)
