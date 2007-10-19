@@ -4,6 +4,7 @@
 import sys, os, md5
 from qt import *
 import dbclient
+import Image
 
 client = dbclient.dbclient("book.lundagatan.com", 2225)
 minImgWidth, minImgHeight = 500, 500
@@ -19,6 +20,15 @@ exts = ("jpeg", "jpg", "gif", "png", "bmp")
 def is_probably_image(filename):
 	if not os.path.isfile(filename): return False
 	if filename.split(".")[-1].lower() in exts: return True
+	return False
+
+def is_anim(filename):
+	if file(filename).read(4) != "GIF8": return False
+	try:
+		img = Image.open(filename)
+		if "loop" in img.info or "duration" in img.info:
+			return True
+	except: pass
 	return False
 
 def danbooru_path(md5, ext):
@@ -97,7 +107,7 @@ class DanbooruWindow(QMainWindow):
 			self.md5Label.setText("md5: " + name)
 			for tag in post["tagname"]:
 				self.tagList.insertItem(tag)
-		if file(filename).read(6) == "GIF89a":
+		if is_anim(filename):
 			mov = QMovie(filename)
 			self.imgLabel.setMovie(mov)
 		else:
