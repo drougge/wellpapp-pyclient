@@ -97,8 +97,12 @@ class DanbooruWindow(QMainWindow):
 			self.md5Label.setText("md5: " + name)
 			for tag in post[0]:
 				self.tagList.insertItem(tag)
-		img = QPixmap(filename)
-		self.imgLabel.setPixmap(img)
+		if file(filename).read(6) == "GIF89a":
+			mov = QMovie(filename)
+			self.imgLabel.setMovie(mov)
+		else:
+			img = QPixmap(filename)
+			self.imgLabel.setPixmap(img)
 
 app = QApplication(sys.argv)
 win = DanbooruWindow()
