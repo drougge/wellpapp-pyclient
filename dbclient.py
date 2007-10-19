@@ -3,6 +3,7 @@
 import socket, types
 
 class EResponse(Exception): pass
+class EDuplicate(EResponse): pass
 
 class dbclient:
 	def __init__(self, host, port):
@@ -47,7 +48,7 @@ class dbclient:
 			else:
 				raise EResponse(line)
 		if not md5: raise EResponse(line)
-		if md5 in posts: raise "Duplicate response " + md5
+		if md5 in posts: raise EDuplicate(md5)
 		posts[md5] = (tags, guids, f)
 	def _search_post(self, search):
 		self._writeline(search)
@@ -59,7 +60,7 @@ class dbclient:
 		if not md5 in posts: return None
 		return posts[md5]
 	def _list(self, data):
-		if type(data) == types.NoneType: return []
+		if not data: return []
 		if type(data) == types.StringType: return [data]
 		return data
 	def search_post(self, tags=None, guids=None, excl_tags=None, excl_guids=None , wanted=None):
