@@ -66,7 +66,7 @@ class DanbooruWindow(QMainWindow):
 		md5 = md5file(filename)
 		self.md5Label.setText("md5: " + md5)
 		try:
-			for tag in client.get_tags(md5)[0]:
+			for tag in client.get_post(md5)[0]:
 				self.tagList.insertItem(tag)
 		except:
 			self.tagList.clear()
