@@ -6,6 +6,7 @@ from qt import *
 import dbclient
 
 client = dbclient.dbclient("book.lundagatan.com", 2225)
+minImgWidth, minImgHeight = 500, 500
 
 def md5file(filename):
 	m = md5.new()
@@ -27,6 +28,15 @@ class SizedListBox(QListBox):
 		width = self.maxItemWidth()
 		return QSize(width + 4, height)
 
+# Try to get more space for the image with windows that are too small.
+# Doesn't work well.
+class SizedLabel(QLabel):
+	def sizeHint(self):
+		sh = QLabel.sizeHint(self)
+		height = max(sh.height(), minImgHeight)
+		width = max(sh.width(), minImgWidth)
+		return QSize(width, height)
+
 class DanbooruWindow(QMainWindow):
 	def __init__(self, *args):
 		def sizepolicy(obj, *args):
@@ -43,7 +53,7 @@ class DanbooruWindow(QMainWindow):
 		self.quitButton = QPushButton("Quit", self.hMiddle)
 		self.imgScroll  = QScrollView(self.hMiddle, "Image scroller")
 		self.imgScroll.setResizePolicy(QScrollView.AutoOneFit)
-		self.imgLabel   = QLabel("No image", self.hMiddle, "Image")
+		self.imgLabel   = SizedLabel("No image", self.hMiddle, "Image")
 		self.imgScroll.addChild(self.imgLabel)
 		self.md5Label   = QLabel("md5: ", self.hMiddle, "md5")
 		self.hMLayout.addWidget(self.quitButton)
