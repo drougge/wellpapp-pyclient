@@ -55,6 +55,24 @@ class SizedLabel(QLabel):
 		width = max(sh.width(), minImgWidth)
 		return QSize(width, height)
 
+class ImageViewer(QLabel):
+	def __init__(self, *args):
+		self.valid_pixmap = False
+		QLabel.__init__(self, *args)
+	def clear(self):
+		self.valid_pixmap = False
+		QLabel.clear(self)
+	def setPixmap(self, pixmap):
+		QLabel.setPixmap(self, pixmap)
+		self.valid_pixmap = True
+	def setMovie(self, movie):
+		self.valid_pixmap = False
+		QLabel.setMovie(self, movie)
+	def resizeEvent(self, event):
+		print "Resize:", event.size().width(), event.size().height()
+		# and .oldSize
+		QLabel.resizeEvent(self, event)
+
 class DanbooruWindow(QMainWindow):
 	def __init__(self, *args):
 		def sizepolicy(obj, *args):
@@ -71,7 +89,7 @@ class DanbooruWindow(QMainWindow):
 		self.quitButton = QPushButton("Quit", self.hMiddle)
 		self.imgScroll  = QScrollView(self.hMiddle, "Image scroller")
 		self.imgScroll.setResizePolicy(QScrollView.AutoOneFit)
-		self.imgLabel   = SizedLabel("No image", self.hMiddle, "Image")
+		self.imgLabel   = ImageViewer("No image", self.hMiddle, "Image")
 		self.imgScroll.addChild(self.imgLabel)
 		self.md5Label   = QLabel("md5: ", self.hMiddle, "md5")
 		self.hMLayout.addWidget(self.quitButton)
