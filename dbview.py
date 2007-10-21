@@ -105,7 +105,7 @@ class DanbooruWindow(QMainWindow):
 		sizepolicy(self.imgLabel, QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 	def showImage(self, name):
-		name = str(name)
+		name = unicode(name)
 		if self.current_image == name: return
 		self.imgLabel.clear()
 		self.tagList.clear()
