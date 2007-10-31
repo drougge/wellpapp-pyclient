@@ -8,6 +8,8 @@ class EDuplicate(EResponse): pass
 class dbclient:
 	def __init__(self, host, port):
 		self.server = (host, port)
+		self.userpass = None
+		self.auth_ok = False
 		self.is_connected = False
 	def _reconnect(self):
 		if self.is_connected: return
@@ -15,15 +17,18 @@ class dbclient:
 		self.sock.connect(self.server)
 		self.fh = self.sock.makefile()
 		self.is_connected = True
-	def _writeline(self, line):
+		self.auth_ok = False
+		if self.userpass: self._send_auth()
+	def _writeline(self, line, retry=True):
 		self._reconnect()
 		line = line + "\n"
 		try:
 			self.sock.send(line)
 		except:
 			self.is_connected = False
-			self._reconnect()
-			self.sock.send(line)
+			if retry:
+				self._reconnect()
+				self.sock.send(line)
 	def _readline(self):
 		return self.fh.readline()
 	def _parse_search(self, line, posts, wanted):
@@ -78,3 +83,10 @@ class dbclient:
 		for guid in self._list(excl_guids):
 			search += "tG" + guid + " "
 		return self._search_post(search, wanted)
+	def _send_auth(self):
+		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)
+		if self._readline() == "OK\n": self.auth_ok = True
+	def auth(self, user, pass):
+		self.userpass = (user, pass)
+		self._send_auth()
+		return self.auth_ok
