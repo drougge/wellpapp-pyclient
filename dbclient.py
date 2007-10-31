@@ -86,7 +86,7 @@ class dbclient:
 	def _send_auth(self):
 		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)
 		if self._readline() == "OK\n": self.auth_ok = True
-	def auth(self, user, pass):
-		self.userpass = (user, pass)
+	def auth(self, user, password):
+		self.userpass = (user, password)
 		self._send_auth()
 		return self.auth_ok
