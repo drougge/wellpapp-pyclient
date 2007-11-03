@@ -65,7 +65,9 @@ class dbclient:
 	def get_post(self, md5):
 		posts = self._search_post("SPM" + md5 + " Ftagname Ftagguid Fext Fcreated Fwidth Fheight")
 		if not md5 in posts: return None
-		return posts[md5]
+		post = posts[md5]
+		post["md5"] = md5
+		return post
 	def _list(self, data):
 		if not data: return []
 		if type(data) == types.StringType: return [data]
