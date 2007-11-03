@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-import socket, types
+import socket, types, base64
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
@@ -92,3 +92,20 @@ class dbclient:
 		self.userpass = (user, password)
 		self._send_auth()
 		return self.auth_ok
+	def _enc(str):
+		while len(str) % 3: str += "\x00"
+		return base64.b64encode(str, "_-")
+	def _dec(enc):
+		str = base64.b64decode(enc, "_-")
+		while str[-1] == "\x00": str = str[:-1]
+	def add_post(self, md5, width, height, filetype, rating=None, source=None, title=None):
+		cmd  = "AP" + md5
+		cmd += " width=" + str(width)
+		cmd += " height=" + str(height)
+		cmd += " filetype=" + filetype
+		if rating: cmd += " rating=" + rating
+		if source: cmd += " source=" + self._enc(source)
+		if title:  cmd += " title=" + self._enc(title)
+		self._writeline(cmd)
+		res = self._readline()
+		if res != "OK\n": raise EResponse(res)
