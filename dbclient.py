@@ -109,3 +109,32 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != "OK\n": raise EResponse(res)
+	def _rels(self, c, md5, rels):
+		cmd = "R" + c + md5
+		for rel in self._list(rels):
+			cmd += " " + rel
+		self._writeline(cmd)
+		res = self._readline()
+		if res != "OK\n": raise EResponse(res)
+	def add_rels(self, md5, rels):
+		self._rels("R", md5, rels)
+	def remove_rels(self, md5, rels):
+		self._rels("r", md5, rels)
+	def _parse_rels(self, line, rels):
+		if line == "OK\n": return True
+		if line[0] != "P": raise EResponse(line)
+		a = line[1:].split()
+		p = a[0]
+		l = []
+		if p in rels: l = rels[p]
+		for rel in a[1:]:
+			if rel[0] != "R": raise EResponse(line)
+			l.append(rel[1:])
+		rels[p] = l
+	def post_rels(self, md5):
+		cmd = "RS" + md5
+		self._writeline(cmd)
+		rels = {}
+		while not self._parse_rels(self._readline(), rels): pass
+		if not md5 in rels: return None
+		return rels[md5]
