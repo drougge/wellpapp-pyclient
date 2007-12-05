@@ -5,6 +5,13 @@ import socket, types, base64
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
 
+_field_parsers = {
+	"created": lambda x: int(x, 16),
+	"width"  : lambda x: int(x, 16),
+	"height" : lambda x: int(x, 16),
+	"score"  : int,
+}
+
 class dbclient:
 	def __init__(self, host, port):
 		self.server = (host, port)
@@ -49,7 +56,10 @@ class dbclient:
 				guids.append(data)
 			elif type == "F":
 				field, value = data.split("=", 1)
-				f[field] = value
+				if field in _field_parsers:
+					f[field] = _field_parsers[field](value)
+				else:
+					f[field] = value
 			else:
 				raise EResponse(line)
 		if not md5: raise EResponse(line)
@@ -92,16 +102,18 @@ class dbclient:
 		self.userpass = (user, password)
 		self._send_auth()
 		return self.auth_ok
-	def _enc(str):
+	def _enc(self, str):
 		while len(str) % 3: str += "\x00"
 		return base64.b64encode(str, "_-")
-	def _dec(enc):
+	def _dec(self, enc):
 		str = base64.b64decode(enc, "_-")
 		while str[-1] == "\x00": str = str[:-1]
+	def _hexstr(self, val):
+		return "%x" % val;
 	def add_post(self, md5, width, height, filetype, rating=None, source=None, title=None):
 		cmd  = "AP" + md5
-		cmd += " width=" + str(width)
-		cmd += " height=" + str(height)
+		cmd += " width=" + self._hexstr(width)
+		cmd += " height=" + self._hexstr(height)
 		cmd += " filetype=" + filetype
 		if rating: cmd += " rating=" + rating
 		if source: cmd += " source=" + self._enc(source)
