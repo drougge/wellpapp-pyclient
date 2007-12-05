@@ -122,14 +122,13 @@ class dbclient:
 		self._rels("r", md5, rels)
 	def _parse_rels(self, line, rels):
 		if line == "OK\n": return True
-		if line[0] != "P": raise EResponse(line)
+		if line[0] != "R": raise EResponse(line)
 		a = line[1:].split()
 		p = a[0]
 		l = []
 		if p in rels: l = rels[p]
 		for rel in a[1:]:
-			if rel[0] != "R": raise EResponse(line)
-			l.append(rel[1:])
+			l.append(rel)
 		rels[p] = l
 	def post_rels(self, md5):
 		cmd = "RS" + md5
