@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-import socket, types, base64
+import socket, base64, codecs
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
@@ -22,6 +22,7 @@ class dbclient:
 		if self.is_connected: return
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.sock.connect(self.server)
+		self.utfdec = codecs.getdecoder("utf8")
 		self.fh = self.sock.makefile()
 		self.is_connected = True
 		self.auth_ok = False
@@ -37,7 +38,7 @@ class dbclient:
 				self._reconnect()
 				self.sock.send(line)
 	def _readline(self):
-		return self.fh.readline()
+		return self.utfdec(self.fh.readline())[0]
 	def _parse_search(self, line, posts, wanted):
 		if line == "OK\n": return True
 		if line[0] != "R": raise EResponse(line)
@@ -80,7 +81,7 @@ class dbclient:
 		return post
 	def _list(self, data):
 		if not data: return []
-		if type(data) == types.StringType: return [data]
+		if isinstance(data, basestring): return [data]
 		return data
 	def search_post(self, tags=None, guids=None, excl_tags=None, excl_guids=None , wanted=None):
 		search = "SP"
