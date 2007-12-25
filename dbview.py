@@ -6,7 +6,7 @@ from qt import *
 import dbclient
 import Image
 
-client = dbclient.dbclient("book.lundagatan.com", 2225)
+client = dbclient.dbclient("k6.lundagatan.com", 2225)
 minImgWidth, minImgHeight = 500, 500
 
 def md5file(filename):
@@ -32,12 +32,7 @@ def is_anim(filename):
 	return False
 
 def danbooru_path(md5, ext):
-	base = "/home/danbooru/images/" + md5[0] + "/" + md5[1:3] + "/" + md5 + "."
-	# A bit of magic because the DB and filesystem don't agree
-	for test_ext in (ext, "jpg", "JPEG", "JPG", "GIF", "PNG"):
-		filename = base + test_ext
-		if os.path.exists(filename): return filename
-	return "NO"
+	return "/danbooru/images/" + md5[0] + "/" + md5[1:3] + "/" + md5
 
 # Surely there is some standard way of getting this (without subclassing)?
 class SizedListBox(QListBox):
