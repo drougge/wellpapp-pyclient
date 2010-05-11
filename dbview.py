@@ -6,8 +6,26 @@ from qt import *
 import dbclient
 import Image
 
-client = dbclient.dbclient("k6.lundagatan.com", 2225)
 minImgWidth, minImgHeight = 500, 500
+
+class cfg:
+	def __init__(self):
+		RC_NAME = ".danboorurc"
+		path = "/"
+		RCs = [os.path.join(os.environ["HOME"], RC_NAME)]
+		for dir in os.getcwd().split(os.path.sep):
+			path = os.path.join(path, dir)
+			RC = os.path.join(path, RC_NAME)
+			if os.path.exists(RC): RCs.append(RC)
+		for RC in RCs:
+			self._load(RC)
+	def _load(self, fn):
+		for line in file(fn):
+			line = line.strip()
+			if line[0] != "#":
+				a = line.split("=", 1)
+				assert(len(a) == 2)
+				self.__dict__[a[0]] = a[1]
 
 def md5file(filename):
 	m = md5.new()
@@ -32,7 +50,7 @@ def is_anim(filename):
 	return False
 
 def danbooru_path(md5, ext):
-	return "/danbooru/images/" + md5[0] + "/" + md5[1:3] + "/" + md5
+	return os.path.join(cfg.image_base, md5[0], md5[1:3], md5)
 
 # Surely there is some standard way of getting this (without subclassing)?
 class SizedListBox(QListBox):
@@ -127,6 +145,8 @@ class DanbooruWindow(QMainWindow):
 			img = QPixmap(filename)
 			self.imgLabel.setPixmap(img)
 
+cfg = cfg()
+client = dbclient.dbclient(cfg.server, int(cfg.port))
 app = QApplication(sys.argv)
 win = DanbooruWindow()
 tags = sys.argv[1:]
