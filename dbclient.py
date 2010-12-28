@@ -133,7 +133,8 @@ class dbclient:
 		while str[-1] == "\x00": str = str[:-1]
 	def _hexstr(self, val):
 		return "%x" % val;
-	def add_post(self, md5, width, height, filetype, rating=None, source=None, title=None):
+	def add_post(self, md5, width, height, filetype, rating=None,
+	             source=None, title=None, date=None):
 		cmd  = "AP" + md5
 		cmd += " width=" + self._hexstr(width)
 		cmd += " height=" + self._hexstr(height)
@@ -141,6 +142,10 @@ class dbclient:
 		if rating: cmd += " rating=" + rating
 		if source: cmd += " source=" + self._enc(source)
 		if title:  cmd += " title=" + self._enc(title)
+		if date:
+			if type(date) is not int:
+				date = int(date.strftime("%s"))
+			cmd += " image_date=" + self._hexstr(date)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != "OK\n": raise EResponse(res)
