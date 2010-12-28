@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-import socket, base64, codecs
+import socket, base64, codecs, os
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
@@ -12,9 +12,31 @@ _field_parsers = {
 	"score"  : int,
 }
 
+class dbcfg:
+	def __init__(self):
+		RC_NAME = ".danboorurc"
+		path = "/"
+		RCs = [os.path.join(os.environ["HOME"], RC_NAME)]
+		for dir in os.getcwd().split(os.path.sep):
+			path = os.path.join(path, dir)
+			RC = os.path.join(path, RC_NAME)
+			if os.path.exists(RC): RCs.append(RC)
+		for RC in RCs:
+			self._load(RC)
+	def _load(self, fn):
+		for line in file(fn):
+			line = line.strip()
+			if line[0] != "#":
+				a = line.split("=", 1)
+				assert(len(a) == 2)
+				self.__dict__[a[0]] = a[1]
+
 class dbclient:
-	def __init__(self, host, port):
-		self.server = (host, port)
+	def __init__(self, cfg = None):
+		if not cfg:
+			cfg = dbcfg()
+		self.cfg = cfg
+		self.server = (cfg.server, int(cfg.port))
 		self.userpass = None
 		self.auth_ok = False
 		self.is_connected = False
