@@ -12,6 +12,15 @@ _field_parsers = {
 	"score"  : int,
 }
 
+def _utf(s):
+	if type(s) is not unicode:
+		try:
+			s = s.decode("utf-8")
+		except Exception:
+			s = s.decode("iso-8859-1")
+	assert u" " not in s
+	return s.encode("utf-8")
+
 class dbcfg:
 	def __init__(self):
 		RC_NAME = ".danboorurc"
@@ -110,11 +119,11 @@ class dbclient:
 		for want in self._list(wanted):
 			search += "F" + want + " "
 		for tag in self._list(tags):
-			search += "TN" + tag + " "
+			search += "TN" + _utf(tag) + " "
 		for guid in self._list(guids):
 			search += "TG" + guid + " "
 		for tag in self._list(excl_tags):
-			search += "tN" + tag + " "
+			search += "tN" + _utf(tag) + " "
 		for guid in self._list(excl_guids):
 			search += "tG" + guid + " "
 		return self._search_post(search, wanted)
@@ -178,11 +187,9 @@ class dbclient:
 		if not md5 in rels: return None
 		return rels[md5]
 	def add_tag(self, name, type = None):
-		assert " " not in name
-		cmd = "ATN" + name
+		cmd = "ATN" + _utf(name)
 		if type:
-			assert " " not in type
-			cmd += " T" + type
+			cmd += " T" + _utf(type)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != "OK\n": raise EResponse(res)
@@ -193,6 +200,7 @@ class dbclient:
 		res = self._readline()
 		if res != "OK\n": raise EResponse(res)
 	def find_tag(self, name):
+		name = _utf(name)
 		assert " " not in name
 		cmd = "STEAN" + name
 		self._writeline(cmd)
