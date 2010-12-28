@@ -186,3 +186,20 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != "OK\n": raise EResponse(res)
+	def tag_post(self, md5, full_tags, weak_tags):
+		tags = full_tags + map(lambda t: "~" + t, weak_tags)
+		cmd = "TP" + md5 + " T".join([""] + tags)
+		self._writeline(cmd)
+		res = self._readline()
+		if res != "OK\n": raise EResponse(res)
+	def find_tag(self, name):
+		assert " " not in name
+		cmd = "STEAN" + name
+		self._writeline(cmd)
+		res = self._readline()
+		if res == "OK\n": return None
+		if res[:2] != "RG": raise EResponse(res)
+		guid = res.split()[0][2:]
+		res = self._readline()
+		if res != "OK\n": raise EResponse(res)
+		return guid
