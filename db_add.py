@@ -57,6 +57,9 @@ for fn in argv[1:]:
 		else:
 			tags = full
 		t = client.find_tag(tag)
-		if t and t not in posttags: tags.append(t)
+		if t:
+			if t not in posttags: tags.append(t)
+		else:
+			print "Unknown tag " + tag
 	if full or weak:
 		client.tag_post(m, full, weak)
