@@ -21,14 +21,19 @@ def determine_filetype(data):
 	if data[:2] == "BM": return "bmp"
 	if data[:3] == "FWS" or data[:3] == "CWS": return "swf"
 
-def imagesize(fh):
-	img = Image.open(fh)
-	return img.size
-
 def imagetime(fn):
 	img = ExivImage(fn)
 	img.readMetadata()
 	return img['Exif.Image.DateTime']
+
+def save_thumb(m, img):
+	fn = client.thumb_path(m)
+	make_pdirs(fn)
+	img.save(fn, "JPEG")
+
+def make_pdirs(fn):
+	dn = dirname(fn)
+	if not exists(dn): makedirs(dn)
 
 client = dbclient()
 for fn in argv[1:]:
@@ -47,12 +52,16 @@ for fn in argv[1:]:
 		if islink(p):
 			print "Updating", m, fn
 			unlink(p)
-		dn = dirname(p)
-		if not exists(dn): makedirs(dn)
+		make_pdirs(p)
 		symlink(fn, p)
 	if not post:
 		datafh = StringIO(data)
-		w, h = imagesize(datafh)
+		img = Image.open(datafh)
+		w, h = img.size
+		z = int(client.cfg.thumb_size)
+		if w > z or h > z:
+			img.thumbnail((z, z), Image.ANTIALIAS)
+		save_thumb(m, img)
 		args = {"md5": m, "width": w, "height": h, "filetype": ft}
 		try:
 			datafh.seek(0)
