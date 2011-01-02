@@ -7,7 +7,8 @@ from hashlib import md5
 import Image
 from cStringIO import StringIO
 from pyexiv2 import Image as ExivImage
-from os.path import basename
+from os.path import basename, dirname, realpath, exists, islink
+from os import makedirs, readlink, symlink, unlink
 
 if len(argv) < 2:
 	print "Usage:", argv[0], "filename [filename [..]]"
@@ -31,11 +32,24 @@ def imagetime(fn):
 
 client = dbclient()
 for fn in argv[1:]:
+	fn = realpath(fn)
 	data = file(fn).read()
 	m = md5(data).hexdigest()
 	ft = determine_filetype(data)
 	assert ft
 	post = client.get_post(m)
+	p = client.image_path(m)
+	if exists(p):
+		ld = readlink(p)
+		if fn != ld:
+			print "Not updating", m, fn
+	else:
+		if islink(p):
+			print "Updating", m, fn
+			unlink(p)
+		dn = dirname(p)
+		if not exists(dn): makedirs(dn)
+		symlink(fn, p)
 	if not post:
 		datafh = StringIO(data)
 		w, h = imagesize(datafh)

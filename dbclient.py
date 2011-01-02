@@ -211,3 +211,7 @@ class dbclient:
 		res = self._readline()
 		if res != "OK\n": raise EResponse(res)
 		return guid
+	def thumb_path(self, md5):
+		return os.path.join(self.cfg.thumb_base, md5[0], md5[1:3], md5)
+	def image_path(self, md5):
+		return os.path.join(self.cfg.image_base, md5[0], md5[1:3], md5)
