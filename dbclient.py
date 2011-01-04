@@ -23,7 +23,7 @@ def _utf(s):
 
 class dbcfg:
 	def __init__(self):
-		RC_NAME = ".danboorurc"
+		RC_NAME = ".wellpapprc"
 		path = "/"
 		RCs = [os.path.join(os.environ["HOME"], RC_NAME)]
 		for dir in os.getcwd().split(os.path.sep):
