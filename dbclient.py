@@ -23,8 +23,8 @@ def _utf(s):
 
 def _tagspec(type, value):
 	value = _utf(value)
-	if value[0] == "~":
-		type = "~" + type
+	if value[0] in "~!":
+		type = value[0] + type
 		value = value[1:]
 	return type + value
 
