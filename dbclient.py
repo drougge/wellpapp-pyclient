@@ -21,6 +21,13 @@ def _utf(s):
 	assert u" " not in s
 	return s.encode("utf-8")
 
+def _tagspec(type, value):
+	value = _utf(value)
+	if value[0] == "~":
+		type = "~" + type
+		value = value[1:]
+	return type + value
+
 class dbcfg:
 	def __init__(self):
 		RC_NAME = ".wellpapprc"
@@ -119,13 +126,13 @@ class dbclient:
 		for want in self._list(wanted):
 			search += "F" + want + " "
 		for tag in self._list(tags):
-			search += "TN" + _utf(tag) + " "
+			search += "T" + _tagspec("N", tag) + " "
 		for guid in self._list(guids):
-			search += "TG" + guid + " "
+			search += "T" + _tagspec("G", guid) + " "
 		for tag in self._list(excl_tags):
-			search += "tN" + _utf(tag) + " "
+			search += "t" + _tagspec("N", tag) + " "
 		for guid in self._list(excl_guids):
-			search += "tG" + guid + " "
+			search += "t" + _tagspec("G", guid) + " "
 		return self._search_post(search, wanted)
 	def _send_auth(self):
 		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)
