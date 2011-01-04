@@ -198,6 +198,11 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != "OK\n": raise EResponse(res)
+	def add_implies(self, set_tag, implied_tag, priority):
+		cmd = "II" + set_tag + " I" + implied_tag + ":" + str(priority)
+		self._writeline(cmd)
+		res = self._readline()
+		if res != "OK\n": raise EResponse(res)
 	def tag_post(self, md5, full_tags, weak_tags):
 		tags = full_tags + map(lambda t: "~" + t, weak_tags)
 		cmd = "TP" + md5 + " T".join([""] + tags)
