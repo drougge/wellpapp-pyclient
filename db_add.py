@@ -26,10 +26,18 @@ def imagetime(fn):
 	img.readMetadata()
 	return img['Exif.Image.DateTime']
 
-def save_thumb(m, img):
-	fn = client.thumb_path(m)
+def save_thumb(m, size, img):
+	fn = client.thumb_path(m, size)
 	make_pdirs(fn)
-	img.save(fn, "JPEG")
+	img.save(fn, "JPEG", quality=60)
+
+def save_thumbs(m, img):
+	w, h = img.size
+	for z in map(int, client.cfg.thumb_sizes.split()):
+		t = img.copy()
+		if w > z or h > z:
+			t.thumbnail((z, z), Image.ANTIALIAS)
+		save_thumb(m, z, t)
 
 def make_pdirs(fn):
 	dn = dirname(fn)
@@ -57,11 +65,8 @@ for fn in argv[1:]:
 	if not post:
 		datafh = StringIO(data)
 		img = Image.open(datafh)
+		save_thumbs(m, img)
 		w, h = img.size
-		z = int(client.cfg.thumb_size)
-		if w > z or h > z:
-			img.thumbnail((z, z), Image.ANTIALIAS)
-		save_thumb(m, img)
 		args = {"md5": m, "width": w, "height": h, "filetype": ft}
 		try:
 			datafh.seek(0)
