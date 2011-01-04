@@ -33,6 +33,8 @@ def save_thumb(m, size, img):
 
 def save_thumbs(m, img):
 	w, h = img.size
+	if img.mode not in ("RGB", "L", "1"):
+		img = img.convert("RGB")
 	for z in map(int, client.cfg.thumb_sizes.split()):
 		t = img.copy()
 		if w > z or h > z:
