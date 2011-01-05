@@ -7,8 +7,8 @@ from hashlib import md5
 import Image
 from cStringIO import StringIO
 from pyexiv2 import Image as ExivImage
-from os.path import basename, dirname, realpath, exists, islink
-from os import makedirs, readlink, symlink, unlink
+from os.path import basename, dirname, realpath, exists, islink, join, sep
+from os import makedirs, readlink, symlink, unlink, getcwd
 
 if len(argv) < 2:
 	print "Usage:", argv[0], "filename [filename [..]]"
@@ -45,6 +45,14 @@ def make_pdirs(fn):
 	dn = dirname(fn)
 	if not exists(dn): makedirs(dn)
 
+path = "/"
+default_tags = []
+for dir in getcwd().split(sep):
+	path = join(path, dir)
+	TAGS = join(path, "TAGS")
+	if exists(TAGS):
+		default_tags += file(TAGS).readline().split()
+
 client = dbclient()
 for fn in argv[1:]:
 	fn = realpath(fn)
@@ -76,11 +84,11 @@ for fn in argv[1:]:
 		except Exception:
 			pass
 		client.add_post(**args)
-	full = []
-	weak = []
+	full = set()
+	weak = set()
 	post = client.get_post(m)
 	posttags = map(lambda t: t[1:] if t[0] == "~" else t, post["tagguid"])
-	for tag in basename(fn).split()[:-1]:
+	for tag in default_tags + basename(fn).split()[:-1]:
 		if tag[0] == "~":
 			tags = weak
 			tag = tag[1:]
@@ -88,7 +96,7 @@ for fn in argv[1:]:
 			tags = full
 		t = client.find_tag(tag)
 		if t:
-			if t not in posttags: tags.append(t)
+			if t not in posttags: tags.add(t)
 		else:
 			print "Unknown tag " + tag
 	if full or weak:
