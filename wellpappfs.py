@@ -102,13 +102,13 @@ class Wellpapp(fuse.Fuse):
 
 	def _path2search(self, path):
 		if path == "/": return None
-		want = []
-		dontwant = []
+		want = set()
+		dontwant = set()
 		for e in sre.split(path[1:]):
 			if e[0] == "-":
-				dontwant.append(e[1:])
+				dontwant.add(e[1:])
 			else:
-				want.append(e)
+				want.add(e)
 		return tuple(want), tuple(dontwant)
 
 server = Wellpapp(dash_s_do = "setsingle")
