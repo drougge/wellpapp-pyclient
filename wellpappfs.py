@@ -12,6 +12,7 @@ if not hasattr(fuse, "__version__"):
 fuse.fuse_python_api = (0, 2)
 NOTFOUND = IOError(errno.ENOENT, "Not found")
 md5re = re.compile(r"^([0-9a-f]{32})\.\w+$")
+sre = re.compile(r"[ /]")
 
 class WpStat(fuse.Stat):
 	def __init__(self, mode, nlink):
@@ -70,18 +71,25 @@ class Wellpapp(fuse.Fuse):
 		for e in list:
 			yield fuse.Direntry(e)
 
-	def _search(self, tags):
-		tags = tags.split()
-		s = self._client.search_post(tags=tags, wanted=["ext"])
+	def _search(self, search):
+		s = self._client.search_post(tags=search[0],
+		                             excl_tags=search[1],
+		                             wanted=["ext"])
 		r = []
 		for m in s:
 			r.append(m + "." + s[m]["ext"])
 		return map(str, r)
 
 	def _path2search(self, path):
-		path = path.split("/")
-		if len(path) == 2 and path[1]: return path[1]
-		return None
+		if path == "/": return None
+		want = []
+		dontwant = []
+		for e in sre.split(path[1:]):
+			if e[0] == "-":
+				dontwant.append(e[1:])
+			else:
+				want.append(e)
+		return tuple(want), tuple(dontwant)
 
 server = Wellpapp(dash_s_do = "setsingle")
 server.parse(errex = 1)
