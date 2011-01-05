@@ -33,17 +33,17 @@ class Wellpapp(fuse.Fuse):
 		fuse.Fuse.__init__(self, *a, **kw)
 
 	def getattr(self, path):
+		search = self._path2search(path)
 		path = path.split("/")[1:]
 		if md5re.match(path[-1]):
 			mode = stat.S_IFLNK | 0444
 			nlink = 1
-		elif len(path) == 1:
+		elif path == [""] or search:
 			mode = stat.S_IFDIR | 0555
 			nlink = 2
-			path = path[0]
-			if path and path not in self._searches:
+			if search and search not in self._searches:
 				try:
-					self._searches[path] = self._search(path)
+					self._searches[search] = self._search(search)
 				except Exception:
 					raise NOTFOUND
 		else:
@@ -59,16 +59,14 @@ class Wellpapp(fuse.Fuse):
 
 	def readdir(self, path, offset):
 		list = [".", ".."]
-		path = path.split("/")
-		if len(path) != 2: raise NOTFOUND
-		path = path[1]
-		if path:
-			if path not in self._searches:
-				try:
-					self._searches[path] = self._search(path)
-				except Exception:
-					raise NOTFOUND
-			list += self._searches[path]
+		search = self._path2search(path)
+		if path != "/" and not search: raise NOTFOUND
+		if search and search not in self._searches:
+			try:
+				self._searches[search] = self._search(search)
+			except Exception:
+				raise NOTFOUND
+		if search: list += self._searches[search]
 		for e in list:
 			yield fuse.Direntry(e)
 
@@ -79,6 +77,11 @@ class Wellpapp(fuse.Fuse):
 		for m in s:
 			r.append(m + "." + s[m]["ext"])
 		return map(str, r)
+
+	def _path2search(self, path):
+		path = path.split("/")
+		if len(path) == 2 and path[1]: return path[1]
+		return None
 
 server = Wellpapp(dash_s_do = "setsingle")
 server.parse(errex = 1)
