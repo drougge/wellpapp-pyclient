@@ -6,6 +6,7 @@ import stat
 import errno
 from dbclient import dbclient
 import re
+from time import time
 
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
@@ -27,9 +28,29 @@ class WpStat(fuse.Stat):
 		self.st_mtime = 0
 		self.st_ctime = 0
 
+class Cache:
+	def __init__(self, ttl):
+		self._data = {}
+		self._time = time()
+		self._ttl  = ttl
+
+	def get(self, key, getter):
+		if self._time < time() - self._ttl:
+			self.clean()
+		if key not in self._data:
+			self._data[key] = (time(), getter(key))
+		return self._data[key][1]
+
+	def clean(self):
+		self._time = time()
+		t = self._time - self._ttl
+		for key in self._data.keys():
+			if self._data[key][0] < t:
+				del self._data[key]
+
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
-		self._searches = {}
+		self._cache = Cache(30)
 		self._client = dbclient()
 		fuse.Fuse.__init__(self, *a, **kw)
 
@@ -42,9 +63,9 @@ class Wellpapp(fuse.Fuse):
 		elif path == [""] or search:
 			mode = stat.S_IFDIR | 0555
 			nlink = 2
-			if search and search not in self._searches:
+			if search:
 				try:
-					self._searches[search] = self._search(search)
+					self._cache.get(search, self._search)
 				except Exception:
 					raise NOTFOUND
 		else:
@@ -62,12 +83,11 @@ class Wellpapp(fuse.Fuse):
 		list = [".", ".."]
 		search = self._path2search(path)
 		if path != "/" and not search: raise NOTFOUND
-		if search and search not in self._searches:
+		if search:
 			try:
-				self._searches[search] = self._search(search)
+				list += self._cache.get(search, self._search)
 			except Exception:
 				raise NOTFOUND
-		if search: list += self._searches[search]
 		for e in list:
 			yield fuse.Direntry(e)
 
