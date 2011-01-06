@@ -1,4 +1,4 @@
-Everything here uses dbclient. dbclient reads .wellpapprc in ~, in all
+Everything here uses dbclient.py. dbclient reads .wellpapprc in ~, in all
 parents to currentdir and finaly in currentdir. The last read version of an
 option takes effect.
 
@@ -25,7 +25,7 @@ tag type.
 db_mkalias.py:
 Creates an alias. First argument is tag name, second is alias name.
 
-db_implies:
+db_implies.py:
 Creates an implication. First argument is set tag, second is implied tag,
 and third is (optional) priority.
 
@@ -34,4 +34,4 @@ Takes filenames. The filename "foo bar blutti.jpg" will recieve the tags
 foo and bar (but not blutti), and all tags specified on the first line of
 files named TAGS in all parent directories of the file.
 
-db_add doesn't create tags, but complains if they don't exist.
+db_add.py doesn't create tags, but complains if they don't exist.
