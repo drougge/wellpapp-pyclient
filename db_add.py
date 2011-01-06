@@ -45,14 +45,28 @@ def make_pdirs(fn):
 	dn = dirname(fn)
 	if not exists(dn): makedirs(dn)
 
+class tagset(set):
+	def add(self, t):
+		base_t = t
+		if t[0] in "~-": base_t = t[1:]
+		for prefix in "", "~":
+			check_t = prefix + base_t
+			if check_t in self:
+				self.remove(check_t)
+		if t[0] != "-": set.add(self, t)
+	
+	def update(self, l):
+		map(self.add, l)
+
 def find_tags(fn):
-	tags = set(basename(fn).split()[:-1])
 	path = "/"
+	tags = tagset()
 	for dir in dirname(fn).split(sep):
 		path = join(path, dir)
 		TAGS = join(path, "TAGS")
 		if exists(TAGS):
 			tags.update(file(TAGS).readline().split())
+	tags.update(basename(fn).split()[:-1])
 	return tags
 
 client = dbclient()
