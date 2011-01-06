@@ -1,0 +1,37 @@
+Everything here uses dbclient. dbclient reads .wellpapprc in ~, in all
+parents to currentdir and finaly in currentdir. The last read version of an
+option takes effect.
+
+The following options should be specified:
+
+server=hostname
+port=number
+image_base=path where you want symlinks to imported images
+thumb_base=path where you want thumbnails of imported images
+thumb_sizes=list of max dimensions for thumbnails
+
+Example:
+
+server=localhost
+port=2225
+image_base=/wellpapp/images
+thumb_base=/wellpapp/thumbs
+thumb_sizes=128 200
+
+db_mktag.py:
+Creates a tag. First argument is tag name, second (optional) argument is
+tag type.
+
+db_mkalias.py:
+Creates an alias. First argument is tag name, second is alias name.
+
+db_implies:
+Creates an implication. First argument is set tag, second is implied tag,
+and third is (optional) priority.
+
+db_add.py:
+Takes filenames. The filename "foo bar blutti.jpg" will recieve the tags
+foo and bar (but not blutti), and all tags specified on the first line of
+files named TAGS in all parent directories of the file.
+
+db_add doesn't create tags, but complains if they don't exist.
