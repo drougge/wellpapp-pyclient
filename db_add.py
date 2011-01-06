@@ -45,13 +45,15 @@ def make_pdirs(fn):
 	dn = dirname(fn)
 	if not exists(dn): makedirs(dn)
 
-path = "/"
-default_tags = []
-for dir in getcwd().split(sep):
-	path = join(path, dir)
-	TAGS = join(path, "TAGS")
-	if exists(TAGS):
-		default_tags += file(TAGS).readline().split()
+def find_tags(fn):
+	tags = set(basename(fn).split()[:-1])
+	path = "/"
+	for dir in dirname(fn).split(sep):
+		path = join(path, dir)
+		TAGS = join(path, "TAGS")
+		if exists(TAGS):
+			tags.update(file(TAGS).readline().split())
+	return tags
 
 client = dbclient()
 for fn in argv[1:]:
@@ -88,7 +90,7 @@ for fn in argv[1:]:
 	weak = set()
 	post = client.get_post(m)
 	posttags = map(lambda t: t[1:] if t[0] == "~" else t, post["tagguid"])
-	for tag in default_tags + basename(fn).split()[:-1]:
+	for tag in find_tags(fn):
 		if tag[0] == "~":
 			tags = weak
 			tag = tag[1:]
