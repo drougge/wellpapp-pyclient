@@ -5,10 +5,11 @@ from sys import argv, exit
 from dbclient import dbclient
 from hashlib import md5
 import Image
+from PIL import PngImagePlugin
 from cStringIO import StringIO
 from pyexiv2 import Image as ExivImage
 from os.path import basename, dirname, realpath, exists, islink, join, sep
-from os import makedirs, readlink, symlink, unlink, getcwd
+from os import makedirs, readlink, symlink, unlink, getcwd, stat
 
 if len(argv) < 2:
 	print "Usage:", argv[0], "filename [filename [..]]"
@@ -21,22 +22,36 @@ def determine_filetype(data):
 	if data[:2] == "BM": return "bmp"
 	if data[:3] == "FWS" or data[:3] == "CWS": return "swf"
 
-def save_thumbs(m, img):
+def thumb_fns(m, ft):
+	sizes = client.cfg.thumb_sizes.split()
+	jpeg_fns = map(lambda z: (client.thumb_path(m, int(z)), int(z)), sizes)
+	png_fns = map(lambda n, z: (client.pngthumb_path(m, ft, n), z),
+	              ("normal", "large"), (128, 256))
+	return jpeg_fns, png_fns
+
+def save_thumbs(m, ft, mtime, img):
 	w, h = img.size
 	if img.mode not in ("RGB", "L", "1"):
 		img = img.convert("RGB")
-	for z in map(int, client.cfg.thumb_sizes.split()):
-		fn = client.thumb_path(m, z)
+	jpeg_fns, png_fns = thumb_fns(m, ft)
+	jpeg_opts = {"format": "JPEG", "quality": 95, "optimize": 1}
+	meta = PngImagePlugin.PngInfo()
+	meta.add_text("Thumb::URI", m + "." + ft, 0)
+	meta.add_text("Thumb::MTime", str(int(mtime)), 0)
+	png_opts = {"format": "PNG", "pnginfo": meta}
+	jpeg = map(lambda t: (t[0], t[1], jpeg_opts), jpeg_fns)
+	png = map(lambda t: (t[0], t[1], png_opts), png_fns)
+	for fn, z, opts in jpeg + png:
 		if not exists(fn):
 			t = img.copy()
 			if w > z or h > z:
 				t.thumbnail((z, z), Image.ANTIALIAS)
 			make_pdirs(fn)
-			img.save(fn, "JPEG", quality=60)
+			t.save(fn, **opts)
 
-def needs_thumbs(m):
-	for z in map(int, client.cfg.thumb_sizes.split()):
-		fn = client.thumb_path(m, z)
+def needs_thumbs(m, ft):
+	jpeg_fns, png_fns = thumb_fns(m, ft)
+	for fn, z in jpeg_fns + png_fns:
 		if not exists(fn): return True
 
 def rotate_image(img, exif):
@@ -104,7 +119,7 @@ for fn in argv[1:]:
 			unlink(p)
 		make_pdirs(p)
 		symlink(fn, p)
-	if not post or needs_thumbs(m):
+	if not post or needs_thumbs(m, ft):
 		datafh = StringIO(data)
 		img = Image.open(datafh)
 		exif = ExivImage(fn)
@@ -117,9 +132,10 @@ for fn in argv[1:]:
 		except Exception:
 			pass
 		client.add_post(**args)
-	if needs_thumbs(m):
+	if needs_thumbs(m, ft):
 		img = rotate_image(img, exif)
-		save_thumbs(m, img)
+		mtime = stat(fn).st_mtime
+		save_thumbs(m, ft, mtime, img)
 	full = set()
 	weak = set()
 	post = client.get_post(m)

@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-import socket, base64, codecs, os
+import socket, base64, codecs, os, hashlib
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
@@ -230,5 +230,9 @@ class dbclient:
 		return guid
 	def thumb_path(self, md5, size):
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
+	def pngthumb_path(self, md5, ft, size):
+		fn = md5 + "." + ft
+		md5 = hashlib.md5(fn).hexdigest()
+		return os.path.join(self.cfg.thumb_base, size, md5[0], md5[1:3], md5)
 	def image_path(self, md5):
 		return os.path.join(self.cfg.image_base, md5[0], md5[1:3], md5)
