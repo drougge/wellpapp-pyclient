@@ -21,25 +21,34 @@ def determine_filetype(data):
 	if data[:2] == "BM": return "bmp"
 	if data[:3] == "FWS" or data[:3] == "CWS": return "swf"
 
-def imagetime(fn):
-	img = ExivImage(fn)
-	img.readMetadata()
-	return img['Exif.Image.DateTime']
-
-def save_thumb(m, size, img):
-	fn = client.thumb_path(m, size)
-	make_pdirs(fn)
-	img.save(fn, "JPEG", quality=60)
-
 def save_thumbs(m, img):
 	w, h = img.size
 	if img.mode not in ("RGB", "L", "1"):
 		img = img.convert("RGB")
 	for z in map(int, client.cfg.thumb_sizes.split()):
-		t = img.copy()
-		if w > z or h > z:
-			t.thumbnail((z, z), Image.ANTIALIAS)
-		save_thumb(m, z, t)
+		fn = client.thumb_path(m, z)
+		if not exists(fn):
+			t = img.copy()
+			if w > z or h > z:
+				t.thumbnail((z, z), Image.ANTIALIAS)
+			make_pdirs(fn)
+			img.save(fn, "JPEG", quality=60)
+
+def needs_thumbs(m):
+	for z in map(int, client.cfg.thumb_sizes.split()):
+		fn = client.thumb_path(m, z)
+		if not exists(fn): return True
+
+def rotate_image(img, exif):
+	if "Exif.Image.Orientation" not in exif.exifKeys(): return img
+	o = exif["Exif.Image.Orientation"]
+	if o == 3:
+		return img.transpose(Image.ROTATE_180)
+	elif o == 6:
+		return img.transpose(Image.ROTATE_270)
+	elif o == 8:
+		return img.transpose(Image.ROTATE_90)
+	return img
 
 def make_pdirs(fn):
 	dn = dirname(fn)
@@ -95,18 +104,22 @@ for fn in argv[1:]:
 			unlink(p)
 		make_pdirs(p)
 		symlink(fn, p)
-	if not post:
+	if not post or needs_thumbs(m):
 		datafh = StringIO(data)
 		img = Image.open(datafh)
-		save_thumbs(m, img)
+		exif = ExivImage(fn)
+		exif.readMetadata()
+	if not post:
 		w, h = img.size
 		args = {"md5": m, "width": w, "height": h, "filetype": ft}
 		try:
-			datafh.seek(0)
-			args["date"] = imagetime(fn)
+			args["date"] = exif['Exif.Image.DateTime']
 		except Exception:
 			pass
 		client.add_post(**args)
+	if needs_thumbs(m):
+		img = rotate_image(img, exif)
+		save_thumbs(m, img)
 	full = set()
 	weak = set()
 	post = client.get_post(m)
