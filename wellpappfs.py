@@ -48,6 +48,8 @@ class Cache:
 			if self._data[key][0] < t:
 				del self._data[key]
 
+_thumbpaths = ([".thumblocal", "normal"], [".thumblocal", "large"])
+
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
 		self._cache = Cache(30)
@@ -55,39 +57,49 @@ class Wellpapp(fuse.Fuse):
 		fuse.Fuse.__init__(self, *a, **kw)
 
 	def getattr(self, path):
-		search = self._path2search(path)
-		path = path.split("/")[1:]
-		if md5re.match(path[-1]):
+		spath = path.split("/")[1:]
+		mode = stat.S_IFDIR | 0555
+		nlink = 2
+		if md5re.match(spath[-1]):
 			mode = stat.S_IFLNK | 0444
 			nlink = 1
-		elif path == [""] or search:
-			mode = stat.S_IFDIR | 0555
-			nlink = 2
-			if search:
-				try:
-					self._cache.get(search, self._search)
-				except Exception:
-					raise NOTFOUND
+		elif path == "/" or spath[-1] == ".thumblocal" or \
+		     spath[-2:] in _thumbpaths:
+			pass
 		else:
-			raise NOTFOUND
+			search = self._path2search(path)
+			if not search: raise NOTFOUND
+			try:
+				self._cache.get(search, self._search)
+			except Exception:
+				raise NOTFOUND
 		return WpStat(mode, nlink)
 
 	def readlink(self, path):
 		path = path.split("/")[1:]
 		m = md5re.match(path[-1])
 		if m:
-			return self._client.image_path(m.group(1))
+			if path[-3:-1] in _thumbpaths:
+				return self._client.thumb_path(m.group(1), path[-2])
+			else:
+				return self._client.image_path(m.group(1))
 		raise NOTFOUND
 
 	def readdir(self, path, offset):
 		list = [".", ".."]
 		search = self._path2search(path)
-		if path != "/" and not search: raise NOTFOUND
-		if search:
+		path = path.split("/")[1:]
+		if path[-1] == ".thumblocal":
+			list += ["normal", "large"]
+		elif path == [""] or path[-2:] in _thumbpaths:
+			pass
+		elif search:
 			try:
 				list += self._cache.get(search, self._search)
 			except Exception:
 				raise NOTFOUND
+		else:
+			raise NOTFOUND
 		for e in list:
 			yield fuse.Direntry(e)
 
