@@ -48,12 +48,19 @@ def make_pdirs(fn):
 class tagset(set):
 	def add(self, t):
 		base_t = t
-		if t[0] in "~-": base_t = t[1:]
-		for prefix in "", "~":
-			check_t = prefix + base_t
+		prefix = ""
+		if t[0] in "~-":
+			base_t = t[1:]
+			prefix = t[0]
+		guid = client.find_tag(base_t)
+		if not guid:
+			print "Unknown tag " + base_t
+			return
+		for check_prefix in "", "~":
+			check_t = check_prefix + guid
 			if check_t in self:
 				self.remove(check_t)
-		if t[0] != "-": set.add(self, t)
+		if prefix != "-": set.add(self, prefix + guid)
 	
 	def update(self, l):
 		map(self.add, l)
@@ -103,17 +110,13 @@ for fn in argv[1:]:
 	full = set()
 	weak = set()
 	post = client.get_post(m)
-	posttags = map(lambda t: t[1:] if t[0] == "~" else t, post["tagguid"])
-	for tag in find_tags(fn):
-		if tag[0] == "~":
-			tags = weak
-			tag = tag[1:]
+	posttags = tagset()
+	posttags.update(post["tagname"])
+	filetags = find_tags(fn)
+	for guid in filetags.difference(posttags):
+		if guid[0] == "~":
+			weak.add(guid[1:])
 		else:
-			tags = full
-		t = client.find_tag(tag)
-		if t:
-			if t not in posttags: tags.add(t)
-		else:
-			print "Unknown tag " + tag
+			full.add(guid)
 	if full or weak:
 		client.tag_post(m, full, weak)
