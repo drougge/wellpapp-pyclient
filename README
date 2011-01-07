@@ -35,3 +35,6 @@ foo and bar (but not blutti), and all tags specified on the first line of
 files named TAGS in all parent directories of the file.
 
 db_add.py doesn't create tags, but complains if they don't exist.
+
+db_tag.py:
+Tag an (already imported) image. "db_add.py md5 tag [tag [...]]".
