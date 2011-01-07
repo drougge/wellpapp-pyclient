@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-import sys, os, md5
+import sys, os
+from hashlib import md5
 from qt import *
 import dbclient
 import Image
@@ -9,7 +10,7 @@ import Image
 minImgWidth, minImgHeight = 500, 500
 
 def md5file(filename):
-	m = md5.new()
+	m = md5()
 	f = file(filename)
 	for data in iter(lambda: f.read(1024 * 128), ''):
 		m.update(data)
@@ -29,9 +30,6 @@ def is_anim(filename):
 			return True
 	except: pass
 	return False
-
-def danbooru_path(md5, ext):
-	return os.path.join(cfg.image_base, md5[0], md5[1:3], md5)
 
 # Surely there is some standard way of getting this (without subclassing)?
 class SizedListBox(QListBox):
@@ -67,7 +65,7 @@ class ImageViewer(QLabel):
 		# and .oldSize
 		QLabel.resizeEvent(self, event)
 
-class DanbooruWindow(QMainWindow):
+class WellpappWindow(QMainWindow):
 	def __init__(self, *args):
 		def sizepolicy(obj, *args):
 			obj.setSizePolicy(QSizePolicy(*args))
@@ -115,7 +113,7 @@ class DanbooruWindow(QMainWindow):
 				self.tagList.insertItem("*ERROR*")
 		else:
 			post = self.search[name]
-			filename = danbooru_path(name, post["ext"])
+			filename = client.image_path(name)
 			self.md5Label.setText("md5: " + name)
 			for tag in post["tagname"]:
 				self.tagList.insertItem(tag)
@@ -129,7 +127,7 @@ class DanbooruWindow(QMainWindow):
 cfg = dbclient.dbcfg()
 client = dbclient.dbclient(cfg)
 app = QApplication(sys.argv)
-win = DanbooruWindow()
+win = WellpappWindow()
 tags = sys.argv[1:]
 if tags:
 	win.mode = "search"
