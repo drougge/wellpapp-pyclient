@@ -35,6 +35,10 @@ def save_thumbs(m, ft, mtime, img):
 	png_opts = {"format": "PNG", "pnginfo": meta}
 	jpeg = map(lambda t: (t[0], t[1], jpeg_opts), jpeg_fns)
 	png = map(lambda t: (t[0], t[1], png_opts), png_fns)
+	z = max(map(lambda d: d[1], jpeg + png)) * 2
+	if w > z or h > z:
+		img = img.copy()
+		img.thumbnail((z, z), Image.ANTIALIAS)
 	for fn, z, opts in jpeg + png:
 		if not exists(fn):
 			t = img.copy()
