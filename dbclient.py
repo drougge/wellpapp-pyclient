@@ -22,7 +22,6 @@ def _utf(s):
 	return s.encode("utf-8")
 
 def _tagspec(type, value):
-	value = _utf(value)
 	if value[0] in "~!":
 		type = value[0] + type
 		value = value[1:]
@@ -78,8 +77,8 @@ class dbclient:
 	def _readline(self):
 		return self.utfdec(self.fh.readline())[0]
 	def _parse_search(self, line, posts, wanted):
-		if line == "OK\n": return True
-		if line[0] != "R": raise EResponse(line)
+		if line == u"OK\n": return True
+		if line[0] != u"R": raise EResponse(line)
 		tags = []
 		guids = []
 		f = {}
@@ -87,14 +86,15 @@ class dbclient:
 		for token in line[1:].split():
 			type = token[0]
 			data = token[1:]
-			if type == "P":
-				md5 = data
-			elif type == "T":
+			if type == u"P":
+				md5 = str(data)
+			elif type == u"T":
 				tags.append(data)
-			elif type == "G":
-				guids.append(data)
-			elif type == "F":
-				field, value = data.split("=", 1)
+			elif type == u"G":
+				guids.append(str(data))
+			elif type == u"F":
+				field, value = data.split(u"=", 1)
+				field = str(field)
 				if field in _field_parsers:
 					f[field] = _field_parsers[field](value)
 				else:
@@ -112,33 +112,34 @@ class dbclient:
 		while not self._parse_search(self._readline(), posts, wanted): pass
 		return posts
 	def get_post(self, md5):
+		md5 = str(md5)
 		posts = self._search_post("SPM" + md5 + " Ftagname Ftagguid Fext Fcreated Fwidth Fheight")
 		if not md5 in posts: return None
 		post = posts[md5]
 		post["md5"] = md5
 		return post
-	def _list(self, data):
+	def _list(self, data, converter = _utf):
 		if not data: return []
-		if isinstance(data, basestring): return [data]
-		return data
+		if isinstance(data, basestring): return [converter(data)]
+		return map(converter, data)
 	def search_post(self, tags=None, guids=None, excl_tags=None, excl_guids=None , wanted=None):
 		search = "SP"
-		for want in self._list(wanted):
+		for want in self._list(wanted, str):
 			search += "F" + want + " "
 		for tag in self._list(tags):
 			search += "T" + _tagspec("N", tag) + " "
-		for guid in self._list(guids):
+		for guid in self._list(guids, str):
 			search += "T" + _tagspec("G", guid) + " "
 		for tag in self._list(excl_tags):
 			search += "t" + _tagspec("N", tag) + " "
-		for guid in self._list(excl_guids):
+		for guid in self._list(excl_guids, str):
 			search += "t" + _tagspec("G", guid) + " "
 		return self._search_post(search, wanted)
 	def _send_auth(self):
 		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)
 		if self._readline() == "OK\n": self.auth_ok = True
 	def auth(self, user, password):
-		self.userpass = (user, password)
+		self.userpass = (_utf(user), _utf(password))
 		self._send_auth()
 		return self.auth_ok
 	def _enc(self, str):
@@ -151,11 +152,11 @@ class dbclient:
 		return "%x" % val;
 	def add_post(self, md5, width, height, filetype, rating=None,
 	             source=None, title=None, date=None):
-		cmd  = "AP" + md5
+		cmd  = "AP" + str(md5)
 		cmd += " width=" + self._hexstr(width)
 		cmd += " height=" + self._hexstr(height)
-		cmd += " filetype=" + filetype
-		if rating: cmd += " rating=" + rating
+		cmd += " filetype=" + str(filetype)
+		if rating: cmd += " rating=" + _utf(rating)
 		if source: cmd += " source=" + self._enc(source)
 		if title:  cmd += " title=" + self._enc(title)
 		if date:
@@ -164,22 +165,22 @@ class dbclient:
 			cmd += " image_date=" + self._hexstr(date)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != "OK\n": raise EResponse(res)
+		if res != u"OK\n": raise EResponse(res)
 	def _rels(self, c, md5, rels):
-		cmd = "R" + c + md5
-		for rel in self._list(rels):
+		cmd = "R" + c + str(md5)
+		for rel in self._list(rels, str):
 			cmd += " " + rel
 		self._writeline(cmd)
 		res = self._readline()
-		if res != "OK\n": raise EResponse(res)
+		if res != u"OK\n": raise EResponse(res)
 	def add_rels(self, md5, rels):
 		self._rels("R", md5, rels)
 	def remove_rels(self, md5, rels):
 		self._rels("r", md5, rels)
 	def _parse_rels(self, line, rels):
-		if line == "OK\n": return True
-		if line[0] != "R": raise EResponse(line)
-		a = line[1:].split()
+		if line == u"OK\n": return True
+		if line[0] != u"R": raise EResponse(line)
+		a = str(line[1:]).split()
 		p = a[0]
 		l = []
 		if p in rels: l = rels[p]
@@ -187,6 +188,7 @@ class dbclient:
 			l.append(rel)
 		rels[p] = l
 	def post_rels(self, md5):
+		md5 = str(md5)
 		cmd = "RS" + md5
 		self._writeline(cmd)
 		rels = {}
@@ -199,49 +201,53 @@ class dbclient:
 			cmd += " T" + _utf(type)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != "OK\n": raise EResponse(res)
+		if res != u"OK\n": raise EResponse(res)
 	def add_alias(self, name, origin_guid):
-		cmd = "AAG" + origin_guid + " N" + _utf(name)
+		cmd = "AAG" + str(origin_guid) + " N" + _utf(name)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != "OK\n": raise EResponse(res)
+		if res != u"OK\n": raise EResponse(res)
 	def add_implies(self, set_tag, implied_tag, priority):
-		cmd = "II" + set_tag + " I" + implied_tag + ":" + str(priority)
+		cmd = "II" + str(set_tag) + " I" + str(implied_tag) + ":" + str(priority)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != "OK\n": raise EResponse(res)
+		if res != u"OK\n": raise EResponse(res)
 	def tag_post(self, md5, full_tags, weak_tags):
-		tags = list(full_tags) + map(lambda t: "~" + t, weak_tags)
-		cmd = "TP" + md5 + " T".join([""] + tags)
+		tags = map(str, full_tags) + map(lambda t: "~" + str(t), weak_tags)
+		cmd = "TP" + str(md5) + " T".join([""] + tags)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != "OK\n": raise EResponse(res)
+		if res != u"OK\n": raise EResponse(res)
 	def find_tag(self, name, resdata = None):
 		name = _utf(name)
 		assert " " not in name
 		cmd = "STEAN" + name
 		self._writeline(cmd)
 		res = self._readline()
-		if res == "OK\n": return None
-		if res[:2] != "RG": raise EResponse(res)
-		guid = res.split()[0][2:]
+		if res == u"OK\n": return None
+		if res[:2] != u"RG": raise EResponse(res)
+		guid = str(res.split()[0][2:])
 		if resdata:
 			hexint = lambda s: int(s, 16)
-			incl = {"N": ("name", str), "T": ("type", str),
-			        "P": ("posts", hexint),
-			        "W": ("weak_posts", hexint)}
+			dummy = lambda s: s
+			incl = {u"N": ("name", dummy),
+			        u"T": ("type", dummy),
+			        u"P": ("posts", hexint),
+			        u"W": ("weak_posts", hexint)}
 			for data in res.split()[1:]:
 				if data[0] in incl:
 					name, parser = incl[data[0]]
 					resdata[name] = parser(data[1:])
 		res = self._readline()
-		if res != "OK\n": raise EResponse(res)
+		if res != u"OK\n": raise EResponse(res)
 		return guid
 	def thumb_path(self, md5, size):
+		md5 = str(md5)
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
 	def pngthumb_path(self, md5, ft, size):
-		fn = md5 + "." + ft
+		fn = str(md5) + "." + str(ft)
 		md5 = hashlib.md5(fn).hexdigest()
-		return os.path.join(self.cfg.thumb_base, size, md5[0], md5[1:3], md5)
+		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
 	def image_path(self, md5):
+		md5 = str(md5)
 		return os.path.join(self.cfg.image_base, md5[0], md5[1:3], md5)
