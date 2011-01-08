@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-from sys import argv, exit
-from dbclient import dbclient
 from hashlib import md5
 import Image
 from PIL import PngImagePlugin
@@ -10,10 +8,6 @@ from cStringIO import StringIO
 from pyexiv2 import Image as ExivImage
 from os.path import basename, dirname, realpath, exists, islink, join, sep
 from os import makedirs, readlink, symlink, unlink, getcwd, stat
-
-if len(argv) < 2:
-	print "Usage:", argv[0], "filename [filename [..]]"
-	exit(1)
 
 def determine_filetype(data):
 	if data[:3] == "\xff\xd8\xff": return "jpeg"
@@ -100,8 +94,7 @@ def find_tags(fn):
 	tags.update(basename(fn).split()[:-1])
 	return tags
 
-client = dbclient()
-for fn in argv[1:]:
+def add_image(fn):
 	fn = realpath(fn)
 	data = file(fn).read()
 	m = md5(data).hexdigest()
@@ -149,3 +142,12 @@ for fn in argv[1:]:
 			full.add(guid)
 	if full or weak:
 		client.tag_post(m, full, weak)
+
+if __name__ == '__main__':
+	from sys import argv, exit
+	from dbclient import dbclient
+	if len(argv) < 2:
+		print "Usage:", argv[0], "filename [filename [..]]"
+		exit(1)
+	client = dbclient()
+	map(add_image, argv[1:])
