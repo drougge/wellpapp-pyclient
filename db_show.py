@@ -20,7 +20,7 @@ if match(r"^[0-9a-f]{32}$", object):
 	t = localtime(post["created"])
 	print object + " created " + strftime("%F %T", t)
 	print post["width"], "x", post["height"], post["ext"]
-	print "\n".join(post["tagname"])
+	print "\n".join(sorted(post["tagname"]))
 else:
 	data = {"name": "ERROR", "type": "ERROR", "posts": -1, "weak_posts": -1}
 	guid = client.find_tag(object, data)
