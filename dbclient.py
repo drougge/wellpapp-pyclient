@@ -216,7 +216,7 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != "OK\n": raise EResponse(res)
-	def find_tag(self, name):
+	def find_tag(self, name, resdata = None):
 		name = _utf(name)
 		assert " " not in name
 		cmd = "STEAN" + name
@@ -225,6 +225,15 @@ class dbclient:
 		if res == "OK\n": return None
 		if res[:2] != "RG": raise EResponse(res)
 		guid = res.split()[0][2:]
+		if resdata:
+			hexint = lambda s: int(s, 16)
+			incl = {"N": ("name", str), "T": ("type", str),
+			        "P": ("posts", hexint),
+			        "W": ("weak_posts", hexint)}
+			for data in res.split()[1:]:
+				if data[0] in incl:
+					name, parser = incl[data[0]]
+					resdata[name] = parser(data[1:])
 		res = self._readline()
 		if res != "OK\n": raise EResponse(res)
 		return guid
