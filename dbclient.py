@@ -83,6 +83,7 @@ class dbclient:
 		guids = []
 		f = {}
 		md5 = None
+		seen = set()
 		for token in line[1:].split():
 			type = token[0]
 			data = token[1:]
@@ -102,27 +103,29 @@ class dbclient:
 			else:
 				raise EResponse(line)
 		if not md5: raise EResponse(line)
-		if md5 in posts: raise EDuplicate(md5)
+		if md5 in seen: raise EDuplicate(md5)
+		seen.add(md5)
 		if not wanted or "tagname" in wanted: f["tagname"] = tags
 		if not wanted or "tagguid" in wanted: f["tagguid"] = guids
-		posts[md5] = f
+		f["md5"] = md5
+		posts.append(f)
 	def _search_post(self, search, wanted = None):
 		self._writeline(search)
-		posts = {}
+		posts = []
 		while not self._parse_search(self._readline(), posts, wanted): pass
 		return posts
 	def get_post(self, md5):
 		md5 = str(md5)
 		posts = self._search_post("SPM" + md5 + " Ftagname Ftagguid Fext Fcreated Fwidth Fheight")
-		if not md5 in posts: return None
-		post = posts[md5]
-		post["md5"] = md5
+		post = posts[0]
+		if post["md5"] != md5: return None
 		return post
 	def _list(self, data, converter = _utf):
 		if not data: return []
 		if isinstance(data, basestring): return [converter(data)]
 		return map(converter, data)
-	def search_post(self, tags=None, guids=None, excl_tags=None, excl_guids=None , wanted=None):
+	def search_post(self, tags=None, guids=None, excl_tags=None,
+	                excl_guids=None , wanted=None, order=None):
 		search = "SP"
 		for want in self._list(wanted, str):
 			search += "F" + want + " "
@@ -134,6 +137,8 @@ class dbclient:
 			search += "t" + _tagspec("N", tag) + " "
 		for guid in self._list(excl_guids, str):
 			search += "t" + _tagspec("G", guid) + " "
+		for o in self._list(order, str):
+			search += "O" + o + " "
 		return self._search_post(search, wanted)
 	def _send_auth(self):
 		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)

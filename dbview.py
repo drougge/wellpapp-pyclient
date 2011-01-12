@@ -131,9 +131,10 @@ win = WellpappWindow()
 tags = sys.argv[1:]
 if tags:
 	win.mode = "search"
-	win.search = client.search_post(wanted=("tagname", "ext"), tags=tags)
-	for md5 in win.search.keys():
-		win.fileList.insertItem(md5)
+	search = client.search_post(wanted=("tagname", "ext"), tags=tags)
+	win.search = dict(map(lambda f: (f["md5"], f), search))
+	for post in search:
+		win.fileList.insertItem(post["md5"])
 else:
 	win.mode = "files"
 	for filename in os.listdir("."):
