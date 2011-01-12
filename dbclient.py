@@ -81,6 +81,8 @@ class dbclient:
 		if line[0] != u"R": raise EResponse(line)
 		tags = []
 		guids = []
+		impltags = []
+		implguids = []
 		f = {}
 		md5 = None
 		seen = set()
@@ -93,6 +95,13 @@ class dbclient:
 				tags.append(data)
 			elif type == u"G":
 				guids.append(str(data))
+			elif type == u"I":
+				type = data[0]
+				data = data[1:]
+				if type == u"T":
+					impltags.append(data)
+				if type == u"G":
+					implguids.append(str(data))
 			elif type == u"F":
 				field, value = data.split(u"=", 1)
 				field = str(field)
@@ -107,6 +116,9 @@ class dbclient:
 		seen.add(md5)
 		if not wanted or "tagname" in wanted: f["tagname"] = tags
 		if not wanted or "tagguid" in wanted: f["tagguid"] = guids
+		if wanted and "implied" in wanted:
+			if "tagname" in wanted: f["impltagname"] = impltags
+			if "tagguid" in wanted: f["impltagguid"] = implguids
 		f["md5"] = md5
 		posts.append(f)
 	def _search_post(self, search, wanted = None):
@@ -114,12 +126,13 @@ class dbclient:
 		posts = []
 		while not self._parse_search(self._readline(), posts, wanted): pass
 		return posts
-	def get_post(self, md5):
+	def get_post(self, md5, separate_implied = False):
 		md5 = str(md5)
-		posts = self._search_post("SPM" + md5 + " Ftagname Ftagguid Fext Fcreated Fwidth Fheight")
-		post = posts[0]
-		if post["md5"] != md5: return None
-		return post
+		search = "SPM" + md5 + " Ftagname Ftagguid Fext Fcreated Fwidth Fheight"
+		if separate_implied: search += " Fimplied"
+		posts = self._search_post(search)
+		if not posts or posts[0]["md5"] != md5: return None
+		return posts[0]
 	def _list(self, data, converter = _utf):
 		if not data: return []
 		if isinstance(data, basestring): return [converter(data)]
