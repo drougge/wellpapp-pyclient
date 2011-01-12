@@ -108,8 +108,8 @@ class Wellpapp(fuse.Fuse):
 		                             excl_tags=search[1],
 		                             wanted=["ext"])
 		r = []
-		for m in s:
-			r.append(m + "." + s[m]["ext"])
+		for p in s:
+			r.append(p["md5"] + "." + p["ext"])
 		return map(str, r)
 
 	def _path2search(self, path):
