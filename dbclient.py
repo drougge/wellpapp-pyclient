@@ -128,9 +128,10 @@ class dbclient:
 		return posts
 	def get_post(self, md5, separate_implied = False):
 		md5 = str(md5)
-		search = "SPM" + md5 + " Ftagname Ftagguid Fext Fcreated Fwidth Fheight"
-		if separate_implied: search += " Fimplied"
-		posts = self._search_post(search)
+		wanted = ["tagname", "tagguid", "ext", "created", "width", "height"]
+		if separate_implied: wanted.append("implied")
+		search = "SPM" + md5 + " F".join([""] + wanted)
+		posts = self._search_post(search, wanted)
 		if not posts or posts[0]["md5"] != md5: return None
 		return posts[0]
 	def _list(self, data, converter = _utf):
