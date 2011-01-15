@@ -104,7 +104,7 @@ def add_image(fn):
 	m = md5(data).hexdigest()
 	ft = determine_filetype(data)
 	assert ft
-	post = client.get_post(m)
+	post = client.get_post(m, True)
 	p = client.image_path(m)
 	if exists(p):
 		ld = readlink(p)
