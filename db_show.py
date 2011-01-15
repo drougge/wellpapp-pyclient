@@ -19,7 +19,7 @@ if exists(object):
 	object = md5(file(object).read()).hexdigest()
 
 if match(r"^[0-9a-f]{32}$", object):
-	post = client.get_post(object)
+	post = client.get_post(object, True)
 	if not post:
 		print "Post not found"
 		exit(1)
@@ -27,7 +27,11 @@ if match(r"^[0-9a-f]{32}$", object):
 	print object + " created " + strftime("%F %T", t)
 	print post["width"], "x", post["height"], post["ext"]
 	print "Original file: " + readlink(client.image_path(object))
-	print "\n".join(sorted(post["tagname"]))
+	print "Tags:\n\t",
+	print "\n\t".join(sorted(post["tagname"]))
+	if post["impltagname"]:
+		print "Implied:\n\t",
+		print "\n\t".join(sorted(post["impltagname"]))
 else:
 	data = {"name": "ERROR", "type": "ERROR", "posts": -1, "weak_posts": -1}
 	guid = client.find_tag(object, data)
