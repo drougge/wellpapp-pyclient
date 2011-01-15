@@ -5,13 +5,19 @@ from sys import argv, exit
 from dbclient import dbclient
 from re import match
 from time import strftime, localtime
+from os.path import exists
+from hashlib import md5
+from os import readlink
 
 if len(argv) != 2:
-	print "Usage:", argv[0], "tagname or md5"
+	print "Usage:", argv[0], "filename or tagname or md5"
 	exit(1)
 
 client = dbclient()
 object = argv[1]
+if exists(object):
+	object = md5(file(object).read()).hexdigest()
+
 if match(r"^[0-9a-f]{32}$", object):
 	post = client.get_post(object)
 	if not post:
@@ -20,6 +26,7 @@ if match(r"^[0-9a-f]{32}$", object):
 	t = localtime(post["created"])
 	print object + " created " + strftime("%F %T", t)
 	print post["width"], "x", post["height"], post["ext"]
+	print "Original file: " + readlink(client.image_path(object))
 	print "\n".join(sorted(post["tagname"]))
 else:
 	data = {"name": "ERROR", "type": "ERROR", "posts": -1, "weak_posts": -1}
