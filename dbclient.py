@@ -260,6 +260,14 @@ class dbclient:
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
 		return guid
+	def begin_transaction(self):
+		self._writeline("tB")
+		res = self._readline()
+		return res == u"OK\n"
+	def end_transaction(self):
+		self._writeline("tE")
+		res = self._readline()
+		return res == u"OK\n"
 	def thumb_path(self, md5, size):
 		md5 = str(md5)
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)

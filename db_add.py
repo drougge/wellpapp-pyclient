@@ -154,4 +154,6 @@ if __name__ == '__main__':
 		print "Usage:", argv[0], "filename [filename [..]]"
 		exit(1)
 	client = dbclient()
+	client.begin_transaction()
 	map(add_image, argv[1:])
+	client.end_transaction()
