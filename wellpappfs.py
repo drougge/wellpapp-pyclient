@@ -4,26 +4,30 @@
 import fuse
 import stat
 import errno
+import os
 from dbclient import dbclient
 import re
 from time import time
+from hashlib import md5
+from struct import pack, unpack
+from zlib import crc32
 
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
 fuse.fuse_python_api = (0, 2)
 NOTFOUND = IOError(errno.ENOENT, "Not found")
-md5re = re.compile(r"^([0-9a-f]{32})\.\w+$")
+md5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)$")
 sre = re.compile(r"[ /]")
 
 class WpStat(fuse.Stat):
-	def __init__(self, mode, nlink):
+	def __init__(self, mode, nlink, size):
 		self.st_mode = mode
 		self.st_ino = 0
 		self.st_dev = 0
 		self.st_nlink = nlink
 		self.st_uid = 0
 		self.st_gid = 0
-		self.st_size = 0
+		self.st_size = size
 		self.st_atime = 0
 		self.st_mtime = 0
 		self.st_ctime = 0
@@ -60,7 +64,23 @@ class Wellpapp(fuse.Fuse):
 		spath = path.split("/")[1:]
 		mode = stat.S_IFDIR | 0555
 		nlink = 2
-		if md5re.match(spath[-1]):
+		size = 0
+		m = md5re.match(spath[-1])
+		if spath[-3:-1] in _thumbpaths:
+			if not m or not m.group(2) != ".png": raise NOTFOUND
+			search = self._path2search("/" + " ".join(spath[:-3]))
+			if not search: raise NOTFOUND
+			if search[2]: # order specified
+				orgmd5 = self._resolve_thumb(search, spath[-1])[0]
+				if not orgmd5: raise NOTFOUND
+				mode = stat.S_IFREG | 0444
+				tfn = self._client.thumb_path(orgmd5, spath[-2])
+				size = os.stat(tfn).st_size + 7
+				# size of thumb, plus six digits and a period
+			else:
+				mode = stat.S_IFLNK | 0444
+			nlink = 1
+		elif m:
 			mode = stat.S_IFLNK | 0444
 			nlink = 1
 		elif path == "/" or spath[-1] == ".thumblocal" or \
@@ -73,7 +93,16 @@ class Wellpapp(fuse.Fuse):
 				self._cache.get(search, self._search)
 			except Exception:
 				raise NOTFOUND
-		return WpStat(mode, nlink)
+		return WpStat(mode, nlink, size)
+
+	def _resolve_thumb(self, search, thumbname):
+		idx = 0;
+		thumbmd5 = thumbname[:32]
+		for fn in self._cache.get(search, self._search):
+			if md5(fn).hexdigest() == thumbmd5:
+				m = md5re.match(fn)
+				ofn = m.group(1) + "." + m.group(2)
+				return md5(ofn).hexdigest(), fn
 
 	def readlink(self, path):
 		path = path.split("/")[1:]
@@ -104,24 +133,70 @@ class Wellpapp(fuse.Fuse):
 			yield fuse.Direntry(e)
 
 	def _search(self, search):
+		order = search[2]
 		s = self._client.search_post(tags=search[0],
 		                             excl_tags=search[1],
-		                             wanted=["ext"])
+		                             wanted=["ext"],
+		                             order=order)
 		r = []
+		idx = 0
+		prefix = ""
 		for p in s:
-			r.append(p["md5"] + "." + p["ext"])
+			if order:
+				prefix = "%06d." % (idx,)
+				idx += 1
+			r.append(prefix + p["md5"] + "." + p["ext"])
 		return map(str, r)
 
 	def _path2search(self, path):
 		if path == "/": return None
 		want = set()
 		dontwant = set()
+		order = []
+		first = None
 		for e in sre.split(path[1:]):
 			if e[0] == "-":
 				dontwant.add(e[1:])
+			elif e[:2] == "O:":
+				order.append(e[2:])
 			else:
 				want.add(e)
-		return tuple(want), tuple(dontwant)
+				if not first: first = e
+		if "group" in order:
+			want.remove(first)
+			want = [first] + list(want)
+		return tuple(want), tuple(dontwant), tuple(order)
+
+	def main(self, *a, **kw):
+		wp = self
+		class ThumbFile:
+			def __init__(self, path, flags, *mode):
+				rwflags = flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)
+				if rwflags != os.O_RDONLY: raise NOTFOUND
+				spath = path.split("/")
+				search = wp._path2search("/".join(spath[:-3]))
+				if not search: raise NOTFOUND
+				orgmd5, fn = wp._resolve_thumb(search, spath[-1])
+				tfn = wp._client.thumb_path(orgmd5, spath[-2])
+				fh = open(tfn)
+				data = fh.read()
+				fh.close()
+				data = data.split("tEXtThumb::URI\0")
+				if len(data) != 2: raise NOTFOUND
+				pre, post = data
+				clen, = unpack(">I", pre[-4:])
+				pre = pre[:-4] + pack(">I", clen + 7)
+				post = post[clen - 7:]
+				tEXt = "tEXtThumb::URI\0" + fn
+				crc = crc32(tEXt)
+				if crc < 0: crc += 0x100000000
+				tEXt += pack(">I", crc)
+				data = pre + tEXt + post
+				self.data = data
+			def read(self, length, offset):
+				return self.data[offset:offset + length]
+		self.file_class = ThumbFile
+		return fuse.Fuse.main(self, *a, **kw)
 
 server = Wellpapp(dash_s_do = "setsingle")
 server.parse(errex = 1)

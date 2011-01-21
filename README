@@ -1,1 +1,13 @@
 Run as any fuse filesystem. Needs dbclient.py. Directories are searches.
+Provides .thumblocal so viewers that use it don't have to generate
+thumbnails.
+
+You can separate search terms with spaces or as subdirs. Note that all
+parent searches for directory separated searches are performed, which can
+be slow.
+
+You can also sort searches by specifying O:sort-spec (which becomes
+Osort-spec when talking to the server). This prefixes image names with a
+sequence number that your viewer can hopefully sort by.
+
+Searches are cached for 30 seconds, to keep the slowness down a bit.
