@@ -10,13 +10,11 @@ from hashlib import md5
 from os import readlink
 
 if len(argv) != 2:
-	print "Usage:", argv[0], "filename or tagname or md5"
+	print "Usage:", argv[0], "post-spec or tagname"
 	exit(1)
 
 client = dbclient()
-object = argv[1]
-if exists(object):
-	object = md5(file(object).read()).hexdigest()
+object = client.postspec2md5(argv[1], argv[1])
 
 if match(r"^[0-9a-f]{32}$", object):
 	post = client.get_post(object, True)

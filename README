@@ -37,7 +37,7 @@ files named TAGS in all parent directories of the file.
 db_add.py doesn't create tags, but complains if they don't exist.
 
 db_tag.py:
-Tag an (already imported) image. "db_add.py md5 tag [tag [...]]".
+Tag an (already imported) image. "db_add.py post-spec tag [tag [...]]".
 
 db_show.py:
-Show information about a post (md5) or a tag (name).
+Show information about a post (md5/filename) or a tag (name).

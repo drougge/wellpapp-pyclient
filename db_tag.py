@@ -5,11 +5,14 @@ from sys import argv, exit
 from dbclient import dbclient
 
 if len(argv) < 2:
-	print "Usage:", argv[0], "md5 tag [tag [...]]"
+	print "Usage:", argv[0], "post-spec tag [tag [...]]"
 	exit(1)
 
 client = dbclient()
-md5 = argv[1]
+md5 = client.postspec2md5(argv[1])
+if not md5 or not client.get_post(md5):
+	print "Post not found"
+	exit(1)
 full = set()
 weak = set()
 for tag in argv[2:]:

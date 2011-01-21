@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-import socket, base64, codecs, os, hashlib
+import socket, base64, codecs, os, hashlib, re
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
@@ -278,3 +278,9 @@ class dbclient:
 	def image_path(self, md5):
 		md5 = str(md5)
 		return os.path.join(self.cfg.image_base, md5[0], md5[1:3], md5)
+	def postspec2md5(self, spec, default = None):
+		if os.path.exists(spec):
+			return hashlib.md5(file(spec).read()).hexdigest()
+		if re.match(r"^[0-9a-f]{32}$", spec):
+			return spec
+		return default
