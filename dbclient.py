@@ -246,7 +246,7 @@ class dbclient:
 		if res == u"OK\n": return None
 		if res[:2] != u"RG": raise EResponse(res)
 		guid = str(res.split()[0][2:])
-		if resdata:
+		if resdata != None:
 			hexint = lambda s: int(s, 16)
 			dummy = lambda s: s
 			incl = {u"N": ("name", dummy),
@@ -284,3 +284,10 @@ class dbclient:
 		if re.match(r"^[0-9a-f]{32}$", spec):
 			return spec
 		return default
+	def order(self, tag, posts):
+		tag = str(tag)
+		assert " " not in tag
+		cmd = "OG" + tag + " P" + " P".join(map(str, posts))
+		self._writeline(cmd)
+		res = self._readline()
+		if res != u"OK\n": raise EResponse(res)

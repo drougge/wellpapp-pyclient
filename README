@@ -41,3 +41,9 @@ Tag an (already imported) image. "db_add.py post-spec tag [tag [...]]".
 
 db_show.py:
 Show information about a post (md5/filename) or a tag (name).
+
+db_order.py:
+Order tags in a post. First argument is the tag, the following arguments are
+post-specs that will be ordered as specified. It's not possible to order posts
+in a tag that has weak or implied posts. If you specifiy only a single
+post-spec this is ordered first.
