@@ -238,7 +238,7 @@ class dbclient:
 		cmd = init
 		for tag in tags:
 			cmd += " T" + tag
-			if len(cmd) - 64 > self._prot_max_len:
+			if len(cmd) + 64 > self._prot_max_len:
 				self._writeline(cmd)
 				res = self._readline()
 				if res != u"OK\n": raise EResponse(res)
@@ -303,7 +303,7 @@ class dbclient:
 		for post in map(str, posts):
 			cmd += " P" + post
 			anything = True
-			if len(cmd) - 64 > self._prot_max_len:
+			if len(cmd) + 64 > self._prot_max_len:
 				self._writeline(cmd)
 				res = self._readline()
 				if res != u"OK\n": raise EResponse(res)
