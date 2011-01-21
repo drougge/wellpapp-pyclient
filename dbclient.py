@@ -47,6 +47,7 @@ class dbcfg:
 				self.__dict__[a[0]] = a[1]
 
 class dbclient:
+	_prot_max_len = 4096
 	def __init__(self, cfg = None):
 		if not cfg:
 			cfg = dbcfg()
@@ -233,10 +234,19 @@ class dbclient:
 		if res != u"OK\n": raise EResponse(res)
 	def tag_post(self, md5, full_tags, weak_tags):
 		tags = map(str, full_tags) + map(lambda t: "~" + str(t), weak_tags)
-		cmd = "TP" + str(md5) + " T".join([""] + tags)
-		self._writeline(cmd)
-		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		init = "TP" + str(md5)
+		cmd = init
+		for tag in tags:
+			cmd += " T" + tag
+			if len(cmd) - 64 > self._prot_max_len:
+				self._writeline(cmd)
+				res = self._readline()
+				if res != u"OK\n": raise EResponse(res)
+				cmd = init
+		if cmd != init:
+			self._writeline(cmd)
+			res = self._readline()
+			if res != u"OK\n": raise EResponse(res)
 	def find_tag(self, name, resdata = None):
 		name = _utf(name)
 		assert " " not in name
@@ -287,7 +297,19 @@ class dbclient:
 	def order(self, tag, posts):
 		tag = str(tag)
 		assert " " not in tag
-		cmd = "OG" + tag + " P" + " P".join(map(str, posts))
-		self._writeline(cmd)
-		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		init = "OG" + tag
+		cmd = init
+		anything = False
+		for post in map(str, posts):
+			cmd += " P" + post
+			anything = True
+			if len(cmd) - 64 > self._prot_max_len:
+				self._writeline(cmd)
+				res = self._readline()
+				if res != u"OK\n": raise EResponse(res)
+				cmd = init + " P" + post
+				anything = False
+		if anything:
+			self._writeline(cmd)
+			res = self._readline()
+			if res != u"OK\n": raise EResponse(res)
