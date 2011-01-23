@@ -135,7 +135,7 @@ def add_image(fn):
 		save_thumbs(m, ft, mtime, img)
 	full = set()
 	weak = set()
-	post = client.get_post(m)
+	post = client.get_post(m, True)
 	posttags = tagset()
 	posttags.update(post["tagname"])
 	filetags = find_tags(fn)
