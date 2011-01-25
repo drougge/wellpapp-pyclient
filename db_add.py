@@ -99,10 +99,14 @@ def find_tags(fn):
 	return tags
 
 def add_image(fn):
-	global quiet
+	global quiet, verbose
 	if fn == "-q":
 		quiet = True
 		return
+	if fn == "-v":
+		verbose = True
+		return
+	if verbose: print fn
 	fn = realpath(fn)
 	data = file(fn).read()
 	m = md5(data).hexdigest()
@@ -160,5 +164,6 @@ if __name__ == '__main__':
 	client = dbclient()
 	client.begin_transaction()
 	quiet = False
+	verbose = False
 	map(add_image, argv[1:])
 	client.end_transaction()
