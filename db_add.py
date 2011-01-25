@@ -99,6 +99,10 @@ def find_tags(fn):
 	return tags
 
 def add_image(fn):
+	global quiet
+	if fn == "-q":
+		quiet = True
+		return
 	fn = realpath(fn)
 	data = file(fn).read()
 	m = md5(data).hexdigest()
@@ -108,11 +112,11 @@ def add_image(fn):
 	p = client.image_path(m)
 	if exists(p):
 		ld = readlink(p)
-		if fn != ld:
+		if fn != ld and not quiet:
 			print "Not updating", m, fn
 	else:
 		if islink(p):
-			print "Updating", m, fn
+			if not quiet: print "Updating", m, fn
 			unlink(p)
 		make_pdirs(p)
 		symlink(fn, p)
@@ -155,5 +159,6 @@ if __name__ == '__main__':
 		exit(1)
 	client = dbclient()
 	client.begin_transaction()
+	quiet = False
 	map(add_image, argv[1:])
 	client.end_transaction()
