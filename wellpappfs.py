@@ -53,12 +53,21 @@ class Cache:
 				del self._data[key]
 
 _thumbpaths = ([".thumblocal", "normal"], [".thumblocal", "large"])
+_cfgpath = "/.wellpapprc"
 
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
 		self._cache = Cache(30)
 		self._client = dbclient()
+		self._cfgfile = self._cfg2file()
 		fuse.Fuse.__init__(self, *a, **kw)
+
+	def _cfg2file(self):
+		cfg = self._client.cfg
+		data = ""
+		for f in filter(lambda n: n[0] != "_", dir(cfg)):
+			data += f + "=" + cfg.__dict__[f] + "\n"
+		return data
 
 	def getattr(self, path):
 		spath = path.split("/")[1:]
@@ -86,6 +95,10 @@ class Wellpapp(fuse.Fuse):
 		elif path == "/" or spath[-1] == ".thumblocal" or \
 		     spath[-2:] in _thumbpaths:
 			pass
+		elif path == _cfgpath:
+			mode = stat.S_IFREG | 0444
+			nlink = 1
+			size = len(self._cfgfile)
 		else:
 			search = self._path2search(path)
 			if not search: raise NOTFOUND
@@ -173,6 +186,9 @@ class Wellpapp(fuse.Fuse):
 			def __init__(self, path, flags, *mode):
 				rwflags = flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)
 				if rwflags != os.O_RDONLY: raise NOTFOUND
+				if path == _cfgpath:
+					self.data = wp._cfgfile
+					return
 				spath = path.split("/")
 				search = wp._path2search("/".join(spath[:-3]))
 				if not search: raise NOTFOUND
