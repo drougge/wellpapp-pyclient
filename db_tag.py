@@ -4,18 +4,12 @@
 from sys import argv, exit
 from dbclient import dbclient
 
-if len(argv) < 2:
+if len(argv) < 3:
 	print "Usage:", argv[0], "post-spec tag [tag [...]]"
+	print "or:", argv[0], "-r tag post-spec [post-spec [...]]"
 	exit(1)
 
-client = dbclient()
-md5 = client.postspec2md5(argv[1])
-if not md5 or not client.get_post(md5):
-	print "Post not found"
-	exit(1)
-full = set()
-weak = set()
-for tag in argv[2:]:
+def set_tag(full, weak, tag):
 	s = full
 	if tag[0] == "~":
 		s = weak
@@ -23,7 +17,33 @@ for tag in argv[2:]:
 	guid = client.find_tag(tag)
 	if guid:
 		s.add(guid)
-	else:
-		print "Unknown tag " + tag
-if full or weak:
-	client.tag_post(md5, full, weak)
+		return True
+
+client = dbclient()
+full = set()
+weak = set()
+if argv[1] == "-r":
+	if not set_tag(full, weak, argv[2]):
+		print "Tag not found"
+		exit(1)
+	client.begin_transaction()
+	for post in argv[3:]:
+		md5 = client.postspec2md5(post)
+		if not md5 or not client.get_post(md5):
+			print post, "not found"
+			continue
+		try:
+			client.tag_post(md5, full, weak)
+		except Exception:
+			print "Failed to set on", post
+	client.end_transaction()
+else:
+	md5 = client.postspec2md5(argv[1])
+	if not md5 or not client.get_post(md5):
+		print "Post not found"
+		exit(1)
+	for tag in argv[2:]:
+		if not set_tag(full, weak, tag):
+			print "Unknown tag " + tag
+	if full or weak:
+		client.tag_post(md5, full, weak)
