@@ -6,7 +6,7 @@ import Image
 from PIL import PngImagePlugin
 from cStringIO import StringIO
 from pyexiv2 import Image as ExivImage
-from os.path import basename, dirname, realpath, exists, islink, join, sep
+from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import makedirs, readlink, symlink, unlink, getcwd, stat
 
 def determine_filetype(data):
@@ -114,14 +114,15 @@ def add_image(fn):
 	assert ft
 	post = client.get_post(m, True)
 	p = client.image_path(m)
-	if exists(p):
-		ld = readlink(p)
-		if fn != ld and not quiet:
-			print "Not updating", m, fn
-	else:
-		if islink(p):
+	if lexists(p):
+		if exists(p):
+			ld = readlink(p)
+			if fn != ld and not quiet:
+				print "Not updating", m, fn
+		else:
 			if not quiet: print "Updating", m, fn
 			unlink(p)
+	if not lexists(p):
 		make_pdirs(p)
 		symlink(fn, p)
 	if not post or needs_thumbs(m, ft):
