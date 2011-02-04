@@ -9,9 +9,12 @@ if len(argv) < 3:
 	print "or:", argv[0], "-r tag post-spec [post-spec [...]]"
 	exit(1)
 
-def set_tag(full, weak, tag):
+def set_tag(full, weak, remove, tag):
 	s = full
-	if tag[0] == "~":
+	if tag[0] == "-":
+		s = remove
+		tag = tag[1:]
+	elif tag[0] == "~":
 		s = weak
 		tag = tag[1:]
 	guid = client.find_tag(tag)
@@ -22,8 +25,9 @@ def set_tag(full, weak, tag):
 client = dbclient()
 full = set()
 weak = set()
+remove = set()
 if argv[1] == "-r":
-	if not set_tag(full, weak, argv[2]):
+	if not set_tag(full, weak, remove, argv[2]):
 		print "Tag not found"
 		exit(1)
 	client.begin_transaction()
@@ -33,7 +37,7 @@ if argv[1] == "-r":
 			print post, "not found"
 			continue
 		try:
-			client.tag_post(md5, full, weak)
+			client.tag_post(md5, full, weak, remove)
 		except Exception:
 			print "Failed to set on", post
 	client.end_transaction()
@@ -43,7 +47,7 @@ else:
 		print "Post not found"
 		exit(1)
 	for tag in argv[2:]:
-		if not set_tag(full, weak, tag):
+		if not set_tag(full, weak, remove, tag):
 			print "Unknown tag " + tag
-	if full or weak:
-		client.tag_post(md5, full, weak)
+	if full or weak or remove:
+		client.tag_post(md5, full, weak, remove)
