@@ -9,10 +9,10 @@ pygtk.require("2.0")
 import gtk, gobject
 
 def clean(n):
-	if n[0] == "~": return n[1:]
+	if n[0] in "-~": return n[1:]
 	return n
 def prefix(n):
-	if n[0] == "~": return "~"
+	if n[0] in "-~": return n[0]
 	return ""
 
 class TagWindow:
@@ -108,23 +108,29 @@ class TagWindow:
 		for tag, t in good:
 			try:
 				for m in self.posts:
-					if tag not in self.posts[m]["tagguid"]:
-						if m not in todo: todo[m] = ([], [])
-						if prefix(tag):
-							todo[m][1].append(clean(tag))
+					if m not in todo: todo[m] = ([], [], [])
+					p = prefix(tag)
+					ctag = clean(tag)
+					if p == "-" and (ctag in self.posts[m]["tagguid"] or "~" + ctag in self.posts[m]["tagguid"]):
+						todo[m][2].append(ctag)
+					if p != "-" and tag not in self.posts[m]["tagguid"]:
+						if p == "~":
+							todo[m][1].append(ctag)
 						else:
-							todo[m][0].append(tag)
+							assert not p
+							todo[m][0].append(ctag)
 			except Exception:
 				failed.append(t)
 		self.tagfield.set_text(u" ".join(failed))
-		if todo: client.begin_transaction()
+		todo_m = filter(lambda m: todo[m] != ([], [], []), todo)
+		if todo_m: client.begin_transaction()
 		try:
-			for m in todo:
+			for m in todo_m:
 				client.tag_post(m, *todo[m])
 		except:
 			self.tagfield.set_text(orgtext)
 		finally:
-			if todo: client.end_transaction()
+			if todo_m: client.end_transaction()
 		self.refresh()
 
 	def error(self, msg):
