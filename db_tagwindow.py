@@ -165,10 +165,11 @@ class TagWindow:
 				good.append((prefix(t) + tag, t))
 			else:
 				failed.append(t)
+		posts = [self.thumbs[p][0] for p in self.thumbview.get_selected_items()] or self.posts
 		todo = {}
 		for tag, t in good:
 			try:
-				for m in self.posts:
+				for m in posts:
 					if m not in todo: todo[m] = ([], [], [])
 					p = prefix(tag)
 					ctag = clean(tag)
