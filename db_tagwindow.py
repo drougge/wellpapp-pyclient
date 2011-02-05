@@ -7,6 +7,7 @@ from itertools import chain
 import pygtk
 pygtk.require("2.0")
 import gtk, gobject
+from os.path import commonprefix
 
 def clean(n):
 	if n[0] in "-~": return n[1:]
@@ -14,6 +15,17 @@ def clean(n):
 def prefix(n):
 	if n[0] in "-~": return n[0]
 	return ""
+
+def complete(word):
+	assert u" " not in word
+	tags = client.find_tags("EI", word).values()
+	if len(tags) == 1: return tags[0]["name"], True
+	tags = client.find_tags("EAI", word).values()
+	if len(tags) == 1: return tags.values()[0]["alias"][0], True
+	names = [t["name"] for t in tags]
+	aliases = [t["alias"] if "alias" in t else [] for t in tags]
+	candidates = names + list(chain(*aliases))
+	return commonprefix(candidates), False
 
 class TagWindow:
 	def __init__(self):
@@ -54,6 +66,7 @@ class TagWindow:
 		self.vbox.pack_end(self.bbox, False, False, 0)
 		self.tagfield = gtk.Entry()
 		self.tagfield.connect("activate", self.apply)
+		self.tagfield.connect("key-press-event", self.tagfield_key)
 		self.vbox.pack_end(self.tagfield, False, False, 0)
 		self.window.add(self.vbox)
 		self.window.set_default_size(840, 600)
@@ -90,6 +103,26 @@ class TagWindow:
 
 	def destroy(self, widget, data=None):
 		gtk.main_quit()
+
+	def tagfield_key(self, tagfield, event):
+		if event.state: return
+		if event.keyval == 65289: # tab
+			text = tagfield.get_text()
+			pos = tagfield.get_position()
+			spos = text.rfind(" ", 0, pos) + 1
+			left = text[:spos]
+			word = text[spos:pos]
+			right = text[pos:]
+			if word:
+				new_word, full = complete(word)
+				if new_word:
+					if full:
+						if not right or right[0] != " ":
+							new_word += " "
+					text = left + new_word + right
+					tagfield.set_text(text)
+					tagfield.set_position(pos + len(new_word) - len(word))
+			return True
 
 	def apply(self, widget, data=None):
 		orgtext = self.tagfield.get_text()
