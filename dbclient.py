@@ -256,28 +256,46 @@ class dbclient:
 			self._writeline(cmd)
 			res = self._readline()
 			if res != u"OK\n": raise EResponse(res)
-	def find_tag(self, name, resdata = None):
+	def _parse_tag(self, resdata):
+		res = self._readline()
+		if res == u"OK\n": return True
+		if res[:2] != u"RG": raise EResponse(res)
+		res = res.split()
+		guid = str(res[0][2:])
+		aliaslist = []
+		if guid in resdata and "alias" in resdata[guid]:
+			aliaslist = resdata[guid]["alias"]
+		rd = {"guid": guid}
+		hexint = lambda s: int(s, 16)
+		dummy = lambda s: s
+		alias = lambda s: aliaslist.append(s)
+		incl = {u"N": ("name", dummy),
+			u"T": ("type", dummy),
+			u"A": ("alias", alias),
+			u"P": ("posts", hexint),
+			u"W": ("weak_posts", hexint)}
+		for data in res[1:]:
+			if data[0] in incl:
+				name, parser = incl[data[0]]
+				rd[name] = parser(data[1:])
+		if aliaslist: rd["alias"] = aliaslist
+		resdata[guid] = rd
+	def find_tags(self, matchtype, name):
+		matchtype = str(matchtype)
+		assert " " not in matchtype
 		name = _utf(name)
 		assert " " not in name
-		cmd = "STEAN" + name
+		cmd = "ST" + matchtype + name
 		self._writeline(cmd)
-		res = self._readline()
-		if res == u"OK\n": return None
-		if res[:2] != u"RG": raise EResponse(res)
-		guid = str(res.split()[0][2:])
-		if resdata != None:
-			hexint = lambda s: int(s, 16)
-			dummy = lambda s: s
-			incl = {u"N": ("name", dummy),
-			        u"T": ("type", dummy),
-			        u"P": ("posts", hexint),
-			        u"W": ("weak_posts", hexint)}
-			for data in res.split()[1:]:
-				if data[0] in incl:
-					name, parser = incl[data[0]]
-					resdata[name] = parser(data[1:])
-		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		tags = {}
+		while not self._parse_tag(tags): pass
+		return tags
+	def find_tag(self, name, resdata = None):
+		tags = self.find_tags("EAN", name)
+		if not tags: return None
+		assert len(tags) == 1
+		guid = tags.keys()[0]
+		if resdata != None: resdata.update(tags[guid])
 		return guid
 	def begin_transaction(self):
 		self._writeline("tB")
