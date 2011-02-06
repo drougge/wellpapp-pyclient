@@ -18,14 +18,16 @@ def prefix(n):
 
 def complete(word):
 	assert u" " not in word
+	pre = prefix(word)
+	word = clean(word)
 	tags = client.find_tags("EI", word).values()
-	if len(tags) == 1: return tags[0]["name"], True
+	if len(tags) == 1: return pre + tags[0]["name"], True
 	tags = client.find_tags("EAI", word).values()
-	if len(tags) == 1: return tags.values()[0]["alias"][0], True
-	names = [t["name"] for t in tags]
+	if len(tags) == 1: return pre + tags[0]["alias"][0], True
+	names = filter(lambda n: n[:len(word)] == word, [t["name"] for t in tags])
 	aliases = [t["alias"] if "alias" in t else [] for t in tags]
 	candidates = names + list(chain(*aliases))
-	return commonprefix(candidates), False
+	return pre + commonprefix(candidates), False
 
 class TagWindow:
 	def __init__(self):
