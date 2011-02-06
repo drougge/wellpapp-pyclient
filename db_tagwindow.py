@@ -47,6 +47,7 @@ class TagWindow:
 		self.thumbs = gtk.ListStore(gobject.TYPE_STRING, gtk.gdk.Pixbuf)
 		self.thumbview = gtk.IconView(self.thumbs)
 		self.thumbview.set_pixbuf_column(1)
+		self.thumbview.set_tooltip_column(0)
 		self.thumbview.set_reorderable(True)
 		self.thumbview.set_selection_mode(gtk.SELECTION_MULTIPLE)
 		self.thumbview.connect("selection-changed", self.thumb_selected)
@@ -72,6 +73,8 @@ class TagWindow:
 		for widget, all in (self.tags_allview, True), (self.tags_allcurrentview, False):
 			widget.drag_dest_set(gtk.DEST_DEFAULT_ALL, [guidtype], gtk.gdk.ACTION_COPY)
 			widget.connect("drag_data_received", self.drag_put, all)
+		self.thumbview.drag_dest_set(gtk.DEST_DEFAULT_ALL, [guidtype], gtk.gdk.ACTION_COPY)
+		self.thumbview.connect("drag_data_received", self.drag_put_thumb)
 		self.tagbox.pack_start(self.tags_allview, False, False, 0)
 		self.tagbox.pack_start(self.tags_allcurrentview, False, False, 0)
 		self.tagbox.pack_start(self.tags_currentotherview, False, False, 0)
@@ -96,6 +99,15 @@ class TagWindow:
 		self.window.add(self.vbox)
 		self.window.set_default_size(840, 600)
 		self.window.show_all()
+
+	def drag_put_thumb(self, widget, context, x, y, selection, targetType, eventTime):
+		x += int(self.thumbscroll.get_hadjustment().value)
+		y += int(self.thumbscroll.get_vadjustment().value)
+		item = self.thumbview.get_item_at_pos(x, y)
+		if not item: return
+		iter = self.thumbs.get_iter(item[0])
+		m = self.thumbs.get_value(iter, 0)
+		self._apply([(t, None) for t in selection.data.split()], [], [m])
 
 	def drag_put(self, widget, context, x, y, selection, targetType, eventTime, all):
 		self.apply([(t, None) for t in selection.data.split()], [], all)
@@ -216,6 +228,9 @@ class TagWindow:
 			posts = self.posts
 		else:
 			posts = [self.thumbs[p][0] for p in self.thumbview.get_selected_items()] or self.posts
+		return self._apply(good, failed, posts)
+
+	def _apply(self, good, failed, posts):
 		todo = {}
 		for tag, t in good:
 			try:
