@@ -30,6 +30,9 @@ if match(r"^[0-9a-f]{32}$", object):
 	if post["impltagname"]:
 		print "Implied:\n\t",
 		print "\n\t".join(sorted(post["impltagname"]))
+	rels = client.post_rels(object)
+	if rels:
+		print "Related posts:\n\t" + "\n\t".join(rels)
 else:
 	data = {"name": "ERROR", "type": "ERROR", "posts": -1, "weak_posts": -1}
 	guid = client.find_tag(object, data)
