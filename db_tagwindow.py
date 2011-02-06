@@ -36,7 +36,7 @@ class TagWindow:
 		self.window.connect("destroy", self.destroy)
 		self.bbox = gtk.HBox(False, 0)
 		self.b_apply = gtk.Button(u"_Apply")
-		self.b_apply.connect("clicked", self.apply, None)
+		self.b_apply.connect("clicked", self.apply_action, None)
 		self.b_quit = gtk.Button(u"_Quit")
 		self.b_quit.connect("clicked", self.destroy, None)
 		self.bbox.pack_start(self.b_apply, True, True, 0)
@@ -51,10 +51,10 @@ class TagWindow:
 		self.thumbview.set_selection_mode(gtk.SELECTION_MULTIPLE)
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.tagbox = gtk.VBox(False, 0)
-		self.tags_all = gtk.ListStore(gobject.TYPE_STRING)
-		self.tags_allcurrent = gtk.ListStore(gobject.TYPE_STRING)
-		self.tags_currentother = gtk.ListStore(gobject.TYPE_STRING)
-		self.tags_other = gtk.ListStore(gobject.TYPE_STRING)
+		self.tags_all = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
+		self.tags_allcurrent = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
+		self.tags_currentother = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
+		self.tags_other = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
 		celltext = gtk.CellRendererText()
 		self.tags_allview = gtk.TreeView(self.tags_all)
 		self.tags_allview.append_column(gtk.TreeViewColumn("ALL", celltext, text=0))
@@ -64,6 +64,14 @@ class TagWindow:
 		self.tags_currentotherview.append_column(gtk.TreeViewColumn("Some Current", celltext, text=0))
 		self.tags_otherview = gtk.TreeView(self.tags_other)
 		self.tags_otherview.append_column(gtk.TreeViewColumn("Some", celltext, text=0))
+		guidtype = ("text/x-wellpapp-tagguid", gtk.TARGET_SAME_APP, 1)
+		nametype = ("text/x-wellpapp-tagname", gtk.TARGET_SAME_APP, 0)
+		for widget in self.tags_allview, self.tags_allcurrentview, self.tags_currentotherview, self.tags_otherview:
+			widget.drag_source_set(gtk.gdk.BUTTON1_MASK, [guidtype, nametype], gtk.gdk.ACTION_COPY)
+			widget.connect("drag_data_get", self.drag_get)
+		for widget, all in (self.tags_allview, True), (self.tags_allcurrentview, False):
+			widget.drag_dest_set(gtk.DEST_DEFAULT_ALL, [guidtype], gtk.gdk.ACTION_COPY)
+			widget.connect("drag_data_received", self.drag_put, all)
 		self.tagbox.pack_start(self.tags_allview, False, False, 0)
 		self.tagbox.pack_start(self.tags_allcurrentview, False, False, 0)
 		self.tagbox.pack_start(self.tags_currentotherview, False, False, 0)
@@ -82,17 +90,26 @@ class TagWindow:
 		self.vbox.pack_start(self.mbox, True, True, 0)
 		self.vbox.pack_end(self.bbox, False, False, 0)
 		self.tagfield = gtk.Entry()
-		self.tagfield.connect("activate", self.apply)
+		self.tagfield.connect("activate", self.apply_action, None)
 		self.tagfield.connect("key-press-event", self.tagfield_key)
 		self.vbox.pack_end(self.tagfield, False, False, 0)
 		self.window.add(self.vbox)
 		self.window.set_default_size(840, 600)
 		self.window.show_all()
 
+	def drag_put(self, widget, context, x, y, selection, targetType, eventTime, all):
+		self.apply([(t, None) for t in selection.data.split()], [], all)
+
+	def drag_get(self, widget, context, selection, targetType, eventTime):
+		model, iter = widget.get_selection().get_selected()
+		data = model.get_value(iter, targetType)
+		# All the examples pass 8, what does it mean?
+		selection.set(selection.target, 8, data)
+
 	def put_in_list(self, lo, li):
-		names = sorted([prefix(t) + self.ids[clean(t)] for t in li])
+		data = sorted([(prefix(t) + self.ids[clean(t)], t) for t in li])
 		lo.clear()
-		map(lambda n: lo.append((n,)), names)
+		map(lambda d: lo.append(d), data)
 
 	def refresh(self):
 		posts = map(lambda m: client.get_post(m, True), self.md5s)
@@ -176,7 +193,7 @@ class TagWindow:
 					tagfield.set_position(pos + len(new_word) - len(word))
 			return True
 
-	def apply(self, widget, data=None):
+	def apply_action(self, widget, data=None):
 		orgtext = self.tagfield.get_text()
 		if not orgtext:
 			gtk.main_quit()
@@ -189,7 +206,16 @@ class TagWindow:
 				good.append((prefix(t) + tag, t))
 			else:
 				failed.append(t)
-		posts = [self.thumbs[p][0] for p in self.thumbview.get_selected_items()] or self.posts
+		if self.apply(good, failed, False):
+			self.tagfield.set_text(orgtext)
+		else:
+			self.tagfield.set_text(u" ".join(failed))
+
+	def apply(self, good, failed, all):
+		if all:
+			posts = self.posts
+		else:
+			posts = [self.thumbs[p][0] for p in self.thumbview.get_selected_items()] or self.posts
 		todo = {}
 		for tag, t in good:
 			try:
@@ -207,17 +233,18 @@ class TagWindow:
 							todo[m][0].append(ctag)
 			except Exception:
 				failed.append(t)
-		self.tagfield.set_text(u" ".join(failed))
+		bad = False
 		todo_m = filter(lambda m: todo[m] != ([], [], []), todo)
 		if todo_m: client.begin_transaction()
 		try:
 			for m in todo_m:
 				client.tag_post(m, *todo[m])
 		except:
-			self.tagfield.set_text(orgtext)
+			bad = True
 		finally:
 			if todo_m: client.end_transaction()
 		self.refresh()
+		return bad
 
 	def error(self, msg):
 		self.b_apply.hide()
