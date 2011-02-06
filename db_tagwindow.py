@@ -52,17 +52,21 @@ class TagWindow:
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.tagbox = gtk.VBox(False, 0)
 		self.tags_all = gtk.ListStore(gobject.TYPE_STRING)
-		self.tags_current = gtk.ListStore(gobject.TYPE_STRING)
+		self.tags_allcurrent = gtk.ListStore(gobject.TYPE_STRING)
+		self.tags_currentother = gtk.ListStore(gobject.TYPE_STRING)
 		self.tags_other = gtk.ListStore(gobject.TYPE_STRING)
 		celltext = gtk.CellRendererText()
 		self.tags_allview = gtk.TreeView(self.tags_all)
 		self.tags_allview.append_column(gtk.TreeViewColumn("ALL", celltext, text=0))
-		self.tags_currentview = gtk.TreeView(self.tags_current)
-		self.tags_currentview.append_column(gtk.TreeViewColumn("Current", celltext, text=0))
+		self.tags_allcurrentview = gtk.TreeView(self.tags_allcurrent)
+		self.tags_allcurrentview.append_column(gtk.TreeViewColumn("All Current", celltext, text=0))
+		self.tags_currentotherview = gtk.TreeView(self.tags_currentother)
+		self.tags_currentotherview.append_column(gtk.TreeViewColumn("Some Current", celltext, text=0))
 		self.tags_otherview = gtk.TreeView(self.tags_other)
-		self.tags_otherview.append_column(gtk.TreeViewColumn("Other", celltext, text=0))
+		self.tags_otherview.append_column(gtk.TreeViewColumn("Some", celltext, text=0))
 		self.tagbox.pack_start(self.tags_allview, False, False, 0)
-		self.tagbox.pack_start(self.tags_currentview, False, False, 0)
+		self.tagbox.pack_start(self.tags_allcurrentview, False, False, 0)
+		self.tagbox.pack_start(self.tags_currentotherview, False, False, 0)
 		self.tagbox.pack_start(self.tags_otherview, False, False, 0)
 		self.mbox = gtk.HBox(False, 0)
 		self.scroll = gtk.ScrolledWindow()
@@ -116,6 +120,8 @@ class TagWindow:
 
 	def update_from_selection(self):
 		common = None
+		all = set()
+		count = 0
 		for path in self.thumbview.get_selected_items():
 			m = self.thumbs[path][0]
 			post = self.posts[m]
@@ -123,9 +129,22 @@ class TagWindow:
 				common = set(post["tagguid"])
 			else:
 				common.intersection_update(post["tagguid"])
+			all.update(post["tagguid"])
+			count += 1
+		if count < 2:
+			self.tags_currentotherview.hide()
+		else:
+			self.tags_currentotherview.show()
+		if count == 0:
+			self.tags_allcurrentview.hide()
+		else:
+			self.tags_allcurrentview.show()
 		if not common: common = set()
+		all.difference_update(self.all_tags)
+		all.difference_update(common)
 		unique = common.difference(self.all_tags)
-		self.put_in_list(self.tags_current, unique)
+		self.put_in_list(self.tags_allcurrent, unique)
+		self.put_in_list(self.tags_currentother, all)
 		other = set(self.any_tags)
 		other.difference_update(common)
 		other.difference_update(self.all_tags)
