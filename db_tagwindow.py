@@ -95,10 +95,21 @@ class TagWindow:
 		self.tagfield = gtk.Entry()
 		self.tagfield.connect("activate", self.apply_action, None)
 		self.tagfield.connect("key-press-event", self.tagfield_key)
+		self.tagfield.drag_dest_set(gtk.DEST_DEFAULT_ALL, [nametype], gtk.gdk.ACTION_COPY)
+		self.tagfield.connect("drag_data_received", self.drag_put_tagfield)
 		self.vbox.pack_end(self.tagfield, False, False, 0)
 		self.window.add(self.vbox)
 		self.window.set_default_size(840, 600)
 		self.window.show_all()
+
+	def drag_put_tagfield(self, widget, context, x, y, selection, targetType, eventTime):
+		tag = selection.data + " "
+		text = self.tagfield.get_text()
+		# This gets called twice (why?), so ignore it if we already have the tag
+		if text[-len(tag):] == tag: return
+		if text and text[-1] != " ": text += " "
+		text += tag
+		self.tagfield.set_text(text)
 
 	def drag_put_thumb(self, widget, context, x, y, selection, targetType, eventTime):
 		x += int(self.thumbscroll.get_hadjustment().value)
