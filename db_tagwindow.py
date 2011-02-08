@@ -194,7 +194,8 @@ class TagWindow:
 		self.put_in_list(self.tags_allcurrent, unique)
 		self.put_in_list(self.tags_currentother, all)
 		other = set(self.any_tags)
-		other.difference_update(common)
+		other.difference_update(unique)
+		other.difference_update(all)
 		other.difference_update(self.all_tags)
 		self.put_in_list(self.tags_other, other)
 
