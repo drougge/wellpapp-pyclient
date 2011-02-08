@@ -21,8 +21,10 @@ def complete(word):
 	pre = prefix(word)
 	word = clean(word)
 	tags = client.find_tags("EI", word).values()
+	if pre == "-": tags = filter(tw.known_tag, tags)
 	if len(tags) == 1: return pre + tags[0]["name"], True
 	tags = client.find_tags("EAI", word).values()
+	if pre == "-": tags = filter(tw.known_tag, tags)
 	if len(tags) == 1: return pre + tags[0]["alias"][0], True
 	names = filter(lambda n: n[:len(word)] == word, [t["name"] for t in tags])
 	aliases = [t["alias"] if "alias" in t else [] for t in tags]
@@ -158,6 +160,9 @@ class TagWindow:
 			thumb = gtk.gdk.pixbuf_new_from_file(fn)
 			self.thumbs.append((m, thumb,))
 
+	def known_tag(self, tag):
+		return tag["guid"] in self.all_tags
+
 	def thumb_selected(self, iconview):
 		self.update_from_selection()
 
@@ -197,8 +202,8 @@ class TagWindow:
 		gtk.main_quit()
 
 	def tagfield_key(self, tagfield, event):
-		if event.state: return
-		if event.keyval == 65289: # tab
+		if event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK): return
+		if gtk.gdk.keyval_name(event.keyval) == "Tab":
 			text = tagfield.get_text()
 			pos = tagfield.get_position()
 			spos = text.rfind(" ", 0, pos) + 1
@@ -207,7 +212,7 @@ class TagWindow:
 			right = text[pos:]
 			if word:
 				new_word, full = complete(word)
-				if new_word:
+				if len(new_word) > 1:
 					if full:
 						if not right or right[0] != " ":
 							new_word += " "
