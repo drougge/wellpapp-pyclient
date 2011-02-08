@@ -24,7 +24,13 @@ if match(r"^[0-9a-f]{32}$", object):
 	t = localtime(post["created"])
 	print object + " created " + strftime("%F %T", t)
 	print post["width"], "x", post["height"], post["ext"]
-	print "Original file: " + readlink(client.image_path(object))
+	try:
+		path = readlink(client.image_path(object))
+		if not exists(path):
+			path += " (MISSING)"
+	except Exception:
+		path = "MISSING"
+	print "Original file: " + path
 	print "Tags:\n\t",
 	print "\n\t".join(sorted(post["tagname"]))
 	if post["impltagname"]:
