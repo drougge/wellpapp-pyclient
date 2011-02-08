@@ -37,7 +37,8 @@ files named TAGS in all parent directories of the file.
 db_add.py doesn't create tags, but complains if they don't exist.
 
 db_tag.py:
-Tag an (already imported) image. "db_add.py post-spec tag [tag [...]]".
+Tag an (already imported) image. "db_add.py post-spec tag [tag [...]]" or
+"db_add.py -r tag post-spec [post-spec [...]]".
 
 db_show.py:
 Show information about a post (md5/filename) or a tag (name).
@@ -47,3 +48,27 @@ Order tags in a post. First argument is the tag, the following arguments are
 post-specs that will be ordered as specified. It's not possible to order posts
 in a tag that has weak or implied posts. If you specifiy only a single
 post-spec this is ordered first.
+
+db_mergetag.py:
+Merges two tags into one. Takes two tag names as arguments, the second one
+will be merged into the first, and all names for it will be recreated as
+aliases for the first. Refuses if any posts have both tags at different
+strengths, or if anything implies the second tag.
+
+db_fsck.py:
+Try to determine if your tag data, images and thumbnails are as they should
+be. Run it without options for a bit more help. The -s option is only
+useful if you suspect a server bug, and it's very slow on larger
+collections.
+
+db_tagwindow.py:
+A graphical interface for tagging posts. Takes a list of post-specs as
+arguments, and lets you tag the posts thus specified. Displays thumbnails
+in the size specified first in thumb_sizes in your rc file.
+
+Probably best launched either as "db_tagwindow.py *" in a directory with
+images, or as an external editor from your image viewer of choice.
+
+You can tab complete tags in the entry field, and drag and drop stuff in
+the obvious ways where useful. (Dropping a tag on a thumbnail will tag only
+that post, regardless of selection.)
