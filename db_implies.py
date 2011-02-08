@@ -10,7 +10,7 @@ if len(argv) not in (3, 4):
 
 client = dbclient()
 set_tag = client.find_tag(argv[1])
-implied_tag = client.find_tag(argv[2])
+implied_tag = client.find_tag(argv[2], with_prefix=True)
 priority = 0
 if len(argv) == 4: priority = int(argv[3])
 if set_tag and implied_tag:

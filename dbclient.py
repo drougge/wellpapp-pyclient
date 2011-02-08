@@ -227,11 +227,20 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
-	def add_implies(self, set_tag, implied_tag, priority):
-		cmd = "II" + str(set_tag) + " I" + str(implied_tag) + ":" + str(priority)
+	def _addrem_implies(self, addrem, set_tag, implied_tag, priostr):
+		implied_tag = str(implied_tag)
+		if implied_tag[0] == "-":
+			add = " i" + implied_tag[1:]
+		else:
+			add = " I" + implied_tag
+		cmd = "I" + addrem + str(set_tag) + add + priostr
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	def add_implies(self, set_tag, implied_tag, priority=0):
+		self._addrem_implies("I", set_tag, implied_tag, ":" + str(priority))
+	def remove_implies(self, set_tag, implied_tag):
+		self._addrem_implies("i", set_tag, implied_tag, "")
 	def merge_tags(self, into_t, from_t):
 		assert " " not in into_t
 		assert " " not in from_t
@@ -290,13 +299,19 @@ class dbclient:
 		tags = {}
 		while not self._parse_tag(tags): pass
 		return tags
-	def find_tag(self, name, resdata = None):
+	def find_tag(self, name, resdata=None, with_prefix=False):
+		name = _utf(name)
+		if with_prefix and name[0] in u"~-":
+			prefix = str(name[0])
+			name = name[1:]
+		else:
+			prefix = ""
 		tags = self.find_tags("EAN", name)
 		if not tags: return None
 		assert len(tags) == 1
 		guid = tags.keys()[0]
 		if resdata != None: resdata.update(tags[guid])
-		return guid
+		return prefix + guid
 	def begin_transaction(self):
 		self._writeline("tB")
 		res = self._readline()
