@@ -10,11 +10,19 @@ import gtk, gobject
 from os.path import commonprefix
 
 def clean(n):
-	if n[0] in "-~": return n[1:]
+	if n[0] in u"-~": return n[1:]
 	return n
 def prefix(n):
-	if n[0] in "-~": return n[0]
+	if n[0] in u"-~": return n[0]
 	return ""
+
+def _uni(s):
+	if type(s) is not unicode:
+		try:
+			s = s.decode("utf-8")
+		except Exception:
+			s = s.decode("iso-8859-1")
+	return s
 
 def complete(word):
 	assert u" " not in word
@@ -105,11 +113,11 @@ class TagWindow:
 		self.window.show_all()
 
 	def drag_put_tagfield(self, widget, context, x, y, selection, targetType, eventTime):
-		tag = selection.data + " "
-		text = self.tagfield.get_text()
+		tag = _uni(selection.data) + u" "
+		text = _uni(self.tagfield.get_text())
 		# This gets called twice (why?), so ignore it if we already have the tag
 		if text[-len(tag):] == tag: return
-		if text and text[-1] != " ": text += " "
+		if text and text[-1] != u" ": text += u" "
 		text += tag
 		self.tagfield.set_text(text)
 
@@ -205,9 +213,9 @@ class TagWindow:
 	def tagfield_key(self, tagfield, event):
 		if event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK): return
 		if gtk.gdk.keyval_name(event.keyval) == "Tab":
-			text = tagfield.get_text()
+			text = _uni(tagfield.get_text())
 			pos = tagfield.get_position()
-			spos = text.rfind(" ", 0, pos) + 1
+			spos = text.rfind(u" ", 0, pos) + 1
 			left = text[:spos]
 			word = text[spos:pos]
 			right = text[pos:]
@@ -215,15 +223,15 @@ class TagWindow:
 				new_word, full = complete(word)
 				if len(new_word) > 1:
 					if full:
-						if not right or right[0] != " ":
-							new_word += " "
+						if not right or right[0] != u" ":
+							new_word += u" "
 					text = left + new_word + right
 					tagfield.set_text(text)
 					tagfield.set_position(pos + len(new_word) - len(word))
 			return True
 
 	def apply_action(self, widget, data=None):
-		orgtext = self.tagfield.get_text()
+		orgtext = _uni(self.tagfield.get_text())
 		if not orgtext:
 			gtk.main_quit()
 			return
