@@ -61,6 +61,9 @@ be. Run it without options for a bit more help. The -s option is only
 useful if you suspect a server bug, and it's very slow on larger
 collections.
 
+db_findtag.py:
+Find tags. -a for matching anywhere (not just at the start), -f for fuzzy.
+
 db_tagwindow.py:
 A graphical interface for tagging posts. Takes a list of post-specs as
 arguments, and lets you tag the posts thus specified. Displays thumbnails
