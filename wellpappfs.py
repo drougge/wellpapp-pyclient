@@ -11,12 +11,14 @@ from time import time
 from hashlib import md5
 from struct import pack, unpack
 from zlib import crc32
+from xml.sax.saxutils import escape as xmlescape
 
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
 fuse.fuse_python_api = (0, 2)
 NOTFOUND = IOError(errno.ENOENT, "Not found")
 md5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)$")
+metamd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)\.gq\.xmp$")
 sre = re.compile(r"[ /]")
 
 class WpStat(fuse.Stat):
@@ -75,6 +77,7 @@ class Wellpapp(fuse.Fuse):
 		nlink = 2
 		size = 0
 		m = md5re.match(spath[-1])
+		metam = metamd5re.match(spath[-1])
 		if spath[-3:-1] in _thumbpaths:
 			if not m or not m.group(2) != ".png": raise NOTFOUND
 			search = self._path2search("/" + " ".join(spath[:-3]))
@@ -92,7 +95,11 @@ class Wellpapp(fuse.Fuse):
 		elif m:
 			mode = stat.S_IFLNK | 0444
 			nlink = 1
-		elif path == "/" or spath[-1] == ".thumblocal" or \
+		elif metam:
+			mode = stat.S_IFREG | 0444
+			size = len(self._generate_meta(metam.group(1)))
+			nlink = 1
+		elif path == "/" or spath[-1] in (".thumblocal", ".metadata") or \
 		     spath[-2:] in _thumbpaths:
 			pass
 		elif path == _cfgpath:
@@ -107,6 +114,14 @@ class Wellpapp(fuse.Fuse):
 			except Exception:
 				raise NOTFOUND
 		return WpStat(mode, nlink, size)
+
+	def _generate_meta(self, m):
+		data = """<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 4.1.1-Exiv2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:tiff="http://ns.adobe.com/tiff/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:subject><rdf:Bag>"""
+		post = self._client.get_post(m)
+		data += "".join(["<rdf:li>" + xmlescape(tn).encode("utf-8") + "</rdf:li>" \
+		                 for tn in sorted(post["tagname"])])
+		data += "</rdf:Bag></dc:subject></rdf:Description></rdf:RDF></x:xmpmeta>"
+		return data
 
 	def _resolve_thumb(self, search, thumbname):
 		idx = 0;
@@ -182,7 +197,7 @@ class Wellpapp(fuse.Fuse):
 
 	def main(self, *a, **kw):
 		wp = self
-		class ThumbFile:
+		class FakeFile:
 			def __init__(self, path, flags, *mode):
 				rwflags = flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)
 				if rwflags != os.O_RDONLY: raise NOTFOUND
@@ -190,6 +205,10 @@ class Wellpapp(fuse.Fuse):
 					self.data = wp._cfgfile
 					return
 				spath = path.split("/")
+				metam = metamd5re.match(spath[-1])
+				if metam:
+					self.data = wp._generate_meta(metam.group(1))
+					return
 				search = wp._path2search("/".join(spath[:-3]))
 				if not search: raise NOTFOUND
 				orgmd5, fn = wp._resolve_thumb(search, spath[-1])
@@ -211,7 +230,7 @@ class Wellpapp(fuse.Fuse):
 				self.data = data
 			def read(self, length, offset):
 				return self.data[offset:offset + length]
-		self.file_class = ThumbFile
+		self.file_class = FakeFile
 		return fuse.Fuse.main(self, *a, **kw)
 
 server = Wellpapp(dash_s_do = "setsingle")
