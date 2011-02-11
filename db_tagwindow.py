@@ -163,8 +163,9 @@ class TagWindow:
 		return "#%02x%02x%02x" % tuple([int(ord(c) / 1.6) for c in md5(type).digest()[:3]])
 
 	def put_in_list(self, lo, li):
-		bg = "#ffffff"
-		data = [(prefix(t) + self.ids[clean(t)], t, bg, self.tag_colours[clean(t)]) for t in li]
+		data = []
+		for pre, bg in ("", "#ffffff"), ("impl", "#ffd8ee"):
+			data += [(prefix(t) + self.ids[clean(t)], t, bg, self.tag_colours[clean(t)]) for t in self.taglist[pre + li]]
 		lo.clear()
 		map(lambda d: lo.append(d), sorted(data))
 
@@ -176,15 +177,20 @@ class TagWindow:
 		self.ids = dict(zip(chain(*[map(clean, p["tagguid"] + p["impltagguid"]) for p in posts]),
 		                    chain(*[map(clean, p["tagname"] + p["impltagname"]) for p in posts])))
 		self.posts = dict([(p["md5"], p) for p in posts])
-		self.all_tags = set(posts[0]["tagguid"])
-		self.any_tags = set(posts[0]["tagguid"])
-		for p in posts:
-			self.all_tags.intersection_update(p["tagguid"])
-			self.any_tags.update(p["tagguid"])
 		agl = self.ids.keys()
 		self.tag_colours = dict(zip(agl, [self.tag_colour(clean(tg)) for tg in agl]))
-		self.put_in_list(self.tags_all, self.all_tags)
+		self.taglist = {}
+		self._tagcompute(posts, "")
+		self._tagcompute(posts, "impl")
+		self.put_in_list(self.tags_all, "all")
 		self.update_from_selection()
+
+	def _tagcompute(self, posts, pre):
+		self.taglist[pre + "all"] = set(posts[0][pre + "tagguid"])
+		self.taglist[pre + "any"] = set(posts[0][pre + "tagguid"])
+		for p in posts:
+			self.taglist[pre + "all"].intersection_update(p[pre + "tagguid"])
+			self.taglist[pre + "any"].update(p[pre + "tagguid"])
 
 	def load_thumbs(self):
 		z = int(client.cfg.thumb_sizes.split()[0])
@@ -195,12 +201,19 @@ class TagWindow:
 			self.thumbs.append((m, thumb,))
 
 	def known_tag(self, tag):
-		return tag["guid"] in self.all_tags
+		return tag["guid"] in self.taglist["all"]
 
 	def thumb_selected(self, iconview):
 		self.update_from_selection()
 
 	def update_from_selection(self):
+		self._update_from_selection("")
+		self._update_from_selection("impl")
+		self.put_in_list(self.tags_allcurrent, "allcurrent")
+		self.put_in_list(self.tags_currentother, "currentother")
+		self.put_in_list(self.tags_other, "other")
+
+	def _update_from_selection(self, pre):
 		common = None
 		all = set()
 		count = 0
@@ -208,10 +221,10 @@ class TagWindow:
 			m = self.thumbs[path][0]
 			post = self.posts[m]
 			if common == None:
-				common = set(post["tagguid"])
+				common = set(post[pre + "tagguid"])
 			else:
-				common.intersection_update(post["tagguid"])
-			all.update(post["tagguid"])
+				common.intersection_update(post[pre + "tagguid"])
+			all.update(post[pre + "tagguid"])
 			count += 1
 		if count < 2:
 			self.tags_currentotherview.hide()
@@ -222,16 +235,16 @@ class TagWindow:
 		else:
 			self.tags_allcurrentview.show()
 		if not common: common = set()
-		all.difference_update(self.all_tags)
+		all.difference_update(self.taglist[pre + "all"])
 		all.difference_update(common)
-		unique = common.difference(self.all_tags)
-		self.put_in_list(self.tags_allcurrent, unique)
-		self.put_in_list(self.tags_currentother, all)
-		other = set(self.any_tags)
+		unique = common.difference(self.taglist[pre + "all"])
+		self.taglist[pre + "allcurrent"] = unique
+		self.taglist[pre + "currentother"] = all
+		other = set(self.taglist[pre + "any"])
 		other.difference_update(unique)
 		other.difference_update(all)
-		other.difference_update(self.all_tags)
-		self.put_in_list(self.tags_other, other)
+		other.difference_update(self.taglist[pre + "all"])
+		self.taglist[pre + "other"] = other
 
 	def destroy(self, widget, data=None):
 		gtk.main_quit()
