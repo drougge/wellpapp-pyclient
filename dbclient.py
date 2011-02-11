@@ -228,6 +228,8 @@ class dbclient:
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
 	def _addrem_implies(self, addrem, set_tag, implied_tag, priostr):
+		assert " " not in set_tag
+		assert " " not in implied_tag
 		implied_tag = str(implied_tag)
 		if implied_tag[0] == "-":
 			add = " i" + implied_tag[1:]
@@ -241,6 +243,44 @@ class dbclient:
 		self._addrem_implies("I", set_tag, implied_tag, ":" + str(priority))
 	def remove_implies(self, set_tag, implied_tag):
 		self._addrem_implies("i", set_tag, implied_tag, "")
+	def _parse_implies(self, data):
+		res = self._readline()
+		if res == u"OK\n": return
+		set_guid, impl_guid = map(str, res.split())
+		assert set_guid[:2] == "RI"
+		set_guid = set_guid[2:]
+		impl_guid, prio = impl_guid.split(":")
+		if impl_guid[0] == "i":
+			impl_guid = "-" + impl_guid[1:]
+		else:
+			assert impl_guid[0] == "I"
+			impl_guid = impl_guid[1:]
+		if set_guid not in data: data[set_guid] = []
+		data[set_guid].append((impl_guid, int(prio)))
+		return True
+	def tag_implies(self, tag, reverse=False):
+		tag = str(tag)
+		assert " " not in tag
+		cmd = "IR" if reverse else "IS"
+		self._writeline(cmd + tag)
+		data = {}
+		while self._parse_implies(data): pass
+		if reverse:
+			rev = []
+			for itag in data:
+				impl = data[itag]
+				assert len(impl) == 1
+				impl = impl[0]
+				assert len(impl) == 2
+				ttag = impl[0]
+				if ttag[0] == "-":
+					assert ttag[1:] == tag
+					rev.append(("-" + itag, impl[1]))
+				else:
+					assert ttag == tag
+					rev.append((itag, impl[1]))
+			return rev or None
+		if tag in data: return data[tag]
 	def merge_tags(self, into_t, from_t):
 		assert " " not in into_t
 		assert " " not in from_t
@@ -312,6 +352,20 @@ class dbclient:
 		guid = tags.keys()[0]
 		if resdata != None: resdata.update(tags[guid])
 		return prefix + guid
+	def get_tag(self, guid, with_prefix=False):
+		guid = _utf(guid)
+		if with_prefix and guid[0] in u"~-":
+			prefix = guid[0]
+			guid = guid[1:]
+		else:
+			prefix = u""
+		tags = self.find_tags("EG", guid)
+		if not tags: return None
+		assert len(tags) == 1
+		assert guid == tags.keys()[0]
+		data = tags[guid]
+		data["name"] = prefix + data["name"]
+		return data
 	def begin_transaction(self):
 		self._writeline("tB")
 		res = self._readline()

@@ -13,6 +13,15 @@ if len(argv) != 2:
 	print "Usage:", argv[0], "post-spec or tagname"
 	exit(1)
 
+def implfmt(impl):
+	guid, prio = impl
+	data = client.get_tag(guid, with_prefix=True)
+	return "\n\t" + data["name"] + " " + str(prio)
+
+def show_implies(guid, heading, reverse):
+	impl = client.tag_implies(guid, reverse)
+	if impl: print heading + "".join(map(implfmt, impl))
+
 client = dbclient()
 object = client.postspec2md5(argv[1], argv[1])
 
@@ -50,3 +59,5 @@ else:
 	print "Type:", data["type"]
 	print data["posts"], "posts"
 	print data["weak_posts"], "weak posts"
+	show_implies(guid, "Implies:", False)
+	show_implies(guid, "Implied by:", True)
