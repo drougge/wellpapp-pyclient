@@ -128,6 +128,7 @@ class TagWindow:
 		self.window.add(self.vbox)
 		self.window.set_default_size(840, 600)
 		self.window.show_all()
+		self.type2colour = dict([cs.split("=") for cs in client.cfg.tagcolours.split()])
 
 	def drag_put_tagfield(self, widget, context, x, y, selection, targetType, eventTime):
 		tag = _uni(selection.data) + u" "
@@ -158,6 +159,7 @@ class TagWindow:
 
 	def tag_colour(self, guid):
 		type = client.get_tag(guid)["type"]
+		if type in self.type2colour: return self.type2colour[type]
 		return "#%02x%02x%02x" % tuple([int(ord(c) / 1.6) for c in md5(type).digest()[:3]])
 
 	def put_in_list(self, lo, li):
