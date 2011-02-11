@@ -29,12 +29,10 @@ def complete(word):
 	assert u" " not in word
 	pre = prefix(word)
 	word = clean(word)
-	tags = client.find_tags("EI", word).values()
-	if pre == "-": tags = filter(tw.known_tag, tags)
-	if len(tags) == 1: return pre + tags[0]["name"], True
-	tags = client.find_tags("EAI", word).values()
-	if pre == "-": tags = filter(tw.known_tag, tags)
-	if len(tags) == 1: return pre + tags[0]["alias"][0], True
+	for t, get in ("EI", lambda t: t["name"]), ("EAI", lambda t: t["alias"][0]):
+		tags = client.find_tags(t, word).values()
+		if pre == "-": tags = filter(tw.known_tag, tags)
+		if len(tags) == 1: return pre + get(tags[0]), True
 	names = filter(lambda n: n[:len(word)] == word, [t["name"] for t in tags])
 	aliases = [t["alias"] if "alias" in t else [] for t in tags]
 	candidates = names + list(chain(*aliases))
@@ -201,7 +199,7 @@ class TagWindow:
 			self.thumbs.append((m, thumb,))
 
 	def known_tag(self, tag):
-		return tag["guid"] in self.taglist["all"]
+		return tag["guid"] in self.ids
 
 	def thumb_selected(self, iconview):
 		self.update_from_selection()
