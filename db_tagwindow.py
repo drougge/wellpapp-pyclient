@@ -8,6 +8,7 @@ import pygtk
 pygtk.require("2.0")
 import gtk, gobject
 from os.path import commonprefix
+from hashlib import md5
 
 def clean(n):
 	if n[0] in u"-~": return n[1:]
@@ -62,19 +63,35 @@ class TagWindow:
 		self.thumbview.set_selection_mode(gtk.SELECTION_MULTIPLE)
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.tagbox = gtk.VBox(False, 0)
-		self.tags_all = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
-		self.tags_allcurrent = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
-		self.tags_currentother = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
-		self.tags_other = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
-		celltext = gtk.CellRendererText()
+		taglisttypes = [gobject.TYPE_STRING] * 4
+		self.tags_all = gtk.ListStore(*taglisttypes)
+		self.tags_allcurrent = gtk.ListStore(*taglisttypes)
+		self.tags_currentother = gtk.ListStore(*taglisttypes)
+		self.tags_other = gtk.ListStore(*taglisttypes)
 		self.tags_allview = gtk.TreeView(self.tags_all)
-		self.tags_allview.append_column(gtk.TreeViewColumn("ALL", celltext, text=0))
+		celltext = gtk.CellRendererText()
+		tvc = gtk.TreeViewColumn("ALL", celltext, text=0)
+		tvc.add_attribute(celltext, "cell-background", 2)
+		tvc.add_attribute(celltext, "foreground", 3)
+		self.tags_allview.append_column(tvc)
 		self.tags_allcurrentview = gtk.TreeView(self.tags_allcurrent)
-		self.tags_allcurrentview.append_column(gtk.TreeViewColumn("All Current", celltext, text=0))
+		celltext = gtk.CellRendererText()
+		tvc = gtk.TreeViewColumn("All Current", celltext, text=0)
+		tvc.add_attribute(celltext, "cell-background", 2)
+		tvc.add_attribute(celltext, "foreground", 3)
+		self.tags_allcurrentview.append_column(tvc)
 		self.tags_currentotherview = gtk.TreeView(self.tags_currentother)
-		self.tags_currentotherview.append_column(gtk.TreeViewColumn("Some Current", celltext, text=0))
+		celltext = gtk.CellRendererText()
+		tvc = gtk.TreeViewColumn("Some Current", celltext, text=0)
+		tvc.add_attribute(celltext, "cell-background", 2)
+		tvc.add_attribute(celltext, "foreground", 3)
+		self.tags_currentotherview.append_column(tvc)
 		self.tags_otherview = gtk.TreeView(self.tags_other)
-		self.tags_otherview.append_column(gtk.TreeViewColumn("Some", celltext, text=0))
+		celltext = gtk.CellRendererText()
+		tvc = gtk.TreeViewColumn("Some", celltext, text=0)
+		tvc.add_attribute(celltext, "cell-background", 2)
+		tvc.add_attribute(celltext, "foreground", 3)
+		self.tags_otherview.append_column(tvc)
 		guidtype = ("text/x-wellpapp-tagguid", gtk.TARGET_SAME_APP, 1)
 		nametype = ("text/x-wellpapp-tagname", gtk.TARGET_SAME_APP, 0)
 		for widget in self.tags_allview, self.tags_allcurrentview, self.tags_currentotherview, self.tags_otherview:
@@ -139,10 +156,15 @@ class TagWindow:
 		# All the examples pass 8, what does it mean?
 		selection.set(selection.target, 8, data)
 
+	def tag_colour(self, guid):
+		type = client.get_tag(guid)["type"]
+		return "#%02x%02x%02x" % tuple([int(ord(c) / 1.6) for c in md5(type).digest()[:3]])
+
 	def put_in_list(self, lo, li):
-		data = sorted([(prefix(t) + self.ids[clean(t)], t) for t in li])
+		bg = "#ffffff"
+		data = [(prefix(t) + self.ids[clean(t)], t, bg, self.tag_colours[clean(t)]) for t in li]
 		lo.clear()
-		map(lambda d: lo.append(d), data)
+		map(lambda d: lo.append(d), sorted(data))
 
 	def refresh(self):
 		posts = map(lambda m: client.get_post(m, True), self.md5s)
@@ -157,6 +179,8 @@ class TagWindow:
 		for p in posts:
 			self.all_tags.intersection_update(p["tagguid"])
 			self.any_tags.update(p["tagguid"])
+		agl = self.ids.keys()
+		self.tag_colours = dict(zip(agl, [self.tag_colour(clean(tg)) for tg in agl]))
 		self.put_in_list(self.tags_all, self.all_tags)
 		self.update_from_selection()
 
