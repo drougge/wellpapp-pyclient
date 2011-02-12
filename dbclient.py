@@ -56,6 +56,11 @@ class dbclient:
 		self.userpass = None
 		self.auth_ok = False
 		self.is_connected = False
+		self._md5re = re.compile(r"^[0-9a-f]{32}$", re.I)
+		base = cfg.image_base
+		if base[-1] == "/": base = base[:-1]
+		base = re.escape(base)
+		self._destmd5re = re.compile(r"^" + base + r"/[0-9a-f]/[0-9a-f]{2}/([0-9a-f]{32})$")
 	def _reconnect(self):
 		if self.is_connected: return
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -386,9 +391,12 @@ class dbclient:
 		return os.path.join(self.cfg.image_base, md5[0], md5[1:3], md5)
 	def postspec2md5(self, spec, default = None):
 		if os.path.exists(spec):
+			if os.path.islink(spec):
+				dest = os.readlink(spec)
+				m = self._destmd5re.match(dest)
+				if m: return m.group(1)
 			return hashlib.md5(file(spec).read()).hexdigest()
-		if re.match(r"^[0-9a-f]{32}$", spec):
-			return spec
+		if self._md5re.match(spec): return spec
 		return default
 	def order(self, tag, posts):
 		tag = str(tag)
