@@ -5,13 +5,6 @@ import socket, base64, codecs, os, hashlib, re
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
 
-_field_parsers = {
-	"created": lambda x: int(x, 16),
-	"width"  : lambda x: int(x, 16),
-	"height" : lambda x: int(x, 16),
-	"score"  : int,
-}
-
 def _utf(s):
 	if type(s) is not unicode:
 		try:
@@ -26,6 +19,50 @@ def _tagspec(type, value):
 		type = value[0] + type
 		value = value[1:]
 	return type + value
+
+def _enc(str):
+	while len(str) % 3: str += "\x00"
+	return base64.b64encode(str, "_-")
+def _dec(enc):
+	str = base64.b64decode(enc, "_-")
+	while str[-1] == "\x00": str = str[:-1]
+	return str
+_p_hex = lambda x: int(x, 16)
+_field_sparser = {
+	"created"        : _p_hex,
+	"image_date"     : _p_hex,
+	"image_date_fuzz": int,
+	"width"          : _p_hex,
+	"height"         : _p_hex,
+	"score"          : int,
+	"rotate"         : int,
+	"source"         : _dec,
+	"title"          : _dec,
+}
+_p_int = lambda i: str(int(i))
+_p_hexint = lambda i: "%x" % (int(i),)
+def _p_str(val):
+	val = _utf(val)
+	assert " " not in val
+	return val
+def _p_date(val):
+	if isinstance(val, basestring): val = int(val)
+	if not isinstance(val, int):
+		val = int(val.strftime("%s"))
+	return _p_hexint(val)
+_field_cparser = {
+	"width"          : _p_hexint,
+	"height"         : _p_hexint,
+	"score"          : _p_int,
+	"rotate"         : _p_int,
+	"rating"         : _p_str,
+	"created"        : _p_date,
+	"image_date"     : _p_date,
+	"image_date_fuzz": _p_int,
+	"filetype"       : _p_str,
+	"source"         : _enc,
+	"title"          : _enc,
+}
 
 class dbcfg:
 	def __init__(self):
@@ -111,8 +148,8 @@ class dbclient:
 			elif type == u"F":
 				field, value = data.split(u"=", 1)
 				field = str(field)
-				if field in _field_parsers:
-					f[field] = _field_parsers[field](value)
+				if field in _field_sparser:
+					f[field] = _field_sparser[field](value)
 				else:
 					f[field] = value
 			else:
@@ -167,27 +204,25 @@ class dbclient:
 		self.userpass = (_utf(user), _utf(password))
 		self._send_auth()
 		return self.auth_ok
-	def _enc(self, str):
-		while len(str) % 3: str += "\x00"
-		return base64.b64encode(str, "_-")
-	def _dec(self, enc):
-		str = base64.b64decode(enc, "_-")
-		while str[-1] == "\x00": str = str[:-1]
-	def _hexstr(self, val):
-		return "%x" % val;
-	def add_post(self, md5, width, height, filetype, rating=None,
-	             source=None, title=None, date=None):
+	def _fieldspec(self, **kwargs):
+		f = [_utf(f) + "=" + _field_cparser[_utf(f)](kwargs[f]) for f in kwargs]
+		if not f: return ""
+		return " " + " ".join(f)
+	def modify_post(self, md5, **kwargs):
+		md5 = str(md5)
+		assert " " not in md5
+		fspec = self._fieldspec(**kwargs)
+		if fspec:
+			cmd = "MP" + md5 + fspec
+			self._writeline(cmd)
+			res = self._readline()
+			if res != u"OK\n": raise EResponse(res)
+	def add_post(self, md5, **kwargs):
 		cmd  = "AP" + str(md5)
-		cmd += " width=" + self._hexstr(width)
-		cmd += " height=" + self._hexstr(height)
-		cmd += " filetype=" + str(filetype)
-		if rating: cmd += " rating=" + _utf(rating)
-		if source: cmd += " source=" + self._enc(source)
-		if title:  cmd += " title=" + self._enc(title)
-		if date:
-			if type(date) is not int:
-				date = int(date.strftime("%s"))
-			cmd += " image_date=" + self._hexstr(date)
+		assert "width" in kwargs
+		assert "height" in kwargs
+		assert "filetype" in kwargs
+		cmd += self._fieldspec(**kwargs)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)

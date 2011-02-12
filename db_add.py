@@ -134,7 +134,7 @@ def add_image(fn):
 		w, h = img.size
 		args = {"md5": m, "width": w, "height": h, "filetype": ft}
 		try:
-			args["date"] = exif['Exif.Image.DateTime']
+			args["image_date"] = exif['Exif.Image.DateTime']
 		except Exception:
 			pass
 		client.add_post(**args)
