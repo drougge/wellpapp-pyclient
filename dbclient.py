@@ -169,10 +169,11 @@ class dbclient:
 		posts = []
 		while not self._parse_search(self._readline(), posts, wanted): pass
 		return posts
-	def get_post(self, md5, separate_implied = False):
+	def get_post(self, md5, separate_implied = False, wanted = None):
 		md5 = str(md5)
-		wanted = ["tagname", "tagguid", "ext", "created", "width", "height"]
-		if separate_implied: wanted.append("implied")
+		if not wanted:
+			wanted = ["tagname", "tagguid", "ext", "created", "width", "height"]
+		if separate_implied and "implied" not in wanted: wanted.append("implied")
 		search = "SPM" + md5 + " F".join([""] + wanted)
 		posts = self._search_post(search, wanted)
 		if not posts or posts[0]["md5"] != md5: return None
