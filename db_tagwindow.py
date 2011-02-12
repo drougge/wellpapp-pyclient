@@ -6,9 +6,12 @@ from dbclient import dbclient
 from itertools import chain
 import pygtk
 pygtk.require("2.0")
-import gtk, gobject
+import gtk
+from gobject import threads_init, idle_add, TYPE_STRING
+threads_init()
 from os.path import commonprefix
 from hashlib import md5
+from threading import Thread
 
 def clean(n):
 	if n[0] in u"-~": return n[1:]
@@ -50,10 +53,10 @@ class TagWindow:
 		self.b_quit.connect("clicked", self.destroy, None)
 		self.bbox.pack_start(self.b_apply, True, True, 0)
 		self.bbox.pack_end(self.b_quit, False, False, 0)
-		self.msg = gtk.Label(u"")
+		self.msg = gtk.Label(u"Starting..")
 		self.msgbox = gtk.EventBox()
 		self.msgbox.add(self.msg)
-		self.thumbs = gtk.ListStore(gobject.TYPE_STRING, gtk.gdk.Pixbuf)
+		self.thumbs = gtk.ListStore(TYPE_STRING, gtk.gdk.Pixbuf)
 		self.thumbview = gtk.IconView(self.thumbs)
 		self.thumbview.set_pixbuf_column(1)
 		self.thumbview.set_tooltip_column(0)
@@ -61,7 +64,7 @@ class TagWindow:
 		self.thumbview.set_selection_mode(gtk.SELECTION_MULTIPLE)
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.tagbox = gtk.VBox(False, 0)
-		taglisttypes = [gobject.TYPE_STRING] * 4
+		taglisttypes = [TYPE_STRING] * 4
 		self.tags_all = gtk.ListStore(*taglisttypes)
 		self.tags_allcurrent = gtk.ListStore(*taglisttypes)
 		self.tags_currentother = gtk.ListStore(*taglisttypes)
@@ -126,7 +129,9 @@ class TagWindow:
 		self.window.add(self.vbox)
 		self.window.set_default_size(840, 600)
 		self.window.show_all()
+		self.b_apply.hide()
 		self.type2colour = dict([cs.split("=") for cs in client.cfg.tagcolours.split()])
+		self.md5s = None
 
 	def drag_put_tagfield(self, widget, context, x, y, selection, targetType, eventTime):
 		tag = _uni(selection.data) + u" "
@@ -172,6 +177,9 @@ class TagWindow:
 		if None in posts:
 			self.error(u"Post(s) not found")
 			posts = filter(None, posts)
+		if not posts:
+			self.error(u"No posts found")
+			return
 		self.ids = dict(zip(chain(*[map(clean, p["tagguid"] + p["impltagguid"]) for p in posts]),
 		                    chain(*[map(clean, p["tagname"] + p["impltagname"]) for p in posts])))
 		self.posts = dict([(p["md5"], p) for p in posts])
@@ -190,13 +198,10 @@ class TagWindow:
 			self.taglist[pre + "all"].intersection_update(p[pre + "tagguid"])
 			self.taglist[pre + "any"].update(p[pre + "tagguid"])
 
-	def load_thumbs(self):
-		z = int(client.cfg.thumb_sizes.split()[0])
+	def set_thumbs(self, thumbs):
 		self.thumbs.clear()
-		for m in self.posts:
-			fn = client.thumb_path(m, z)
-			thumb = gtk.gdk.pixbuf_new_from_file(fn)
-			self.thumbs.append((m, thumb,))
+		for thumb in thumbs:
+			self.thumbs.append(thumb)
 
 	def known_tag(self, tag):
 		return tag["guid"] in self.ids
@@ -272,6 +277,7 @@ class TagWindow:
 		if not orgtext:
 			gtk.main_quit()
 			return
+		if not self.md5s: return
 		good = []
 		failed = []
 		for t in orgtext.split():
@@ -323,27 +329,61 @@ class TagWindow:
 		self.refresh()
 		return bad
 
-	def error(self, msg):
-		self.b_apply.hide()
-		self.msgbox.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse("#FF4466"))
-		self.msg.set_text(msg)
-
-	def main(self, md5s):
-		self.window.show()
-		self.tagfield.grab_focus()
+	def set_md5s(self, md5s):
 		self.md5s = md5s
 		self.refresh()
-		self.load_thumbs()
+		self.b_apply.show()
+
+	def set_msg(self, msg, bg="#FFFFFF"):
+		self.msgbox.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse(bg))
+		self.msg.set_text(msg)
+
+	def error(self, msg):
+		self.set_msg(msg, "#FF4466")
+
+	def main(self):
+		self.window.show()
+		self.tagfield.grab_focus()
 		gtk.main()
+
+
+class FileLoader(Thread):
+	def __init__(self, tw, argv):
+		Thread.__init__(self)
+		self.name = "FileLoader"
+		self.daemon = True
+		self._tw = tw
+		self._argv = argv
+
+	def run(self):
+		client = dbclient()
+		md5s = map(client.postspec2md5, self._argv)
+		good = True
+		if None in md5s:
+			idle_add(self._tw.error, u"File(s) not found")
+			md5s = filter(None, md5s)
+			good = False
+		else:
+			idle_add(self._tw.set_msg, u"Loading thumbs")
+		if not md5s:
+			idle_add(self._tw.error, u"No posts found")
+			return
+		idle_add(self._tw.set_md5s, md5s)
+		z = int(client.cfg.thumb_sizes.split()[0])
+		thumbs = []
+		for m in md5s:
+			fn = client.thumb_path(m, z)
+			thumb = gtk.gdk.pixbuf_new_from_file(fn)
+			thumbs.append((m, thumb,))
+		idle_add(self._tw.set_thumbs, thumbs)
+		if good: idle_add(self._tw.set_msg, u"")
 
 if __name__ == "__main__":
 	if len(argv) < 2:
 		print "Usage:", argv[0], "post-spec [post-spec [...]]"
 		exit(1)
 	client = dbclient()
-	md5s = map(client.postspec2md5, argv[1:])
 	tw = TagWindow()
-	if None in md5s:
-		tw.error(u"File(s) not found")
-		md5s = filter(None, md5s)
-	tw.main(md5s)
+	fl = FileLoader(tw, argv[1:])
+	fl.start()
+	tw.main()
