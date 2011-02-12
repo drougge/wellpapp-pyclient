@@ -52,16 +52,18 @@ def needs_thumbs(m, ft):
 	for fn, z in jpeg_fns + png_fns:
 		if not exists(fn): return True
 
-def rotate_image(img, exif):
-	if "Exif.Image.Orientation" not in exif.exifKeys(): return img
+def exif2rotation(exif):
+	if "Exif.Image.Orientation" not in exif.exifKeys(): return -1
 	o = exif["Exif.Image.Orientation"]
-	if o == 3:
-		return img.transpose(Image.ROTATE_180)
-	elif o == 6:
-		return img.transpose(Image.ROTATE_270)
-	elif o == 8:
-		return img.transpose(Image.ROTATE_90)
-	return img
+	orient = {1: 0, 3: 180, 6: 270, 8: 90}
+	if o not in orient: return -1
+	return orient[o]
+
+def rotate_image(img, exif):
+	rot = exif2rotation(exif)
+	rotation = {90: Image.ROTATE_90, 180: Image.ROTATE_180, 270: Image.ROTATE_270}
+	if rot not in rotation: return img
+	return img.transpose(rotation[rot])
 
 def make_pdirs(fn):
 	dn = dirname(fn)
@@ -133,6 +135,8 @@ def add_image(fn):
 	if not post:
 		w, h = img.size
 		args = {"md5": m, "width": w, "height": h, "filetype": ft}
+		rot = exif2rotation(exif)
+		if rot >= 0: args["rotate"] = rot
 		try:
 			args["image_date"] = exif['Exif.Image.DateTime']
 		except Exception:
