@@ -20,6 +20,7 @@ NOTFOUND = IOError(errno.ENOENT, "Not found")
 md5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)$")
 metamd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)\.gq\.xmp$")
 sre = re.compile(r"[ /]")
+orient = {0: 1, 90: 6, 180: 3, 270: 8}
 
 class WpStat(fuse.Stat):
 	def __init__(self, mode, nlink, size):
@@ -116,8 +117,11 @@ class Wellpapp(fuse.Fuse):
 		return WpStat(mode, nlink, size)
 
 	def _generate_meta(self, m):
-		data = """<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 4.1.1-Exiv2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:tiff="http://ns.adobe.com/tiff/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:subject><rdf:Bag>"""
-		post = self._client.get_post(m)
+		data = """<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 4.1.1-Exiv2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:tiff="http://ns.adobe.com/tiff/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" """
+		post = self._client.get_post(m, wanted=["tagname", "rotate"])
+		if "rotate" in post and post["rotate"] in orient:
+			data += "tiff:Orientation=\"" + str(orient[post["rotate"]]) + "\""
+		data += "><dc:subject><rdf:Bag>"
 		data += "".join(["<rdf:li>" + xmlescape(tn).encode("utf-8") + "</rdf:li>" \
 		                 for tn in sorted(post["tagname"])])
 		data += "</rdf:Bag></dc:subject></rdf:Description></rdf:RDF></x:xmpmeta>"
