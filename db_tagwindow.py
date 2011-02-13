@@ -133,6 +133,7 @@ class TagWindow:
 		self.b_apply.hide()
 		self.type2colour = dict([cs.split("=") for cs in client.cfg.tagcolours.split()])
 		self.md5s = None
+		self.fullscreen_open = False
 
 	def drag_put_tagfield(self, widget, context, x, y, selection, targetType, eventTime):
 		tag = _uni(selection.data) + u" "
@@ -211,9 +212,16 @@ class TagWindow:
 		self.update_from_selection()
 
 	def thumb_activated(self, iconview, path):
-		m = self.thumbs[path][0]
-		fn = client.image_path(m)
-		FullscreenWindow(fn)
+		if self.fullscreen_open: return
+		try:
+			self.fullscreen_open = True
+			m = self.thumbs[path][0]
+			fn = client.image_path(m)
+			self.set_msg(u"Loading image")
+			f = FullscreenWindowThread(fn, tw)
+			f.start()
+		except Exception:
+			self.fullscreen_open = False
 
 	def update_from_selection(self):
 		self._update_from_selection("")
@@ -352,23 +360,46 @@ class TagWindow:
 		self.tagfield.grab_focus()
 		gtk.main()
 
-class FullscreenWindow(gtk.Window):
-	def __init__(self, filename):
-		super(FullscreenWindow, self).__init__()
+# This doesn't actually manage the window, it just loads the image for it.
+# Only the main thread ever touches visible objects, because I don't want to
+# mess with the locking system (thread_enter etc).
+class FullscreenWindowThread(Thread):
+	def __init__(self, fn, tw):
+		Thread.__init__(self)
+		self.name = "FullscreenWindow"
+		self._fn = fn
+		self._tw = tw
 
-		self.set_title("Kotte fullscreen window")
-		self.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0,0,0))
+	def run(self):
+		try:
+			pixbuf = gtk.gdk.pixbuf_new_from_file(self._fn)
+			self._win = FullscreenWindow()
+			idle_add(self._win._init, self._tw, pixbuf)
+			idle_add(self._tw.set_msg, u"")
+		except Exception:
+			self._cleanup()
+
+	def _cleanup(self, *args):
+		self._tw.fullscreen_open = False
+		gtk.Window.destroy(self._win, *args)
+
+class FullscreenWindow(gtk.Window):
+	def _init(self, tw, pixbuf):
+		self._tw = tw
+		self.pixbuf = pixbuf
+		self.set_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.KEY_PRESS_MASK)
+		self.set_title("Fullscreen window")
+		self.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
 		self.show()
 		self.fullscreen()
 		self.set_size_request(1, 1)
-		self.pixbuf = gtk.gdk.pixbuf_new_from_file(filename)
 		self.pix_w = self.pixbuf.get_width()
 		self.pix_h = self.pixbuf.get_height()
 		self.image = gtk.Image()
 		self.add(self.image)
-
 		self.connect("configure_event", self._on_configure)
 		self.connect('key-press-event', self.key_press_event)
+		self.connect("button-press-event", self.destroy)
 		self.show_all()
 
 	def _on_configure(self, *args):
@@ -385,18 +416,21 @@ class FullscreenWindow(gtk.Window):
 			self.show_all()
 
 	def scale_pixbuf_to_scalefactor(self, scalefactor):
-		new_w = int(round(self.pix_w*scalefactor))
-		new_h = int(round(self.pix_h*scalefactor))
+		new_w = int(round(self.pix_w * scalefactor))
+		new_h = int(round(self.pix_h * scalefactor))
 		new_pixbuf = self.pixbuf.scale_simple(new_w, new_h, gtk.gdk.INTERP_HYPER)
 		self.image.set_from_pixbuf(new_pixbuf)
 		self.show_all()
 
 	def key_press_event(self, spin, event):
 		key = gtk.gdk.keyval_name(event.keyval).lower()
-		if key == 'f' or key == "escape":
+		# All normal keys and a few special
+		if len(key) == 1 or key in ("escape", "space", "return"):
 			self.destroy()
-		else:
-			print "No bind found for key '%s'." % key
+
+	def destroy(self, *args):
+		self._tw.fullscreen_open = False
+		gtk.Window.destroy(self)
 
 class FileLoader(Thread):
 	def __init__(self, tw, argv):
