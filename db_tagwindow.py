@@ -63,6 +63,7 @@ class TagWindow:
 		self.thumbview.set_reorderable(True)
 		self.thumbview.set_selection_mode(gtk.SELECTION_MULTIPLE)
 		self.thumbview.connect("selection-changed", self.thumb_selected)
+		self.thumbview.connect("item-activated", self.thumb_activated)
 		self.tagbox = gtk.VBox(False, 0)
 		taglisttypes = [TYPE_STRING] * 4
 		self.tags_all = gtk.ListStore(*taglisttypes)
@@ -209,6 +210,11 @@ class TagWindow:
 	def thumb_selected(self, iconview):
 		self.update_from_selection()
 
+	def thumb_activated(self, iconview, path):
+		m = self.thumbs[path][0]
+		fn = client.image_path(m)
+		FullscreenWindow(fn)
+
 	def update_from_selection(self):
 		self._update_from_selection("")
 		self._update_from_selection("impl")
@@ -346,6 +352,51 @@ class TagWindow:
 		self.tagfield.grab_focus()
 		gtk.main()
 
+class FullscreenWindow(gtk.Window):
+	def __init__(self, filename):
+		super(FullscreenWindow, self).__init__()
+
+		self.set_title("Kotte fullscreen window")
+		self.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0,0,0))
+		self.show()
+		self.fullscreen()
+		self.set_size_request(1, 1)
+		self.pixbuf = gtk.gdk.pixbuf_new_from_file(filename)
+		self.pix_w = self.pixbuf.get_width()
+		self.pix_h = self.pixbuf.get_height()
+		self.image = gtk.Image()
+		self.add(self.image)
+
+		self.connect("configure_event", self._on_configure)
+		self.connect('key-press-event', self.key_press_event)
+		self.show_all()
+
+	def _on_configure(self, *args):
+		self._scale_pixbuf_to_fit_win()
+
+	def _scale_pixbuf_to_fit_win(self):
+		win_w, win_h = self.get_size()
+		if (win_w < self.pix_w) or (win_h < self.pix_h):
+			scalefactor = min(float(win_w) / self.pix_w,
+			                  float(win_h) / self.pix_h)
+			self.scale_pixbuf_to_scalefactor(scalefactor)
+		else:
+			self.image.set_from_pixbuf(self.pixbuf)
+			self.show_all()
+
+	def scale_pixbuf_to_scalefactor(self, scalefactor):
+		new_w = int(round(self.pix_w*scalefactor))
+		new_h = int(round(self.pix_h*scalefactor))
+		new_pixbuf = self.pixbuf.scale_simple(new_w, new_h, gtk.gdk.INTERP_HYPER)
+		self.image.set_from_pixbuf(new_pixbuf)
+		self.show_all()
+
+	def key_press_event(self, spin, event):
+		key = gtk.gdk.keyval_name(event.keyval).lower()
+		if key == 'f' or key == "escape":
+			self.destroy()
+		else:
+			print "No bind found for key '%s'." % key
 
 class FileLoader(Thread):
 	def __init__(self, tw, argv):
