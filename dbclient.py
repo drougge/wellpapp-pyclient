@@ -400,7 +400,7 @@ class dbclient:
 			guid = guid[1:]
 		else:
 			prefix = u""
-		tags = self.find_tags("EG", guid)
+		tags = self.find_tags("EAG", guid)
 		if not tags: return None
 		assert len(tags) == 1
 		assert guid == tags.keys()[0]

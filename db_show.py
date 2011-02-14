@@ -49,12 +49,13 @@ if match(r"^[0-9a-f]{32}$", object):
 	if rels:
 		print "Related posts:\n\t" + "\n\t".join(rels)
 else:
-	data = {"name": "ERROR", "type": "ERROR", "posts": -1, "weak_posts": -1}
-	guid = client.find_tag(object, data)
+	guid = client.find_tag(object)
 	if not guid:
 		print "Tag not found"
 		exit(1)
+	data = client.get_tag(guid)
 	print "Tag:", data["name"]
+	if "alias" in data: print "Aliases:", " ".join(data["alias"])
 	print "GUID:", guid
 	print "Type:", data["type"]
 	print data["posts"], "posts"
