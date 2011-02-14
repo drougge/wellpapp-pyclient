@@ -15,7 +15,8 @@ def short(tag):
 	print tag["name"]
 
 def long(tag):
-	print tag["name"], tag["type"], tag["posts"], tag["weak_posts"]
+	names = [tag["name"]] + (tag["alias"] if "alias" in tag else [])
+	print " ".join(names), tag["type"], tag["posts"], tag["weak_posts"]
 
 opts = ""
 known_opts = "fas"
