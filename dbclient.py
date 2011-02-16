@@ -287,17 +287,18 @@ class dbclient:
 	def _parse_implies(self, data):
 		res = self._readline()
 		if res == u"OK\n": return
-		set_guid, impl_guid = map(str, res.split())
+		set_guid, impl_guid = map(str, res.split(" ", 1))
 		assert set_guid[:2] == "RI"
 		set_guid = set_guid[2:]
-		impl_guid, prio = impl_guid.split(":")
-		if impl_guid[0] == "i":
-			impl_guid = "-" + impl_guid[1:]
-		else:
-			assert impl_guid[0] == "I"
-			impl_guid = impl_guid[1:]
-		if set_guid not in data: data[set_guid] = []
-		data[set_guid].append((impl_guid, int(prio)))
+		for impl_guid in impl_guid.split():
+			impl_guid, prio = impl_guid.split(":")
+			if impl_guid[0] == "i":
+				impl_guid = "-" + impl_guid[1:]
+			else:
+				assert impl_guid[0] == "I"
+				impl_guid = impl_guid[1:]
+			if set_guid not in data: data[set_guid] = []
+			data[set_guid].append((impl_guid, int(prio)))
 		return True
 	def tag_implies(self, tag, reverse=False):
 		tag = str(tag)
