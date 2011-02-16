@@ -26,13 +26,16 @@ client = dbclient()
 object = client.postspec2md5(argv[1], argv[1])
 
 if match(r"^[0-9a-f]{32}$", object):
-	post = client.get_post(object, True)
+	post = client.get_post(object, True, ["tagname", "ext", "created", "width", "height", "source", "title"])
 	if not post:
 		print "Post not found"
 		exit(1)
 	t = localtime(post["created"])
 	print object + " created " + strftime("%F %T", t)
 	print post["width"], "x", post["height"], post["ext"]
+	for field in ("title", "source"):
+		if field in post:
+			print field.title() + ": " + post[field]
 	try:
 		path = readlink(client.image_path(object))
 		if not exists(path):

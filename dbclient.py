@@ -5,13 +5,13 @@ import socket, base64, codecs, os, hashlib, re
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
 
-def _utf(s):
+def _utf(s, allow_space=False):
 	if type(s) is not unicode:
 		try:
 			s = s.decode("utf-8")
 		except Exception:
 			s = s.decode("iso-8859-1")
-	assert u" " not in s
+	if not allow_space: assert u" " not in s
 	return s.encode("utf-8")
 
 def _tagspec(type, value):
@@ -21,9 +21,11 @@ def _tagspec(type, value):
 	return type + value
 
 def _enc(str):
+	str = _utf(str, True)
 	while len(str) % 3: str += "\x00"
 	return base64.b64encode(str, "_-")
 def _dec(enc):
+	enc = _utf(enc)
 	str = base64.b64decode(enc, "_-")
 	while str[-1] == "\x00": str = str[:-1]
 	return str
