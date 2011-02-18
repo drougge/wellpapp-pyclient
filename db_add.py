@@ -56,7 +56,7 @@ def needs_thumbs(m, ft):
 def exif2rotation(exif):
 	if "Exif.Image.Orientation" not in exif.exifKeys(): return -1
 	o = exif["Exif.Image.Orientation"]
-	orient = {1: 0, 3: 180, 6: 270, 8: 90}
+	orient = {1: 0, 3: 180, 6: 90, 8: 270}
 	if o not in orient: return -1
 	return orient[o]
 
