@@ -40,7 +40,7 @@ def save_thumbs(m, ft, mtime, img):
 		img = img.copy()
 		img.thumbnail((z, z), Image.ANTIALIAS)
 	for fn, z, opts in jpeg + png:
-		if not exists(fn):
+		if force_thumbs or not exists(fn):
 			t = img.copy()
 			if w > z or h > z:
 				t.thumbnail((z, z), Image.ANTIALIAS)
@@ -48,6 +48,7 @@ def save_thumbs(m, ft, mtime, img):
 			t.save(fn, **opts)
 
 def needs_thumbs(m, ft):
+	if force_thumbs: return True
 	jpeg_fns, png_fns = thumb_fns(m, ft)
 	for fn, z in jpeg_fns + png_fns:
 		if not exists(fn): return True
@@ -101,13 +102,6 @@ def find_tags(fn):
 	return tags
 
 def add_image(fn):
-	global quiet, verbose
-	if fn == "-q":
-		quiet = True
-		return
-	if fn == "-v":
-		verbose = True
-		return
 	if verbose: print fn
 	fn = realpath(fn)
 	data = file(fn).read()
@@ -160,15 +154,31 @@ def add_image(fn):
 	if full or weak:
 		client.tag_post(m, full, weak)
 
+def usage():
+	print "Usage:", argv[0], "[-v] [-q] [-f] filename [filename [..]]"
+	exit(1)
+
 if __name__ == '__main__':
 	from sys import argv, exit
 	from dbclient import dbclient
-	if len(argv) < 2:
-		print "Usage:", argv[0], "filename [filename [..]]"
-		exit(1)
-	client = dbclient()
-	client.begin_transaction()
+	if len(argv) < 2: usage()
+	a = 1
+	switches = ("-v", "-q", "-f", "-h")
 	quiet = False
 	verbose = False
-	map(add_image, argv[1:])
+	force_thumbs = False
+	while argv[a] in switches:
+		if argv[a] == "-q":
+			quiet = True
+		elif argv[a] == "-v":
+			verbose = True
+		elif argv[a] == "-f":
+			force_thumbs = True
+		else:
+			usage()
+		a += 1
+		if len(argv) == a: usage()
+	client = dbclient()
+	client.begin_transaction()
+	map(add_image, argv[a:])
 	client.end_transaction()
