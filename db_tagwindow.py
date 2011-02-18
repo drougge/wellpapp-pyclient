@@ -335,7 +335,8 @@ class TagWindow:
 		if todo_m: client.begin_transaction()
 		try:
 			for m in todo_m:
-				client.tag_post(m, *todo[m])
+				full, weak, remove = map(set, todo[m])
+				client.tag_post(m, full, weak, remove)
 		except:
 			bad = True
 		finally:
