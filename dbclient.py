@@ -84,6 +84,8 @@ class dbcfg:
 				a = line.split("=", 1)
 				assert(len(a) == 2)
 				self.__dict__[a[0]] = a[1]
+	def __getattr__(self, name):
+		return ""
 
 class dbclient:
 	_prot_max_len = 4096
