@@ -28,7 +28,7 @@ def _dec(enc):
 	enc = _utf(enc)
 	str = base64.b64decode(enc, "_-")
 	while str[-1] == "\x00": str = str[:-1]
-	return str
+	return str.decode("utf-8")
 _p_hex = lambda x: int(x, 16)
 _field_sparser = {
 	"created"        : _p_hex,
