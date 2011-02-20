@@ -62,7 +62,8 @@ def exif2rotation(exif):
 
 def rotate_image(img, exif):
 	rot = exif2rotation(exif)
-	rotation = {90: Image.ROTATE_90, 180: Image.ROTATE_180, 270: Image.ROTATE_270}
+	# PIL rotates CCW
+	rotation = {90: Image.ROTATE_270, 180: Image.ROTATE_180, 270: Image.ROTATE_90}
 	if rot not in rotation: return img
 	return img.transpose(rotation[rot])
 
