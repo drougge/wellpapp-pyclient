@@ -25,7 +25,7 @@ def show_post(m):
 	post = client.get_post(m, True, ["tagname", "ext", "created", "width", "height", "source", "title"])
 	if not post:
 		print "Post not found"
-		exit(1)
+		return 1
 	t = localtime(post["created"])
 	print m + " created " + strftime("%F %T", t)
 	print post["width"], "x", post["height"], post["ext"]
@@ -47,12 +47,13 @@ def show_post(m):
 	rels = client.post_rels(m)
 	if rels:
 		print "Related posts:\n\t" + "\n\t".join(rels)
+	return 0
 
 def show_tag(name):
 	guid = client.find_tag(name)
 	if not guid:
 		print "Tag not found"
-		exit(1)
+		return 1
 	data = client.get_tag(guid)
 	print "Tag:", _tagenc(data["name"])
 	if "alias" in data: print "Aliases:", " ".join(map(_tagenc, data["alias"]))
@@ -62,6 +63,7 @@ def show_tag(name):
 	print data["weak_posts"], "weak posts"
 	show_implies(guid, "Implies:", False)
 	show_implies(guid, "Implied by:", True)
+	return 0
 
 if __name__ == "__main__":
 	if len(argv) < 2:
@@ -69,9 +71,12 @@ if __name__ == "__main__":
 		exit(1)
 	client = dbclient()
 	object = client.postspec2md5(argv[1], argv[1])
+	ret = 0
 	for object in argv[1:]:
+		object = client.postspec2md5(object, object)
 		if match(r"^[0-9a-f]{32}$", object):
-			show_post(object)
+			ret |= show_post(object)
 		else:
-			show_tag(object)
+			ret |= show_tag(object)
 		if len(argv) > 2: print
+	exit(ret)
