@@ -54,7 +54,7 @@ def needs_thumbs(m, ft):
 		if not exists(fn): return True
 
 def exif2rotation(exif):
-	if "Exif.Image.Orientation" not in exif.exifKeys(): return -1
+	if not exif or "Exif.Image.Orientation" not in exif.exifKeys(): return -1
 	o = exif["Exif.Image.Orientation"]
 	orient = {1: 0, 3: 180, 6: 90, 8: 270}
 	if o not in orient: return -1
@@ -125,8 +125,11 @@ def add_image(fn):
 	if not post or needs_thumbs(m, ft):
 		datafh = StringIO(data)
 		img = Image.open(datafh)
-		exif = ExivImage(fn)
-		exif.readMetadata()
+		try:
+			exif = ExivImage(fn)
+			exif.readMetadata()
+		except Exception:
+			exif = None
 	if not post:
 		w, h = img.size
 		args = {"md5": m, "width": w, "height": h, "filetype": ft}
