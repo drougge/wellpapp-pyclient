@@ -9,10 +9,6 @@ from os.path import exists
 from hashlib import md5
 from os import readlink
 
-if len(argv) != 2:
-	print "Usage:", argv[0], "post-spec or tagname"
-	exit(1)
-
 def _tagenc(t):
 	return t.encode(stdout.encoding or "ascii", "replace")
 
@@ -25,22 +21,19 @@ def show_implies(guid, heading, reverse):
 	impl = client.tag_implies(guid, reverse)
 	if impl: print heading + "".join(map(implfmt, impl))
 
-client = dbclient()
-object = client.postspec2md5(argv[1], argv[1])
-
-if match(r"^[0-9a-f]{32}$", object):
-	post = client.get_post(object, True, ["tagname", "ext", "created", "width", "height", "source", "title"])
+def show_post(m):
+	post = client.get_post(m, True, ["tagname", "ext", "created", "width", "height", "source", "title"])
 	if not post:
 		print "Post not found"
 		exit(1)
 	t = localtime(post["created"])
-	print object + " created " + strftime("%F %T", t)
+	print m + " created " + strftime("%F %T", t)
 	print post["width"], "x", post["height"], post["ext"]
 	for field in ("title", "source"):
 		if field in post:
 			print field.title() + ": " + _tagenc(post[field])
 	try:
-		path = readlink(client.image_path(object))
+		path = readlink(client.image_path(m))
 		if not exists(path):
 			path += " (MISSING)"
 	except Exception:
@@ -51,11 +44,12 @@ if match(r"^[0-9a-f]{32}$", object):
 	if post["impltagname"]:
 		print "Implied:\n\t",
 		print "\n\t".join(map(_tagenc, sorted(post["impltagname"])))
-	rels = client.post_rels(object)
+	rels = client.post_rels(m)
 	if rels:
 		print "Related posts:\n\t" + "\n\t".join(rels)
-else:
-	guid = client.find_tag(object)
+
+def show_tag(name):
+	guid = client.find_tag(name)
 	if not guid:
 		print "Tag not found"
 		exit(1)
@@ -68,3 +62,16 @@ else:
 	print data["weak_posts"], "weak posts"
 	show_implies(guid, "Implies:", False)
 	show_implies(guid, "Implied by:", True)
+
+if __name__ == "__main__":
+	if len(argv) < 2:
+		print "Usage:", argv[0], "post-spec or tagname [...]"
+		exit(1)
+	client = dbclient()
+	object = client.postspec2md5(argv[1], argv[1])
+	for object in argv[1:]:
+		if match(r"^[0-9a-f]{32}$", object):
+			show_post(object)
+		else:
+			show_tag(object)
+		if len(argv) > 2: print
