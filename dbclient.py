@@ -387,7 +387,7 @@ class dbclient:
 		return tags
 	def find_tag(self, name, resdata=None, with_prefix=False):
 		name = _utf(name)
-		if with_prefix and name[0] in u"~-":
+		if with_prefix and name[0] in "~-":
 			prefix = str(name[0])
 			name = name[1:]
 		else:
