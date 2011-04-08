@@ -137,7 +137,9 @@ def add_image(fn):
 		args = {"md5": m, "width": w, "height": h, "filetype": ft}
 		if rot >= 0: args["rotate"] = rot
 		try:
-			args["image_date"] = exif['Exif.Image.DateTime']
+			date = exif['Exif.Image.DateTime']
+			if isinstance(date, basestring): date = int(date)
+			args["image_date"] = date
 		except Exception:
 			pass
 		client.add_post(**args)
