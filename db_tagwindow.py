@@ -130,7 +130,7 @@ class TagWindow:
 		self.tagfield.connect("drag_data_received", self.drag_put_tagfield)
 		self.vbox.pack_end(self.tagfield, False, False, 0)
 		self.window.add(self.vbox)
-		self.window.set_default_size(840, 600)
+		self.window.set_default_size(int(client.cfg.tagwindow_width), int(client.cfg.tagwindow_height))
 		self.window.show_all()
 		self.b_apply.hide()
 		self.type2colour = dict([cs.split("=") for cs in client.cfg.tagcolours.split()])

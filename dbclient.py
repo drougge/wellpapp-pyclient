@@ -67,6 +67,8 @@ _field_cparser = {
 }
 
 class dbcfg:
+	tagwindow_width = 840
+	tagwindow_height = 600
 	def __init__(self):
 		RC_NAME = ".wellpapprc"
 		path = "/"
