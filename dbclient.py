@@ -433,7 +433,7 @@ class dbclient:
 		md5 = str(md5)
 		return os.path.join(self.cfg.image_base, md5[0], md5[1:3], md5)
 	def postspec2md5(self, spec, default = None):
-		if os.path.exists(spec) and not os.path.isdir(spec):
+		if os.path.lexists(spec) and not os.path.isdir(spec):
 			if os.path.islink(spec):
 				dest = os.readlink(spec)
 				m = self._destmd5re.match(dest)
