@@ -169,7 +169,8 @@ class Wellpapp(fuse.Fuse):
 		s = self._client.search_post(tags=search[0],
 		                             excl_tags=search[1],
 		                             wanted=["ext"],
-		                             order=order)
+		                             order=order,
+		                             range=search[3])
 		r = []
 		idx = 0
 		prefix = ""
@@ -186,18 +187,21 @@ class Wellpapp(fuse.Fuse):
 		dontwant = set()
 		order = []
 		first = None
+		range = None
 		for e in sre.split(path[1:]):
 			if e[0] == "-":
 				dontwant.add(e[1:])
 			elif e[:2] == "O:":
 				order.append(e[2:])
+			elif e[:2] == "R:":
+				range = tuple(map(int, e[2:].split(":")))
 			else:
 				want.add(e)
 				if not first: first = e
 		if "group" in order:
 			want.remove(first)
 			want = [first] + list(want)
-		return tuple(want), tuple(dontwant), tuple(order)
+		return tuple(want), tuple(dontwant), tuple(order), range
 
 	def main(self, *a, **kw):
 		wp = self
