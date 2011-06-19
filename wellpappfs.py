@@ -206,6 +206,8 @@ class Wellpapp(fuse.Fuse):
 	def main(self, *a, **kw):
 		wp = self
 		class FakeFile:
+			keep_cache = False
+			direct_io = False
 			def __init__(self, path, flags, *mode):
 				rwflags = flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)
 				if rwflags != os.O_RDONLY: raise NOTFOUND
