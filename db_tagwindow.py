@@ -8,6 +8,7 @@ import pygtk
 pygtk.require("2.0")
 import gtk
 from gobject import threads_init, idle_add, TYPE_STRING
+from pango import ELLIPSIZE_END
 threads_init()
 from os.path import commonprefix
 from hashlib import md5
@@ -32,14 +33,16 @@ def complete(word):
 	assert u" " not in word
 	pre = prefix(word)
 	word = clean(word)
-	for t, get in ("EI", lambda t: t["name"]), ("EAI", lambda t: t["alias"][0]):
+	for t, get in ("EI", lambda t: t["name"]), ("EAI", lambda t: t["alias"][0]), \
+	              ("FI", lambda t: t["name"]), ("FAI", lambda t: t["alias"][0]):
 		tags = client.find_tags(t, word).values()
 		if pre == "-": tags = filter(tw.known_tag, tags)
-		if len(tags) == 1: return pre + get(tags[0]), True
-	names = filter(lambda n: n[:len(word)] == word, [t["name"] for t in tags])
+		if len(tags) == 1: return pre + get(tags[0]), False
+	inc = lambda n: n[:len(word)] == word
+	names = filter(inc, [t["name"] for t in tags])
 	aliases = [t["alias"] if "alias" in t else [] for t in tags]
-	candidates = names + list(chain(*aliases))
-	return pre + commonprefix(candidates), False
+	candidates = names + filter(inc, chain(*aliases))
+	return pre + commonprefix(candidates), candidates
 
 class TagWindow:
 	def __init__(self):
@@ -54,6 +57,7 @@ class TagWindow:
 		self.bbox.pack_start(self.b_apply, True, True, 0)
 		self.bbox.pack_end(self.b_quit, False, False, 0)
 		self.msg = gtk.Label(u"Starting..")
+		self.msg.set_ellipsize(ELLIPSIZE_END)
 		self.msgbox = gtk.EventBox()
 		self.msgbox.add(self.msg)
 		self.thumbs = gtk.ListStore(TYPE_STRING, gtk.gdk.Pixbuf)
@@ -271,6 +275,7 @@ class TagWindow:
 	def tagfield_key(self, tagfield, event):
 		if event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK): return
 		if gtk.gdk.keyval_name(event.keyval) == "Tab":
+			self.set_msg(u"")
 			text = _uni(tagfield.get_text())
 			pos = tagfield.get_position()
 			spos = text.rfind(u" ", 0, pos) + 1
@@ -278,9 +283,11 @@ class TagWindow:
 			word = text[spos:pos]
 			right = text[pos:]
 			if word:
-				new_word, full = complete(word)
+				new_word, alts = complete(word)
 				if len(new_word) > 1:
-					if full:
+					if alts:
+						self.set_msg(u" ".join(sorted(alts)))
+					else:
 						if not right or right[0] != u" ":
 							new_word += u" "
 					text = left + new_word + right
@@ -289,6 +296,7 @@ class TagWindow:
 			return True
 
 	def apply_action(self, widget, data=None):
+		self.set_msg(u"")
 		orgtext = _uni(self.tagfield.get_text())
 		if not orgtext:
 			gtk.main_quit()
