@@ -29,6 +29,10 @@ def _uni(s):
 			s = s.decode("iso-8859-1")
 	return s
 
+_fuzz_ignore = u"".join(map(unichr, range(33))) + u"-_()[]{}.,!/\"'?<>@=+%$#|\\"
+def _completefuzz(word):
+	return filter(lambda c: c not in _fuzz_ignore, word.lower())
+
 def complete(word):
 	assert u" " not in word
 	pre = prefix(word)
@@ -38,10 +42,17 @@ def complete(word):
 		tags = client.find_tags(t, word).values()
 		if pre == "-": tags = filter(tw.known_tag, tags)
 		if len(tags) == 1: return pre + get(tags[0]), False
-	inc = lambda n: n[:len(word)] == word
-	names = filter(inc, [t["name"] for t in tags])
+		if len(tags) > 1: break
 	aliases = [t["alias"] if "alias" in t else [] for t in tags]
-	candidates = names + filter(inc, chain(*aliases))
+	aliases = chain(*aliases)
+	tags = [t["name"] for t in tags]
+	inc = lambda n: n[:len(word)] == word
+	candidates = filter(inc, tags) + filter(inc, aliases)
+	if not candidates:
+		word = _completefuzz(word)
+		inc = lambda n: _completefuzz(n)[:len(word)] == word
+		candidates = filter(inc, tags) + filter(inc, aliases)
+		candidates = map(unicode.lower, candidates)
 	return pre + commonprefix(candidates), candidates
 
 class TagWindow:
