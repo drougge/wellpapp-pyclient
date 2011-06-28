@@ -128,6 +128,7 @@ class dbclient:
 	def _parse_search(self, line, posts, wanted):
 		if line == u"OK\n": return True
 		if line[0] != u"R": raise EResponse(line)
+		if line[1] == u"R": return
 		tags = []
 		guids = []
 		impltags = []
@@ -189,7 +190,7 @@ class dbclient:
 		if isinstance(data, basestring): return [converter(data)]
 		return map(converter, data)
 	def search_post(self, tags=None, guids=None, excl_tags=None,
-	                excl_guids=None , wanted=None, order=None):
+	                excl_guids=None , wanted=None, order=None, range=None):
 		search = "SP"
 		for want in self._list(wanted, str):
 			search += "F" + want + " "
@@ -203,6 +204,9 @@ class dbclient:
 			search += "t" + _tagspec("G", guid) + " "
 		for o in self._list(order, str):
 			search += "O" + o + " "
+		if range != None:
+			assert len(range) == 2
+			search += "R" + ("%x" % range[0]) + ":" + ("%x" % range[1])
 		return self._search_post(search, wanted)
 	def _send_auth(self):
 		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)
