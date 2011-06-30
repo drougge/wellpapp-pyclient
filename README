@@ -43,6 +43,10 @@ Tag an (already imported) image. "db_add.py post-spec tag [tag [...]]" or
 db_show.py:
 Show information about a post (md5/filename) or a tag (name).
 
+db_rmpost.py:
+Delete posts. Allows them to be referenced if you give -f.
+"db_rmpost.py [-f] post-spec [post-spec [..]]"
+
 db_order.py:
 Order tags in a post. First argument is the tag, the following arguments are
 post-specs that will be ordered as specified. It's not possible to order posts

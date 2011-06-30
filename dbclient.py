@@ -185,6 +185,13 @@ class dbclient:
 		posts = self._search_post(search, wanted)
 		if not posts or posts[0]["md5"] != md5: return None
 		return posts[0]
+	def delete_post(self, md5):
+		md5 = str(md5)
+		assert " " not in md5
+		cmd = "DP" + md5
+		self._writeline(cmd)
+		res = self._readline()
+		if res != u"OK\n": raise EResponse(res)
 	def _list(self, data, converter = _utf):
 		if not data: return []
 		if isinstance(data, basestring): return [converter(data)]
