@@ -104,6 +104,10 @@ class TagWindow:
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_currentotherview.append_column(tvc)
 		self.tags_otherview = gtk.TreeView(self.tags_other)
+		for tv in self.tags_allview, self.tags_allcurrentview, \
+		          self.tags_currentotherview, self.tags_otherview:
+			sel = tv.get_selection()
+			sel.set_mode(gtk.SELECTION_MULTIPLE)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("Some", celltext, text=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
@@ -173,11 +177,17 @@ class TagWindow:
 	def drag_put(self, widget, context, x, y, selection, targetType, eventTime, all):
 		self.apply([(t, None) for t in selection.data.split()], [], all)
 
-	def drag_get(self, widget, context, selection, targetType, eventTime):
-		model, iter = widget.get_selection().get_selected()
+	def _drag_get_each(self, model, path, iter, data):
+		targetType, l = data
 		data = model.get_value(iter, targetType)
+		l.append(data)
+
+	def drag_get(self, widget, context, selection, targetType, eventTime):
+		l = []
+		sel = widget.get_selection()
+		sel.selected_foreach(self._drag_get_each, (targetType, l))
 		# All the examples pass 8, what does it mean?
-		selection.set(selection.target, 8, data)
+		selection.set(selection.target, 8, " ".join(l))
 
 	def tag_colour(self, guid):
 		type = client.get_tag(guid)["type"]
