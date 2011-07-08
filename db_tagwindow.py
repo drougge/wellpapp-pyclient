@@ -55,6 +55,36 @@ def complete(word):
 		candidates = map(unicode.lower, candidates)
 	return pre + commonprefix(candidates), candidates
 
+class FixedTreeView(gtk.TreeView):
+	def __init__(self, *args):
+		gtk.TreeView.__init__(self, *args)
+		self._event = None
+		self.get_selection().set_select_function(self._sel)
+		self.connect('button-press-event', self._press)
+		self.connect('button-release-event', self._release)
+
+	def _sel(self, *args):
+		return self._event == None
+
+	def _press(self, tv, event, data=None):
+		if event.state & (gtk.gdk.CONTROL_MASK | gtk.gdk.SHIFT_MASK):
+			return
+		ev = map(int, (event.x, event.y))
+		path = self.get_path_at_pos(*ev)
+		if not path: return True
+		if self.get_selection().path_is_selected(path[0]):
+			self._event = ev
+		else:
+			self._event = None
+
+	def _release(self, tv, event, data=None):
+		if self._event:
+			oldev = self._event
+			self._event = None
+			if oldev != map(int, (event.x, event.y)): return True
+			path = self.get_path_at_pos(*oldev)
+			if path: self.set_cursor(path[0], path[1])
+
 class TagWindow:
 	def __init__(self):
 		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
@@ -85,25 +115,25 @@ class TagWindow:
 		self.tags_allcurrent = gtk.ListStore(*taglisttypes)
 		self.tags_currentother = gtk.ListStore(*taglisttypes)
 		self.tags_other = gtk.ListStore(*taglisttypes)
-		self.tags_allview = gtk.TreeView(self.tags_all)
+		self.tags_allview = FixedTreeView(self.tags_all)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("ALL", celltext, text=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_allview.append_column(tvc)
-		self.tags_allcurrentview = gtk.TreeView(self.tags_allcurrent)
+		self.tags_allcurrentview = FixedTreeView(self.tags_allcurrent)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("All Current", celltext, text=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_allcurrentview.append_column(tvc)
-		self.tags_currentotherview = gtk.TreeView(self.tags_currentother)
+		self.tags_currentotherview = FixedTreeView(self.tags_currentother)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("Some Current", celltext, text=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_currentotherview.append_column(tvc)
-		self.tags_otherview = gtk.TreeView(self.tags_other)
+		self.tags_otherview = FixedTreeView(self.tags_other)
 		for tv in self.tags_allview, self.tags_allcurrentview, \
 		          self.tags_currentotherview, self.tags_otherview:
 			sel = tv.get_selection()
