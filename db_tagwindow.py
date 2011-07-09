@@ -21,6 +21,9 @@ def prefix(n):
 	if n[0] in u"-~": return n[0]
 	return ""
 
+def ishex(s):
+	return False not in [c in "1234567890abcdef" for c in s.lower()]
+
 def _uni(s):
 	if type(s) is not unicode:
 		try:
@@ -145,15 +148,18 @@ class TagWindow:
 		self.tags_otherview.append_column(tvc)
 		guidtype = ("text/x-wellpapp-tagguid", 0, 1)
 		nametype = ("text/x-wellpapp-tagname", 0, 0)
+		posttype = ("text/x-wellpapp-post-id", 0, 0)
 		texttypes = [("STRING", 0, 0), ("text/plain", 0, 0)]
 		srctypes = texttypes + [guidtype, nametype]
 		for widget in self.tags_allview, self.tags_allcurrentview, self.tags_currentotherview, self.tags_otherview:
 			widget.drag_source_set(gtk.gdk.BUTTON1_MASK, srctypes, gtk.gdk.ACTION_COPY)
-			widget.connect("drag_data_get", self.drag_get)
+			widget.connect("drag_data_get", self.drag_get_list)
 		for widget, all in (self.tags_allview, True), (self.tags_allcurrentview, False):
 			widget.drag_dest_set(gtk.DEST_DEFAULT_ALL, [guidtype], gtk.gdk.ACTION_COPY)
 			widget.connect("drag_data_received", self.drag_put, all)
-		self.thumbview.drag_dest_set(gtk.DEST_DEFAULT_ALL, [guidtype], gtk.gdk.ACTION_COPY)
+		self.thumbview.drag_source_set(gtk.gdk.BUTTON1_MASK, [posttype] + texttypes, gtk.gdk.ACTION_COPY)
+		self.thumbview.connect("drag_data_get", self.drag_get_icon)
+		self.thumbview.drag_dest_set(gtk.DEST_DEFAULT_ALL, [guidtype, posttype], gtk.gdk.ACTION_COPY)
 		self.thumbview.connect("drag_data_received", self.drag_put_thumb)
 		self.tagbox.pack_start(self.tags_allview, False, False, 0)
 		self.tagbox.pack_start(self.tags_allcurrentview, False, False, 0)
@@ -185,7 +191,7 @@ class TagWindow:
 		self.window.show_all()
 		self.b_apply.hide()
 		self.type2colour = dict([cs.split("=") for cs in client.cfg.tagcolours.split()])
-		self.md5s = None
+		self.md5s = []
 		self.fullscreen_open = False
 
 	def drag_put_tagfield(self, widget, context, x, y, selection, targetType, eventTime):
@@ -200,7 +206,7 @@ class TagWindow:
 		context.finish(True, False, eventTime)
 		widget.emit_stop_by_name("drag_data_received")
 
-	def drag_put_thumb(self, widget, context, x, y, selection, targetType, eventTime):
+	def drag_put_thumb_guid(self, x, y, selection):
 		x += int(self.thumbscroll.get_hadjustment().value)
 		y += int(self.thumbscroll.get_vadjustment().value)
 		item = self.thumbview.get_item_at_pos(x, y)
@@ -208,6 +214,26 @@ class TagWindow:
 		iter = self.thumbs.get_iter(item[0])
 		m = self.thumbs.get_value(iter, 0)
 		self._apply([(t, None) for t in selection.data.split()], [], [m])
+
+	def drag_put_thumb_post(self, selection):
+		try:
+			data = str(selection.data).lower()
+		except Exception:
+			return
+		add = []
+		for m in data.split():
+			if len(m) == 32 and ishex(m) and m not in self.md5s:
+				add.append(m)
+				self.md5s.append(m)
+		if add:
+			fl = FileLoader(self, add)
+			fl.start()
+
+	def drag_put_thumb(self, widget, context, x, y, selection, targetType, eventTime):
+		if selection.type == "text/x-wellpapp-tagguid":
+			self.drag_put_thumb_guid(x, y, selection)
+		if selection.type == "text/x-wellpapp-post-id":
+			self.drag_put_thumb_post(selection)
 
 	def drag_put(self, widget, context, x, y, selection, targetType, eventTime, all):
 		self.apply([(t, None) for t in selection.data.split()], [], all)
@@ -217,12 +243,18 @@ class TagWindow:
 		data = model.get_value(iter, targetType)
 		l.append(data)
 
-	def drag_get(self, widget, context, selection, targetType, eventTime):
+	def drag_get_list(self, widget, context, selection, targetType, eventTime):
 		l = []
 		sel = widget.get_selection()
 		sel.selected_foreach(self._drag_get_each, (targetType, l))
 		# All the examples pass 8, what does it mean?
 		selection.set(selection.target, 8, " ".join(l))
+
+	def drag_get_icon(self, widget, context, selection, targetType, eventTime):
+		data = ""
+		for path in widget.get_selected_items():
+			data += self.thumbs[path][0] + " "
+		selection.set(selection.target, 8, data[:-1])
 
 	def tag_colour(self, guid):
 		type = client.get_tag(guid)["type"]
@@ -262,8 +294,7 @@ class TagWindow:
 			self.taglist[pre + "all"].intersection_update(p[pre + "tagguid"])
 			self.taglist[pre + "any"].update(p[pre + "tagguid"])
 
-	def set_thumbs(self, thumbs):
-		self.thumbs.clear()
+	def add_thumbs(self, thumbs):
 		for thumb in thumbs:
 			self.thumbs.append(thumb)
 
@@ -410,8 +441,9 @@ class TagWindow:
 		self.refresh()
 		return bad
 
-	def set_md5s(self, md5s):
-		self.md5s = md5s
+	def add_md5s(self, md5s):
+		for m in md5s:
+			if m not in self.md5s: self.md5s.append(m)
 		self.refresh()
 		self.b_apply.show()
 
@@ -520,14 +552,14 @@ class FileLoader(Thread):
 		if not md5s:
 			idle_add(self._tw.error, u"No posts found")
 			return
-		idle_add(self._tw.set_md5s, md5s)
+		idle_add(self._tw.add_md5s, md5s)
 		z = int(client.cfg.thumb_sizes.split()[0])
 		thumbs = []
 		for m in md5s:
 			fn = client.thumb_path(m, z)
 			thumb = gtk.gdk.pixbuf_new_from_file(fn)
 			thumbs.append((m, thumb,))
-		idle_add(self._tw.set_thumbs, thumbs)
+		idle_add(self._tw.add_thumbs, thumbs)
 		if good: idle_add(self._tw.set_msg, u"")
 
 if __name__ == "__main__":
