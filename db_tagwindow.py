@@ -143,10 +143,12 @@ class TagWindow:
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_otherview.append_column(tvc)
-		guidtype = ("text/x-wellpapp-tagguid", gtk.TARGET_SAME_APP, 1)
-		nametype = ("text/x-wellpapp-tagname", gtk.TARGET_SAME_APP, 0)
+		guidtype = ("text/x-wellpapp-tagguid", 0, 1)
+		nametype = ("text/x-wellpapp-tagname", 0, 0)
+		texttypes = [("STRING", 0, 0), ("text/plain", 0, 0)]
+		srctypes = texttypes + [guidtype, nametype]
 		for widget in self.tags_allview, self.tags_allcurrentview, self.tags_currentotherview, self.tags_otherview:
-			widget.drag_source_set(gtk.gdk.BUTTON1_MASK, [guidtype, nametype], gtk.gdk.ACTION_COPY)
+			widget.drag_source_set(gtk.gdk.BUTTON1_MASK, srctypes, gtk.gdk.ACTION_COPY)
 			widget.connect("drag_data_get", self.drag_get)
 		for widget, all in (self.tags_allview, True), (self.tags_allcurrentview, False):
 			widget.drag_dest_set(gtk.DEST_DEFAULT_ALL, [guidtype], gtk.gdk.ACTION_COPY)
@@ -175,7 +177,7 @@ class TagWindow:
 		self.tagfield = gtk.Entry()
 		self.tagfield.connect("activate", self.apply_action, None)
 		self.tagfield.connect("key-press-event", self.tagfield_key)
-		self.tagfield.drag_dest_set(gtk.DEST_DEFAULT_ALL, [nametype], gtk.gdk.ACTION_COPY)
+		self.tagfield.drag_dest_set(gtk.DEST_DEFAULT_ALL, [nametype] + texttypes, gtk.gdk.ACTION_COPY)
 		self.tagfield.connect("drag_data_received", self.drag_put_tagfield)
 		self.vbox.pack_end(self.tagfield, False, False, 0)
 		self.window.add(self.vbox)
@@ -190,10 +192,13 @@ class TagWindow:
 		tag = _uni(selection.data) + u" "
 		text = _uni(self.tagfield.get_text())
 		# This gets called twice (why?), so ignore it if we already have the tag
-		if text[-len(tag):] == tag: return
-		if text and text[-1] != u" ": text += u" "
-		text += tag
-		self.tagfield.set_text(text)
+		if text[-len(tag):] != tag:
+			if text and text[-1] != u" ": text += u" "
+			text += tag
+			self.tagfield.set_text(text)
+		# When recieving standard types, we also have to stop the default handler
+		context.finish(True, False, eventTime)
+		widget.emit_stop_by_name("drag_data_received")
 
 	def drag_put_thumb(self, widget, context, x, y, selection, targetType, eventTime):
 		x += int(self.thumbscroll.get_hadjustment().value)
