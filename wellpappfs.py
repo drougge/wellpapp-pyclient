@@ -64,6 +64,7 @@ class Wellpapp(fuse.Fuse):
 		self._client = dbclient()
 		self._cfgfile = self._cfg2file()
 		fuse.Fuse.__init__(self, *a, **kw)
+		self.multithreaded = False
 
 	def _cfg2file(self):
 		cfg = self._client.cfg
@@ -243,6 +244,6 @@ class Wellpapp(fuse.Fuse):
 		self.file_class = FakeFile
 		return fuse.Fuse.main(self, *a, **kw)
 
-server = Wellpapp(dash_s_do = "setsingle")
+server = Wellpapp()
 server.parse(errex = 1)
 server.main()
