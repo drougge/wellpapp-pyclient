@@ -3,7 +3,7 @@
 
 from sys import argv, exit
 from dbclient import dbclient
-from os.path import exists
+from os.path import exists, lexists
 from os import unlink
 
 def rmthumbs(post):
@@ -19,7 +19,7 @@ def rmthumbs(post):
 
 def rmimg(m):
 	path = client.image_path(m)
-	if exists(path):
+	if lexists(path):
 		unlink(path)
 
 def delete_post(m, force):
