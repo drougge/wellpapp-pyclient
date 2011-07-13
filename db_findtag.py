@@ -18,6 +18,9 @@ def long(tag):
 	names = [tag["name"]] + (tag["alias"] if "alias" in tag else [])
 	print " ".join(names), tag["type"], tag["posts"], tag["weak_posts"]
 
+def tagsort(a, b):
+	return cmp(a["name"], b["name"])
+
 opts = ""
 known_opts = "fas"
 part = ""
@@ -35,4 +38,4 @@ match = "F" if "f" in opts else "E"
 where = "P" if "a" in opts else "I"
 cmd = match + "A" + where
 printer = short if "s" in opts else long
-map(printer, client.find_tags(cmd, part).itervalues())
+map(printer, sorted(client.find_tags(cmd, part).itervalues(), tagsort))
