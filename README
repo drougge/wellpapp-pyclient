@@ -26,8 +26,8 @@ db_mkalias.py:
 Creates an alias. First argument is tag name, second is alias name.
 
 db_implies.py:
-Creates an implication. First argument is set tag, second is implied tag,
-and third is (optional) priority.
+Creates or removes an implication. First argument is set tag, second is
+implied tag, and third is (optional) priority.
 
 db_add.py:
 Takes filenames. The filename "foo bar blutti.jpg" will recieve the tags
