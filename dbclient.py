@@ -132,7 +132,6 @@ class dbclient:
 		if line == u"OK\n": return True
 		if line[0] != u"R": raise EResponse(line)
 		if line[1] == u"R":
-			file("/tmp/foo", "w").write(line + "\n")
 			if props != None: props["result_count"] = int(line[2:], 16)
 			return
 		tags = []
