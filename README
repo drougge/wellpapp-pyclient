@@ -68,6 +68,10 @@ collections.
 db_findtag.py:
 Find tags. -a for matching anywhere (not just at the start), -f for fuzzy.
 
+db_rotate.py:
+Rotate a post. Can rotate 90, 180 or 270 degrees (clockwise) relative
+original rotation. Rewrites thumbnails, doesn't touch original file.
+
 db_tagwindow.py:
 A graphical interface for tagging posts. Takes a list of post-specs as
 arguments, and lets you tag the posts thus specified. Displays thumbnails
