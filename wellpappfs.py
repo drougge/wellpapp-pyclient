@@ -171,7 +171,7 @@ class Wellpapp(fuse.Fuse):
 		                             excl_tags=search[1],
 		                             wanted=["ext"],
 		                             order=order,
-		                             range=search[3])
+		                             range=search[3])[0]
 		r = []
 		idx = 0
 		prefix = ""
