@@ -408,7 +408,7 @@ class dbclient:
 		return tags
 	def find_tag(self, name, resdata=None, with_prefix=False):
 		name = _utf(name)
-		if with_prefix and name[0] in "~-":
+		if with_prefix and name[0] in "~-!":
 			prefix = str(name[0])
 			name = name[1:]
 		else:
@@ -421,7 +421,7 @@ class dbclient:
 		return prefix + guid
 	def get_tag(self, guid, with_prefix=False):
 		guid = _utf(guid)
-		if with_prefix and guid[0] in u"~-":
+		if with_prefix and guid[0] in u"~-!":
 			prefix = guid[0]
 			guid = guid[1:]
 		else:
