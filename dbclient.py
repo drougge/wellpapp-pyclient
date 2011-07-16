@@ -69,15 +69,16 @@ _field_cparser = {
 class dbcfg:
 	tagwindow_width = 840
 	tagwindow_height = 600
-	def __init__(self):
-		RC_NAME = ".wellpapprc"
-		path = "/"
-		RCs = [os.path.join(os.environ["HOME"], RC_NAME)]
-		for dir in os.getcwd().split(os.path.sep):
-			path = os.path.join(path, dir)
-			RC = os.path.join(path, RC_NAME)
-			if os.path.exists(RC): RCs.append(RC)
-		for RC in RCs:
+	def __init__(self, RC_NAME=".wellpapprc", EXTRA_RCs=[]):
+		RCs = []
+		if RC_NAME:
+			path = "/"
+			RCs = [os.path.join(os.environ["HOME"], RC_NAME)]
+			for dir in os.getcwd().split(os.path.sep):
+				path = os.path.join(path, dir)
+				RC = os.path.join(path, RC_NAME)
+				if os.path.exists(RC): RCs.append(RC)
+		for RC in RCs + EXTRA_RCs:
 			self._load(RC)
 	def _load(self, fn):
 		for line in file(fn):
@@ -87,6 +88,8 @@ class dbcfg:
 				assert(len(a) == 2)
 				self.__dict__[a[0]] = a[1]
 	def __getattr__(self, name):
+		if name[0] == "_":
+			raise AttributeError, name
 		return ""
 
 class dbclient:
