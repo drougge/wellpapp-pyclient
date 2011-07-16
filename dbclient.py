@@ -128,10 +128,13 @@ class dbclient:
 				self.sock.send(line)
 	def _readline(self):
 		return self.utfdec(self.fh.readline())[0]
-	def _parse_search(self, line, posts, wanted):
+	def _parse_search(self, line, posts, wanted, props):
 		if line == u"OK\n": return True
 		if line[0] != u"R": raise EResponse(line)
-		if line[1] == u"R": return
+		if line[1] == u"R":
+			file("/tmp/foo", "w").write(line + "\n")
+			if props != None: props["result_count"] = int(line[2:], 16)
+			return
 		tags = []
 		guids = []
 		impltags = []
@@ -174,10 +177,10 @@ class dbclient:
 			if "tagguid" in wanted: f["impltagguid"] = implguids
 		f["md5"] = md5
 		posts.append(f)
-	def _search_post(self, search, wanted = None):
+	def _search_post(self, search, wanted = None, props = None):
 		self._writeline(search)
 		posts = []
-		while not self._parse_search(self._readline(), posts, wanted): pass
+		while not self._parse_search(self._readline(), posts, wanted, props): pass
 		return posts
 	def get_post(self, md5, separate_implied = False, wanted = None):
 		md5 = str(md5)
@@ -217,7 +220,9 @@ class dbclient:
 		if range != None:
 			assert len(range) == 2
 			search += "R" + ("%x" % range[0]) + ":" + ("%x" % range[1])
-		return self._search_post(search, wanted)
+		props = {}
+		posts = self._search_post(search, wanted, props)
+		return posts, props
 	def _send_auth(self):
 		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)
 		if self._readline() == "OK\n": self.auth_ok = True

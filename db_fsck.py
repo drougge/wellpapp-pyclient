@@ -107,8 +107,8 @@ def check_imagestore():
 def check_connectivity():
 	print "Checking tags"
 	for guid in tags:
-		strong = client.search_post(guids=["!" + guid])
-		weak = client.search_post(guids=["~" + guid])
+		strong = client.search_post(guids=["!" + guid])[0]
+		weak = client.search_post(guids=["~" + guid])[0]
 		if len(strong) != tags[guid]["posts"] or len(weak) != tags[guid]["weak_posts"]:
 			print "Post count mismatch on", guid
 			print "\tclaims", tags[guid]["posts"], "+", tags[guid]["weak_posts"]
@@ -122,7 +122,7 @@ def check_connectivity():
 	for m in posts:
 		guids = map(lambda g: g if g[0] == "~" else "!" + g, posts[m]["tagguid"])
 		while guids:
-			p = client.search_post(guids=guids[:16])
+			p = client.search_post(guids=guids[:16])[0]
 			if m not in map(lambda f: f["md5"], p):
 				print "Post", m, "not findable with all tags"
 			guids = guids[16:]
