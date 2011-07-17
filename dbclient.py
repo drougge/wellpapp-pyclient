@@ -201,18 +201,28 @@ class dbclient:
 		if not data: return []
 		if isinstance(data, basestring): return [converter(data)]
 		return map(converter, data)
+	def _shuffle_minus(self, pos, neg, converter):
+		pos = self._list(pos, converter)
+		neg = self._list(neg, converter)
+		pos1 = [t for t in pos if t[0] != "-"]
+		neg1 = [t[1:] for t in pos if t[0] == "-"]
+		pos2 = [t[1:] for t in neg if t[0] == "-"]
+		neg2 = [t for t in neg if t[0] != "-"]
+		return pos1 + pos2, neg1 + neg2
 	def search_post(self, tags=None, guids=None, excl_tags=None,
 	                excl_guids=None , wanted=None, order=None, range=None):
 		search = "SP"
+		tags, excl_tags = self._shuffle_minus(tags, excl_tags, _utf)
+		guids, excl_guids = self._shuffle_minus(guids, excl_guids, str)
 		for want in self._list(wanted, str):
 			search += "F" + want + " "
-		for tag in self._list(tags):
+		for tag in tags:
 			search += "T" + _tagspec("N", tag) + " "
-		for guid in self._list(guids, str):
+		for guid in guids:
 			search += "T" + _tagspec("G", guid) + " "
-		for tag in self._list(excl_tags):
+		for tag in excl_tags:
 			search += "t" + _tagspec("N", tag) + " "
-		for guid in self._list(excl_guids, str):
+		for guid in excl_guids:
 			search += "t" + _tagspec("G", guid) + " "
 		for o in self._list(order, str):
 			search += "O" + o + " "
