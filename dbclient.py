@@ -290,10 +290,12 @@ class dbclient:
 		while not self._parse_rels(self._readline(), rels): pass
 		if not md5 in rels: return None
 		return rels[md5]
-	def add_tag(self, name, type = None):
+	def add_tag(self, name, type = None, guid = None):
 		cmd = "ATN" + _utf(name)
 		if type:
 			cmd += " T" + _utf(type)
+		if guid:
+			cmd += " G" + _utf(guid)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
