@@ -390,22 +390,28 @@ class dbclient:
 		res = res.split()
 		guid = str(res[0][2:])
 		aliaslist = []
+		flaglist = []
 		if guid in resdata and "alias" in resdata[guid]:
 			aliaslist = resdata[guid]["alias"]
 		rd = {"guid": guid}
 		hexint = lambda s: int(s, 16)
 		dummy = lambda s: s
-		alias = lambda s: aliaslist.append(s)
 		incl = {u"N": ("name", dummy),
-			u"T": ("type", dummy),
-			u"A": ("alias", alias),
-			u"P": ("posts", hexint),
-			u"W": ("weak_posts", hexint)}
+		        u"T": ("type", dummy),
+		        u"A": ("alias", aliaslist.append),
+		        u"P": ("posts", hexint),
+		        u"W": ("weak_posts", hexint),
+		        u"F": ("flags", flaglist.append),
+		       }
 		for data in res[1:]:
 			if data[0] in incl:
 				name, parser = incl[data[0]]
 				rd[name] = parser(data[1:])
 		if aliaslist: rd["alias"] = aliaslist
+		if flaglist:
+			del rd["flags"]
+			for flag in flaglist:
+				rd[flag] = True
 		resdata[guid] = rd
 	def find_tags(self, matchtype, name):
 		matchtype = str(matchtype)
