@@ -66,6 +66,15 @@ _field_cparser = {
 	"title"          : _enc,
 }
 
+class DotDict(dict):
+	def __getattr__(self, name):
+		if name[0] == "_":
+			raise AttributeError(name)
+		return self.get(name)
+
+class Post(DotDict): pass
+class Tag(DotDict): pass
+
 class dbcfg:
 	tagwindow_width = 840
 	tagwindow_height = 600
@@ -89,7 +98,7 @@ class dbcfg:
 				self.__dict__[a[0]] = a[1]
 	def __getattr__(self, name):
 		if name[0] == "_":
-			raise AttributeError, name
+			raise AttributeError(name)
 		return ""
 
 class dbclient:
@@ -138,7 +147,7 @@ class dbclient:
 		guids = []
 		impltags = []
 		implguids = []
-		f = {}
+		f = Post()
 		md5 = None
 		seen = set()
 		for token in line[1:].split():
@@ -229,7 +238,7 @@ class dbclient:
 		if range != None:
 			assert len(range) == 2
 			search += "R" + ("%x" % range[0]) + ":" + ("%x" % range[1])
-		props = {}
+		props = DotDict()
 		posts = self._search_post(search, wanted, props)
 		return posts, props
 	def _send_auth(self):
@@ -393,7 +402,7 @@ class dbclient:
 		flaglist = []
 		if guid in resdata and "alias" in resdata[guid]:
 			aliaslist = resdata[guid]["alias"]
-		rd = {"guid": guid}
+		rd = Tag(guid=guid)
 		hexint = lambda s: int(s, 16)
 		dummy = lambda s: s
 		incl = {u"N": ("name", dummy),
