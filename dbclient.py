@@ -207,7 +207,17 @@ class dbclient:
 		if not f.md5: raise EResponse(line)
 		if f.md5 in seen: raise EDuplicate(f.md5)
 		seen.add(f.md5)
-		if not wanted or "implied" not in wanted:
+		old = lambda n, full, weak: [t[n] for t in full] + [u"~" + t[n] for t in weak]
+		if not wanted or "tagname" in wanted:
+			f.tagname = old("name", f.tags, f.weaktags)
+		if not wanted or "tagguid" in wanted:
+			f.tagguid = old("guid", f.tags, f.weaktags)
+		if wanted and "implied" in wanted:
+			if "tagname" in wanted:
+				f.impltagname = old("name", f.impltags, f.implweaktags)
+			if "tagguid" in wanted:
+				f.impltagguid = old("guid", f.impltags, f.implweaktags)
+		else:
 			del f.impltags
 			del f.implweaktags
 		posts.append(f)
