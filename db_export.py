@@ -162,12 +162,15 @@ z = spec.max_side
 print "Copying to destination server.."
 dest_client.begin_transaction()
 
+print "Tags.."
+ordered = set()
 for t in spec.include:
 	tag = src_client.get_tag(t)
 	dest_client.add_tag(tag.name, tag.type, tag.guid)
 	if "alias" in tag:
 		for alias in tag.alias:
 			dest_client.add_alias(alias, tag.guid)
+	if tag.ordered: ordered.add(tag.guid)
 
 for t in spec.include:
 	impl = src_client.tag_implies(t)
@@ -175,6 +178,7 @@ for t in spec.include:
 		for g, p in impl:
 			dest_client.add_implies(t, g, p)
 
+print "Posts.."
 for post in posts:
 	tags = [t for t in post.tagguid if t[-27:] in spec.include]
 	data = Post(post)
@@ -193,6 +197,22 @@ for post in posts:
 	full = [g for g in tags if g[0] != "~"]
 	weak = [g[1:] for g in tags if g[0] == "~"]
 	dest_client.tag_post(post.md5, full, weak)
+
+rels = set()
+print "Relationships.."
+for post in posts:
+	all = []
+	for rel in src_client.post_rels(post.md5) or []:
+		if rel + post.md5 not in rels:
+			rels.add(post.md5 + rel)
+			all.append(rel)
+	if all:
+		dest_client.add_rels(post.md5, all)
+
+print "Ordering.."
+for g in ordered:
+	order = [p.md5 for p in src_client.search_post(guids=[g], order=["group"])[0]]
+	dest_client.order(g, order)
 
 dest_client.end_transaction()
 
