@@ -61,7 +61,7 @@ _field_cparser = {
 	"created"        : _p_date,
 	"imgdate"        : _p_date,
 	"imgdate_fuzz"   : _p_int,
-	"filetype"       : _p_str,
+	"ext"            : _p_str,
 	"source"         : _enc,
 	"title"          : _enc,
 }
@@ -268,7 +268,7 @@ class dbclient:
 		cmd  = "AP" + str(md5)
 		assert "width" in kwargs
 		assert "height" in kwargs
-		assert "filetype" in kwargs
+		assert "ext" in kwargs
 		cmd += self._fieldspec(**kwargs)
 		self._writeline(cmd)
 		res = self._readline()

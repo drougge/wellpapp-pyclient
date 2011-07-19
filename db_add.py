@@ -134,7 +134,7 @@ def add_image(fn):
 		w, h = img.size
 		rot = exif2rotation(exif)
 		if rot in (90, 270): w, h = h, w
-		args = {"md5": m, "width": w, "height": h, "filetype": ft}
+		args = {"md5": m, "width": w, "height": h, "ext": ft}
 		if rot >= 0: args["rotate"] = rot
 		try:
 			date = exif['Exif.Image.DateTime']
