@@ -182,8 +182,8 @@ print "Posts.."
 for post in posts:
 	tags = [t for t in post.tagguid if t[-27:] in spec.include]
 	data = Post(post)
-	del data["tagguid"]
-	del data["impltagguid"]
+	for d in "tagguid", "impltagguid", "tags", "weaktags", "impltags", "implweaktags":
+		del data[d]
 	w, h = data.width, data.height
 	if w > z:
 		h = h * z // w
