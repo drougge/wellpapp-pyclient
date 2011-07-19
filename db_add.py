@@ -139,7 +139,7 @@ def add_image(fn):
 		try:
 			date = exif['Exif.Image.DateTime']
 			if isinstance(date, basestring): date = int(date)
-			args["image_date"] = date
+			args["imgdate"] = date
 		except Exception:
 			pass
 		client.add_post(**args)

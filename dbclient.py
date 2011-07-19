@@ -32,8 +32,8 @@ def _dec(enc):
 _p_hex = lambda x: int(x, 16)
 _field_sparser = {
 	"created"        : _p_hex,
-	"image_date"     : _p_hex,
-	"image_date_fuzz": int,
+	"imgdate"        : _p_hex,
+	"imgdate_fuzz"   : int,
 	"width"          : _p_hex,
 	"height"         : _p_hex,
 	"score"          : int,
@@ -59,8 +59,8 @@ _field_cparser = {
 	"rotate"         : _p_int,
 	"rating"         : _p_str,
 	"created"        : _p_date,
-	"image_date"     : _p_date,
-	"image_date_fuzz": _p_int,
+	"imgdate"        : _p_date,
+	"imgdate_fuzz"   : _p_int,
 	"filetype"       : _p_str,
 	"source"         : _enc,
 	"title"          : _enc,
