@@ -67,6 +67,9 @@ _field_cparser = {
 }
 
 class DotDict(dict):
+	def __init__(self, *a, **kw):
+		dict.__init__(self, *a, **kw)
+		self.__dict__ = self
 	def __getattr__(self, name):
 		if name[0] == "_":
 			raise AttributeError(name)
