@@ -434,7 +434,7 @@ class dbclient:
 		if res[0] != u"R": raise EResponse(res)
 		t = Tag()
 		t.populate(res[1:])
-		if resdata: resdata[t.guid] = t
+		if resdata != None: resdata[t.guid] = t
 		return t
 	def find_tags(self, matchtype, name):
 		matchtype = str(matchtype)
