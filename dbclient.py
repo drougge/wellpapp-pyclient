@@ -76,7 +76,31 @@ class DotDict(dict):
 		return self.get(name)
 
 class Post(DotDict): pass
-class Tag(DotDict): pass
+
+class Tag(DotDict):
+	def populate(self, res):
+		res = res.split()
+		alias = []
+		flaglist = []
+		hexint = lambda s: int(s, 16)
+		dummy = lambda s: s
+		incl = {u"N": ("name", dummy),
+		        u"T": ("type", dummy),
+		        u"A": ("alias", alias.append),
+		        u"P": ("posts", hexint),
+		        u"W": ("weak_posts", hexint),
+		        u"F": ("flags", flaglist.append),
+		        u"G": ("guid", str),
+		       }
+		for data in res:
+			if data[0] in incl:
+				name, parser = incl[data[0]]
+				self[name] = parser(data[1:])
+		self.alias = alias
+		if flaglist:
+			del self.flags
+			for flag in flaglist:
+				self.flag = True
 
 class dbcfg:
 	tagwindow_width = 840
@@ -146,29 +170,14 @@ class dbclient:
 		if line[1] == u"R":
 			if props != None: props["result_count"] = int(line[2:], 16)
 			return
-		tags = []
-		guids = []
-		impltags = []
-		implguids = []
 		f = Post()
-		md5 = None
 		seen = set()
-		for token in line[1:].split():
+		pieces = line[1:].split(" :")
+		for token in pieces[0].split():
 			type = token[0]
 			data = token[1:]
 			if type == u"P":
-				md5 = str(data)
-			elif type == u"T":
-				tags.append(data)
-			elif type == u"G":
-				guids.append(str(data))
-			elif type == u"I":
-				type = data[0]
-				data = data[1:]
-				if type == u"T":
-					impltags.append(data)
-				if type == u"G":
-					implguids.append(str(data))
+				f.md5 = str(data)
 			elif type == u"F":
 				field, value = data.split(u"=", 1)
 				field = str(field)
@@ -178,15 +187,29 @@ class dbclient:
 					f[field] = value
 			else:
 				raise EResponse(line)
-		if not md5: raise EResponse(line)
-		if md5 in seen: raise EDuplicate(md5)
-		seen.add(md5)
-		if not wanted or "tagname" in wanted: f["tagname"] = tags
-		if not wanted or "tagguid" in wanted: f["tagguid"] = guids
-		if wanted and "implied" in wanted:
-			if "tagname" in wanted: f["impltagname"] = impltags
-			if "tagguid" in wanted: f["impltagguid"] = implguids
-		f["md5"] = md5
+		f.tags = []
+		f.weaktags = []
+		f.impltags = []
+		f.implweaktags = []
+		for piece in pieces[1:-1]:
+			flags, data = piece.split(" ", 1)
+			if flags == "I~" or flags == "~I":
+				ta = f.implweaktags
+			elif flags == "I":
+				ta = f.impltags
+			elif flags == "~":
+				ta = f.weaktags
+			else:
+				ta = f.tags
+			t = Tag()
+			t.populate(data)
+			ta.append(t)
+		if not f.md5: raise EResponse(line)
+		if f.md5 in seen: raise EDuplicate(f.md5)
+		seen.add(f.md5)
+		if not wanted or "implied" not in wanted:
+			del f.impltags
+			del f.implweaktags
 		posts.append(f)
 	def _search_post(self, search, wanted = None, props = None):
 		self._writeline(search)
@@ -395,36 +418,14 @@ class dbclient:
 			self._writeline(cmd)
 			res = self._readline()
 			if res != u"OK\n": raise EResponse(res)
-	def _parse_tag(self, resdata):
+	def _parse_tag(self, resdata = None):
 		res = self._readline()
-		if res == u"OK\n": return True
-		if res[:2] != u"RG": raise EResponse(res)
-		res = res.split()
-		guid = str(res[0][2:])
-		aliaslist = []
-		flaglist = []
-		if guid in resdata and "alias" in resdata[guid]:
-			aliaslist = resdata[guid]["alias"]
-		rd = Tag(guid=guid)
-		hexint = lambda s: int(s, 16)
-		dummy = lambda s: s
-		incl = {u"N": ("name", dummy),
-		        u"T": ("type", dummy),
-		        u"A": ("alias", aliaslist.append),
-		        u"P": ("posts", hexint),
-		        u"W": ("weak_posts", hexint),
-		        u"F": ("flags", flaglist.append),
-		       }
-		for data in res[1:]:
-			if data[0] in incl:
-				name, parser = incl[data[0]]
-				rd[name] = parser(data[1:])
-		if aliaslist: rd["alias"] = aliaslist
-		if flaglist:
-			del rd["flags"]
-			for flag in flaglist:
-				rd[flag] = True
-		resdata[guid] = rd
+		if res == u"OK\n": return
+		if res[0] != u"R": raise EResponse(res)
+		t = Tag()
+		t.populate(res[1:])
+		if resdata: resdata[t.guid] = t
+		return t
 	def find_tags(self, matchtype, name):
 		matchtype = str(matchtype)
 		assert " " not in matchtype
@@ -433,7 +434,7 @@ class dbclient:
 		cmd = "ST" + matchtype + name
 		self._writeline(cmd)
 		tags = {}
-		while not self._parse_tag(tags): pass
+		while self._parse_tag(tags): pass
 		return tags
 	def find_tag(self, name, resdata=None, with_prefix=False):
 		name = _utf(name)
