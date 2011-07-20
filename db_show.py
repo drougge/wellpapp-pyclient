@@ -51,10 +51,15 @@ def show_post(m):
 
 def show_tag(name):
 	guid = client.find_tag(name)
+	if not guid and match(r"(?:\w{6}-){3}\w{6}", name):
+		guid = name
 	if not guid:
 		print "Tag not found"
 		return 1
 	data = client.get_tag(guid)
+	if not data:
+		print "Tag not found"
+		return 1
 	print "Tag:", _tagenc(data["name"])
 	if "alias" in data: print "Aliases:", " ".join(map(_tagenc, data["alias"]))
 	print "GUID:", guid
