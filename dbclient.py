@@ -167,6 +167,7 @@ class dbclient:
 	def _parse_search(self, line, posts, wanted, props):
 		if line == u"OK\n": return True
 		if line[0] != u"R": raise EResponse(line)
+		if line[1] == u"E": raise EResponse(line)
 		if line[1] == u"R":
 			if props != None: props["result_count"] = int(line[2:], 16)
 			return
@@ -320,6 +321,7 @@ class dbclient:
 	def _parse_rels(self, line, rels):
 		if line == u"OK\n": return True
 		if line[0] != u"R": raise EResponse(line)
+		if line[1] == u"E": raise EResponse(line)
 		a = str(line[1:]).split()
 		p = a[0]
 		l = []
@@ -432,6 +434,7 @@ class dbclient:
 		res = self._readline()
 		if res == u"OK\n": return
 		if res[0] != u"R": raise EResponse(res)
+		if res[1] == u"E": raise EResponse(res)
 		t = Tag()
 		t.populate(res[1:])
 		if resdata != None: resdata[t.guid] = t
