@@ -102,10 +102,9 @@ class Tag(DotDict):
 			for flag in flaglist:
 				self.flag = True
 
-class dbcfg:
-	tagwindow_width = 840
-	tagwindow_height = 600
+class dbcfg(DotDict):
 	def __init__(self, RC_NAME=".wellpapprc", EXTRA_RCs=[]):
+		DotDict.__init__(self, dict(tagwindow_width=840, tagwindow_height=600))
 		RCs = []
 		if RC_NAME:
 			path = "/"
@@ -119,14 +118,10 @@ class dbcfg:
 	def _load(self, fn):
 		for line in file(fn):
 			line = line.strip()
-			if line[0] != "#":
+			if line[0] != "#" and line:
 				a = line.split("=", 1)
 				assert(len(a) == 2)
-				self.__dict__[a[0]] = a[1]
-	def __getattr__(self, name):
-		if name[0] == "_":
-			raise AttributeError(name)
-		return ""
+				self[a[0]] = a[1]
 
 class dbclient:
 	_prot_max_len = 4096
