@@ -34,6 +34,12 @@ Takes filenames. The filename "foo bar blutti.jpg" will recieve the tags
 foo and bar (but not blutti), and all tags specified on the first line of
 files named TAGS in all parent directories of the file.
 
+Also tags with the lens used, if you have configured the lens to map to a tag.
+First set lenstags to include the exif tag you need, then set all the
+lens:exiftag:value=tagname pairs you want. Example:
+lenstags=Exif.Pentax.LensType
+lens:Exif.Pentax.LensType:6 9 0=lens:pentax_fa_20mm_f2.8
+
 db_add.py doesn't create tags, but complains if they don't exist.
 
 db_tag.py:

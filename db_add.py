@@ -67,6 +67,17 @@ def rotate_image(img, exif):
 	if rot not in rotation: return img
 	return img.transpose(rotation[rot])
 
+def exif2tags(exif, tags):
+	if not exif: return
+	cfg = client.cfg
+	lenstags = cfg.lenstags.split()
+	keys = exif.exifKeys()
+	for lt in lenstags:
+		if lt in keys:
+			lt = "lens:" + lt + ":" + exif[lt]
+			if lt in cfg:
+				tags.add(cfg[lt])
+
 def make_pdirs(fn):
 	dn = dirname(fn)
 	if not exists(dn): makedirs(dn)
@@ -125,11 +136,11 @@ def add_image(fn):
 	if not post or needs_thumbs(m, ft):
 		datafh = StringIO(data)
 		img = Image.open(datafh)
-		try:
-			exif = ExivImage(fn)
-			exif.readMetadata()
-		except Exception:
-			exif = None
+	try:
+		exif = ExivImage(fn)
+		exif.readMetadata()
+	except Exception:
+		exif = None
 	if not post:
 		w, h = img.size
 		rot = exif2rotation(exif)
@@ -153,6 +164,7 @@ def add_image(fn):
 	posttags = tagset()
 	posttags.update(post["tagname"])
 	filetags = find_tags(fn)
+	exif2tags(exif, filetags)
 	for guid in filetags.difference(posttags):
 		if guid[0] == "~":
 			weak.add(guid[1:])
