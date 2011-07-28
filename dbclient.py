@@ -100,7 +100,7 @@ class Tag(DotDict):
 		if flaglist:
 			del self.flags
 			for flag in flaglist:
-				self.flag = True
+				self[flag] = True
 
 class dbcfg(DotDict):
 	def __init__(self, RC_NAME=".wellpapprc", EXTRA_RCs=[]):
