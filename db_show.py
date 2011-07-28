@@ -68,6 +68,9 @@ def show_tag(name):
 	print data["weak_posts"], "weak posts"
 	show_implies(guid, "Implies:", False)
 	show_implies(guid, "Implied by:", True)
+	flags = [f for f in data if data[f] is True]
+	if flags:
+		print "Flags:\n\t", "\n\t".join(flags)
 	return 0
 
 if __name__ == "__main__":
