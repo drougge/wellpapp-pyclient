@@ -533,3 +533,13 @@ class dbclient:
 			self._writeline(cmd)
 			res = self._readline()
 			if res != u"OK\n": raise EResponse(res)
+	def metalist(self, name):
+		cmd = "L" + _utf(name)
+		self._writeline(cmd)
+		res = self._readline()
+		names = []
+		while res != u"OK\n":
+			if res[:2] != u"RN": raise EResponse(res)
+			names.append(res[2:])
+			res = self._readline()
+		return names
