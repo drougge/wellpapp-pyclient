@@ -42,7 +42,7 @@ def complete(word):
 	word = clean(word)
 	for t, get in ("EI", lambda t: t["name"]), ("EAI", lambda t: t["alias"][0]), \
 	              ("FI", lambda t: t["name"]), ("FAI", lambda t: t["alias"][0]):
-		tags = client.find_tags(t, word).values()
+		tags = client.find_tags(t, word)
 		if pre == "-": tags = filter(tw.known_tag, tags)
 		if len(tags) == 1: return pre + get(tags[0]), False
 		if len(tags) > 1: break

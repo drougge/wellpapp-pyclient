@@ -38,4 +38,4 @@ match = "F" if "f" in opts else "E"
 where = "P" if "a" in opts else "I"
 cmd = match + "A" + where
 printer = short if "s" in opts else long
-map(printer, sorted(client.find_tags(cmd, part).itervalues(), tagsort))
+map(printer, sorted(client.find_tags(cmd, part), tagsort))

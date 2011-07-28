@@ -250,9 +250,9 @@ class dbclient:
 		pos2 = [t[1:] for t in neg if t[0] == "-"]
 		neg2 = [t for t in neg if t[0] != "-"]
 		return pos1 + pos2, neg1 + neg2
-	def search_post(self, tags=None, guids=None, excl_tags=None,
-	                excl_guids=None , wanted=None, order=None, range=None):
-		search = "SP"
+	def _build_search(self, tags=None, guids=None, excl_tags=None,
+	                  excl_guids=None , wanted=None, order=None, range=None):
+		search = ""
 		tags, excl_tags = self._shuffle_minus(tags, excl_tags, _utf)
 		guids, excl_guids = self._shuffle_minus(guids, excl_guids, str)
 		for want in self._list(wanted, str):
@@ -270,6 +270,9 @@ class dbclient:
 		if range != None:
 			assert len(range) == 2
 			search += "R" + ("%x" % range[0]) + ":" + ("%x" % range[1])
+		return search
+	def search_post(self, wanted=None, **kw):
+		search = "SP" + self._build_search(wanted=wanted, **kw)
 		props = DotDict()
 		posts = self._search_post(search, wanted, props)
 		return posts, props
@@ -430,18 +433,31 @@ class dbclient:
 		if res == u"OK\n": return
 		if res[0] != u"R": raise EResponse(res)
 		if res[1] == u"E": raise EResponse(res)
+		if res[1] == u"R": return True # ignore count for now
 		t = Tag()
 		t.populate(res[1:])
-		if resdata != None: resdata[t.guid] = t
+		if resdata != None: resdata.append(t)
 		return t
-	def find_tags(self, matchtype, name):
+	def find_tags(self, matchtype, name, range=None, order=None, **kw):
+		if kw:
+			filter = self._build_search(**kw)
+			if filter:
+				filter = " :" + filter
+		else:
+			filter = ""
 		matchtype = str(matchtype)
 		assert " " not in matchtype
 		name = _utf(name)
 		assert " " not in name
 		cmd = "ST" + matchtype + name
-		self._writeline(cmd)
-		tags = {}
+		for o in self._list(order, str):
+			assert " " not in o
+			cmd += " O" + o
+		if range != None:
+			assert len(range) == 2
+			cmd += " R%x:%x" % range
+		self._writeline(cmd + filter)
+		tags = []
 		while self._parse_tag(tags): pass
 		return tags
 	def find_tag(self, name, resdata=None, with_prefix=False):
@@ -454,8 +470,8 @@ class dbclient:
 		tags = self.find_tags("EAN", name)
 		if not tags: return None
 		assert len(tags) == 1
-		guid = tags.keys()[0]
-		if resdata != None: resdata.update(tags[guid])
+		guid = tags[0].guid
+		if resdata != None: resdata.update(tags[0])
 		return prefix + guid
 	def get_tag(self, guid, with_prefix=False):
 		guid = _utf(guid)
@@ -467,8 +483,8 @@ class dbclient:
 		tags = self.find_tags("EAG", guid)
 		if not tags: return None
 		assert len(tags) == 1
-		assert guid == tags.keys()[0]
-		data = tags[guid]
+		data = tags[0]
+		assert guid == data.guid
 		data["name"] = prefix + data["name"]
 		return data
 	def begin_transaction(self):
