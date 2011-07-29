@@ -73,6 +73,8 @@ class DotDict(dict):
 		if name[0] == "_":
 			raise AttributeError(name)
 		return self.get(name)
+	def __repr__(self):
+		return repr(type(self)) + dict.__repr__(self)
 
 class Post(DotDict): pass
 
