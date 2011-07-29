@@ -50,7 +50,7 @@ class Cache:
 
 	def clean(self):
 		self._time = time()
-		t = self._time - self._ttl
+		t = self._time - (self._ttl / 1.5)
 		for key in self._data.keys():
 			if self._data[key][0] < t:
 				del self._data[key]
