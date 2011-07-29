@@ -68,10 +68,10 @@ class Wellpapp(fuse.Fuse):
 
 	def _cfg2file(self):
 		cfg = self._client.cfg
-		data = ""
-		for f in filter(lambda n: n[0] != "_", cfg.__dict__):
-			data += f + "=" + cfg.__dict__[f] + "\n"
-		return data
+		data = []
+		for f in filter(lambda n: n[0] != "_", cfg.keys()):
+			data.append(f + "=" + cfg[f] + "\n")
+		return "".join(sorted(data))
 
 	def getattr(self, path):
 		spath = path.split("/")[1:]
