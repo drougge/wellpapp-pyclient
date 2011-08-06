@@ -5,6 +5,10 @@ import socket, base64, codecs, os, hashlib, re
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
 
+def make_pdirs(fn):
+	dn = os.path.dirname(fn)
+	if not os.path.exists(dn): os.makedirs(dn)
+
 def _utf(s, allow_space=False):
 	if type(s) is not unicode:
 		try:
@@ -544,3 +548,39 @@ class dbclient:
 			names.append(res[2:])
 			res = self._readline()
 		return names
+	def thumb_fns(self, m, ft):
+		sizes = self.cfg.thumb_sizes.split()
+		jpeg_fns = map(lambda z: (self.thumb_path(m, int(z)), int(z)), sizes)
+		png_fns = map(lambda n, z: (self.pngthumb_path(m, ft, n), z),
+			      ("normal", "large"), (128, 256))
+		return jpeg_fns, png_fns
+	def save_thumbs(self, m, img, ft, rot, force=False):
+		import Image
+		from PIL import PngImagePlugin
+		fn = self.image_path(m)
+		mtime = os.stat(fn).st_mtime
+		if not img: img = Image.open(fn)
+		# PIL rotates CCW
+		rotation = {90: Image.ROTATE_270, 180: Image.ROTATE_180, 270: Image.ROTATE_90}
+		if rot in rotation: img = img.transpose(rotation[rot])
+		w, h = img.size
+		if img.mode not in ("RGB", "L", "1"):
+			img = img.convert("RGB")
+		jpeg_fns, png_fns = self.thumb_fns(m, ft)
+		jpeg_opts = {"format": "JPEG", "quality": 95, "optimize": 1}
+		meta = PngImagePlugin.PngInfo()
+		meta.add_text("Thumb::URI", str(m + "." + ft), 0)
+		meta.add_text("Thumb::MTime", str(int(mtime)), 0)
+		png_opts = {"format": "PNG", "pnginfo": meta}
+		jpeg = map(lambda t: (t[0], t[1], jpeg_opts), jpeg_fns)
+		png = map(lambda t: (t[0], t[1], png_opts), png_fns)
+		z = max(map(lambda d: d[1], jpeg + png)) * 2
+		if w > z or h > z:
+			img.thumbnail((z, z), Image.ANTIALIAS)
+		for fn, z, opts in jpeg + png:
+			if force or not os.path.exists(fn):
+				t = img.copy()
+				if w > z or h > z:
+					t.thumbnail((z, z), Image.ANTIALIAS)
+				make_pdirs(fn)
+				t.save(fn, **opts)

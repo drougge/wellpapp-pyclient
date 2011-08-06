@@ -3,10 +3,6 @@
 
 from sys import argv, exit
 from dbclient import dbclient
-import db_add
-from os.path import exists
-from os import unlink, stat
-import Image
 
 if len(argv) != 3:
 	print "Usage:", argv[0], "post-spec rotation"
@@ -36,14 +32,5 @@ props = {"rotate": new_r}
 if diff in (90, 270):
 	props["width"], props["height"] = post["height"], post["width"]
 
-db_add.client = client
-db_add.force_thumbs = True
-fn = client.image_path(md5)
-mtime = stat(fn).st_mtime
-img = Image.open(fn)
-if new_r:
-	# PIL rotates CCW
-	rotation = {90: Image.ROTATE_270, 180: Image.ROTATE_180, 270: Image.ROTATE_90}
-	img = img.transpose(rotation[new_r])
-db_add.save_thumbs(md5, post["ext"], mtime, img)
+client.save_thumbs(md5, None, post.ext, new_r, True)
 client.modify_post(md5, **props)

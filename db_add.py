@@ -3,11 +3,11 @@
 
 from hashlib import md5
 import Image
-from PIL import PngImagePlugin
 from cStringIO import StringIO
 from pyexiv2 import Image as ExivImage
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
-from os import makedirs, readlink, symlink, unlink, getcwd, stat
+from os import readlink, symlink, unlink, getcwd
+from dbclient import make_pdirs
 
 def determine_filetype(data):
 	if data[:3] == "\xff\xd8\xff": return "jpeg"
@@ -16,40 +16,9 @@ def determine_filetype(data):
 	if data[:2] == "BM": return "bmp"
 	if data[:3] == "FWS" or data[:3] == "CWS": return "swf"
 
-def thumb_fns(m, ft):
-	sizes = client.cfg.thumb_sizes.split()
-	jpeg_fns = map(lambda z: (client.thumb_path(m, int(z)), int(z)), sizes)
-	png_fns = map(lambda n, z: (client.pngthumb_path(m, ft, n), z),
-	              ("normal", "large"), (128, 256))
-	return jpeg_fns, png_fns
-
-def save_thumbs(m, ft, mtime, img):
-	w, h = img.size
-	if img.mode not in ("RGB", "L", "1"):
-		img = img.convert("RGB")
-	jpeg_fns, png_fns = thumb_fns(m, ft)
-	jpeg_opts = {"format": "JPEG", "quality": 95, "optimize": 1}
-	meta = PngImagePlugin.PngInfo()
-	meta.add_text("Thumb::URI", m + "." + ft, 0)
-	meta.add_text("Thumb::MTime", str(int(mtime)), 0)
-	png_opts = {"format": "PNG", "pnginfo": meta}
-	jpeg = map(lambda t: (t[0], t[1], jpeg_opts), jpeg_fns)
-	png = map(lambda t: (t[0], t[1], png_opts), png_fns)
-	z = max(map(lambda d: d[1], jpeg + png)) * 2
-	if w > z or h > z:
-		img = img.copy()
-		img.thumbnail((z, z), Image.ANTIALIAS)
-	for fn, z, opts in jpeg + png:
-		if force_thumbs or not exists(fn):
-			t = img.copy()
-			if w > z or h > z:
-				t.thumbnail((z, z), Image.ANTIALIAS)
-			make_pdirs(fn)
-			t.save(fn, **opts)
-
 def needs_thumbs(m, ft):
 	if force_thumbs: return True
-	jpeg_fns, png_fns = thumb_fns(m, ft)
+	jpeg_fns, png_fns = client.thumb_fns(m, ft)
 	for fn, z in jpeg_fns + png_fns:
 		if not exists(fn): return True
 
@@ -59,13 +28,6 @@ def exif2rotation(exif):
 	orient = {1: 0, 3: 180, 6: 90, 8: 270}
 	if o not in orient: return -1
 	return orient[o]
-
-def rotate_image(img, exif):
-	rot = exif2rotation(exif)
-	# PIL rotates CCW
-	rotation = {90: Image.ROTATE_270, 180: Image.ROTATE_180, 270: Image.ROTATE_90}
-	if rot not in rotation: return img
-	return img.transpose(rotation[rot])
 
 def exif2tags(exif, tags):
 	if not exif: return
@@ -77,10 +39,6 @@ def exif2tags(exif, tags):
 			lt = "lens:" + lt + ":" + exif[lt]
 			if lt in cfg:
 				tags.add(cfg[lt])
-
-def make_pdirs(fn):
-	dn = dirname(fn)
-	if not exists(dn): makedirs(dn)
 
 class tagset(set):
 	def add(self, t):
@@ -155,9 +113,8 @@ def add_image(fn):
 			pass
 		client.add_post(**args)
 	if needs_thumbs(m, ft):
-		img = rotate_image(img, exif)
-		mtime = stat(fn).st_mtime
-		save_thumbs(m, ft, mtime, img)
+		rot = exif2rotation(exif)
+		client.save_thumbs(m, img, ft, rot, force_thumbs)
 	full = set()
 	weak = set()
 	post = client.get_post(m, True)
