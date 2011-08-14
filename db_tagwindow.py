@@ -382,6 +382,24 @@ class TagWindow:
 					tagfield.set_position(pos + len(new_word) - len(word))
 			return True
 
+	def create_tag(self, name):
+		dialog = gtk.Dialog(u"Create tag", self.window, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+		dialog.set_default_response(gtk.RESPONSE_ACCEPT)
+		lab = gtk.Label(name)
+		dialog.vbox.pack_end(lab)
+		cb = gtk.combo_box_new_text()
+		for t in client.metalist(u"tagtypes"):
+			cb.append_text(t)
+		cb.set_active(0)
+		dialog.vbox.pack_end(cb)
+		dialog.show_all()
+		if dialog.run() == gtk.RESPONSE_ACCEPT:
+			t = cb.get_active()
+			if t >= 0:
+				t = cb.get_model()[t][0]
+				client.add_tag(name, t)
+		dialog.destroy()
+
 	def apply_action(self, widget, data=None):
 		self.set_msg(u"")
 		orgtext = _uni(self.tagfield.get_text())
@@ -393,6 +411,9 @@ class TagWindow:
 		failed = []
 		for t in orgtext.split():
 			tag = client.find_tag(clean(t))
+			if not tag:
+				self.create_tag(clean(t))
+				tag = client.find_tag(clean(t))
 			if tag:
 				good.append((prefix(t) + tag, t))
 			else:
