@@ -354,6 +354,11 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	def remove_alias(self, name):
+		cmd = "DAN" + _utf(name)
+		self._writeline(cmd)
+		res = self._readline()
+		if res != u"OK\n": raise EResponse(res)
 	def _addrem_implies(self, addrem, set_tag, implied_tag, priostr):
 		assert " " not in set_tag
 		assert " " not in implied_tag
