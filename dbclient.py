@@ -421,6 +421,16 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	def mod_tag(self, guid, type=None):
+		if not type: return
+		guid = _utf(guid)
+		type = _utf(type)
+		assert " " not in guid
+		assert " " not in type
+		cmd = "MTG" + guid + " T" + type
+		self._writeline(cmd)
+		res = self._readline()
+		if res != u"OK\n": raise EResponse(res)
 	def tag_post(self, md5, full_tags=None, weak_tags=None, remove_tags=None):
 		tags = map(str, full_tags or []) + map(lambda t: "~" + str(t), weak_tags or [])
 		remove_tags = map(str, remove_tags or [])
