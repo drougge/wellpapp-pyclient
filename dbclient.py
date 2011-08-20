@@ -545,7 +545,7 @@ class dbclient:
 		names = []
 		while res != u"OK\n":
 			if res[:2] != u"RN": raise EResponse(res)
-			names.append(res[2:])
+			names.append(res[2:-1])
 			res = self._readline()
 		return names
 	def thumb_fns(self, m, ft):

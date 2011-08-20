@@ -386,17 +386,21 @@ class TagWindow:
 		dialog = gtk.Dialog(u"Create tag", self.window, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
 		dialog.set_default_response(gtk.RESPONSE_ACCEPT)
 		lab = gtk.Label(name)
-		dialog.vbox.pack_end(lab)
-		cb = gtk.combo_box_new_text()
+		dialog.vbox.pack_start(lab)
+		ls = gtk.ListStore(TYPE_STRING)
 		for t in client.metalist(u"tagtypes"):
-			cb.append_text(t)
-		cb.set_active(0)
-		dialog.vbox.pack_end(cb)
+			ls.append((t,))
+		tv = gtk.TreeView(ls)
+		crt = gtk.CellRendererText()
+		tv.append_column(gtk.TreeViewColumn(u"Type", crt, text=0))
+		tv.get_selection().select_path((0,))
+		tv.connect("row-activated", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
+		dialog.vbox.pack_end(tv)
 		dialog.show_all()
 		if dialog.run() == gtk.RESPONSE_ACCEPT:
-			t = cb.get_active()
-			if t >= 0:
-				t = cb.get_model()[t][0]
+			ls, iter = tv.get_selection().get_selected()
+			if iter:
+				t = ls.get_value(iter, 0)
 				client.add_tag(name, t)
 		dialog.destroy()
 
