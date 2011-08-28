@@ -141,6 +141,7 @@ class TagWindow:
 		          self.tags_currentotherview, self.tags_otherview:
 			sel = tv.get_selection()
 			sel.set_mode(gtk.SELECTION_MULTIPLE)
+			tv.connect("row-activated", self.modify_tag)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("Some", celltext, text=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
@@ -255,6 +256,35 @@ class TagWindow:
 		for path in widget.get_selected_items():
 			data += self.thumbs[path][0] + " "
 		selection.set(selection.target, 8, data[:-1])
+
+	def modify_tag(self, tv, row, *a):
+		model = tv.get_model()
+		pre = prefix(model[row][0])
+		guid = clean(model[row][1])
+		tag = client.get_tag(guid)
+		dialog, tv = self._make_tag_dialog(u"Modify tag", tag.name, tag.type)
+		entry = gtk.Entry()
+		entry.set_text(tag.name)
+		dialog.vbox.pack_start(entry)
+		entry.connect("activate", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
+		dialog.show_all()
+		if dialog.run() == gtk.RESPONSE_ACCEPT:
+			ls, iter = tv.get_selection().get_selected()
+			new_type = None
+			if iter:
+				t = ls.get_value(iter, 0)
+				if t != tag.type:
+					new_type = t
+			new_name = _uni(entry.get_text())
+			if new_name == tag.name: new_name = None
+			if new_type or new_name:
+				try:
+					client.mod_tag(guid, type=new_type, name=new_name)
+					if new_name: model[row][0] = pre + new_name
+					model[row][3] = self.tag_colour(guid)
+				except Exception:
+					pass
+		dialog.destroy()
 
 	def tag_colour(self, guid):
 		type = client.get_tag(guid)["type"]
@@ -382,21 +412,32 @@ class TagWindow:
 					tagfield.set_position(pos + len(new_word) - len(word))
 			return True
 
-	def create_tag(self, name):
-		dialog = gtk.Dialog(u"Create tag", self.window, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
-		dialog.set_default_response(gtk.RESPONSE_ACCEPT)
-		lab = gtk.Label(name)
-		dialog.vbox.pack_start(lab)
+	def _make_tt_tv(self, selname=None):
+		selpos = 0
 		ls = gtk.ListStore(TYPE_STRING)
-		for t in client.metalist(u"tagtypes"):
+		tt = client.metalist(u"tagtypes")
+		for pos, t in zip(range(len(tt)), tt):
 			ls.append((t,))
+			if t == selname: selpos = pos
 		tv = gtk.TreeView(ls)
 		crt = gtk.CellRendererText()
 		tv.append_column(gtk.TreeViewColumn(u"Type", crt, text=0))
-		tv.get_selection().select_path((0,))
+		tv.get_selection().select_path((selpos,))
+		return tv
+	
+	def _make_tag_dialog(self, title, tagname, tagtype=None):
+		dialog = gtk.Dialog(title, self.window, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+		dialog.set_default_response(gtk.RESPONSE_ACCEPT)
+		lab = gtk.Label(tagname)
+		dialog.vbox.pack_start(lab)
+		tv = self._make_tt_tv(tagtype)
 		tv.connect("row-activated", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
 		dialog.vbox.pack_end(tv)
 		dialog.show_all()
+		return dialog, tv
+
+	def create_tag(self, name):
+		dialog, tv = self._make_tag_dialog(u"Create tag", name)
 		if dialog.run() == gtk.RESPONSE_ACCEPT:
 			ls, iter = tv.get_selection().get_selected()
 			if iter:

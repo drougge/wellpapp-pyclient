@@ -421,13 +421,19 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
-	def mod_tag(self, guid, type=None):
+	def mod_tag(self, guid, name=None, type=None):
 		if not type: return
 		guid = _utf(guid)
-		type = _utf(type)
 		assert " " not in guid
-		assert " " not in type
-		cmd = "MTG" + guid + " T" + type
+		cmd = "MTG" + guid
+		if name:
+			name = _utf(name)
+			assert " " not in name
+			cmd += " N" + name
+		if type:
+			type = _utf(type)
+			assert " " not in type
+			cmd += " T" + type
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
