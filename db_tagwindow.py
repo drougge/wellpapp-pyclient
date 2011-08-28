@@ -581,9 +581,12 @@ class FileLoader(Thread):
 		z = int(client.cfg.thumb_sizes.split()[0])
 		thumbs = []
 		for m in md5s:
-			fn = client.thumb_path(m, z)
-			thumb = gtk.gdk.pixbuf_new_from_file(fn)
-			thumbs.append((m, thumb,))
+			try:
+				fn = client.thumb_path(m, z)
+				thumb = gtk.gdk.pixbuf_new_from_file(fn)
+				thumbs.append((m, thumb,))
+			except Exception:
+				good = False
 		idle_add(self._tw.add_thumbs, thumbs)
 		if good: idle_add(self._tw.set_msg, u"")
 
