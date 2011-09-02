@@ -45,7 +45,9 @@ def complete(word):
 	              ("FI", lambda t: t["name"]), ("FAI", lambda t: t["alias"][0]):
 		tags = client.find_tags(t, word)
 		if pre == "-": tags = filter(tw.known_tag, tags)
-		if len(tags) == 1: return pre + get(tags[0]), False
+		if len(tags) == 1:
+			name = get(tags[0])
+			return pre + name, [(name, tags[0].type)]
 		if len(tags) > 1: break
 	names = {}
 	for t in tags:
@@ -418,13 +420,11 @@ class TagWindow:
 			if word:
 				new_word, alts = complete(word)
 				if len(new_word) > 1:
-					if alts:
-						self.set_msg(u"")
-						mu = " ".join([self.fmt_tagalt(*a) for a in alts])
-						self.msg.set_markup(mu)
-					else:
-						if not right or right[0] != u" ":
-							new_word += u" "
+					self.set_msg(u"")
+					mu = " ".join([self.fmt_tagalt(*a) for a in alts])
+					self.msg.set_markup(mu)
+					if len(alts) == 1 and (not right or right[0] != u" "):
+						new_word += u" "
 					text = left + new_word + right
 					tagfield.set_text(text)
 					tagfield.set_position(pos + len(new_word) - len(word))
