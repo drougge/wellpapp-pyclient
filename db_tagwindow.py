@@ -13,6 +13,7 @@ threads_init()
 from os.path import commonprefix
 from hashlib import md5
 from threading import Thread
+from glib import markup_escape_text
 
 def clean(n):
 	if n[0] in u"-~": return n[1:]
@@ -46,6 +47,12 @@ def complete(word):
 		if pre == "-": tags = filter(tw.known_tag, tags)
 		if len(tags) == 1: return pre + get(tags[0]), False
 		if len(tags) > 1: break
+	names = {}
+	for t in tags:
+		names[t.name] = t
+		if "alias" in t:
+			for n in t.alias:
+				names[n] = t
 	aliases = [t["alias"] if "alias" in t else [] for t in tags]
 	aliases = chain(*aliases)
 	tags = [t["name"] for t in tags]
@@ -56,7 +63,9 @@ def complete(word):
 		inc = lambda n: _completefuzz(n)[:len(word)] == word
 		candidates = filter(inc, tags) + filter(inc, aliases)
 		candidates = map(unicode.lower, candidates)
-	return pre + commonprefix(candidates), candidates
+	word = pre + commonprefix(candidates)
+	candidates = [(c, names[c].type) for c in candidates]
+	return word, candidates
 
 class FixedTreeView(gtk.TreeView):
 	def __init__(self, *args):
@@ -281,15 +290,17 @@ class TagWindow:
 				try:
 					client.mod_tag(guid, type=new_type, name=new_name)
 					if new_name: model[row][0] = pre + new_name
-					model[row][3] = self.tag_colour(guid)
+					model[row][3] = self.tag_colour_guid(guid)
 				except Exception:
 					pass
 		dialog.destroy()
 
-	def tag_colour(self, guid):
-		type = client.get_tag(guid)["type"]
+	def tag_colour(self, type):
 		if type in self.type2colour: return self.type2colour[type]
 		return "#%02x%02x%02x" % tuple([int(ord(c) / 1.6) for c in md5(type).digest()[:3]])
+
+	def tag_colour_guid(self, guid):
+		return self.tag_colour(client.get_tag(guid).type)
 
 	def put_in_list(self, lo, li):
 		data = []
@@ -310,7 +321,7 @@ class TagWindow:
 		                    chain(*[map(clean, p["tagname"] + p["impltagname"]) for p in posts])))
 		self.posts = dict([(p["md5"], p) for p in posts])
 		agl = self.ids.keys()
-		self.tag_colours = dict(zip(agl, [self.tag_colour(clean(tg)) for tg in agl]))
+		self.tag_colours = dict(zip(agl, [self.tag_colour_guid(clean(tg)) for tg in agl]))
 		self.taglist = {}
 		self._tagcompute(posts, "")
 		self._tagcompute(posts, "impl")
@@ -389,6 +400,11 @@ class TagWindow:
 	def destroy(self, widget, data=None):
 		gtk.main_quit()
 
+	def fmt_tagalt(self, name, t):
+		name = markup_escape_text(name.encode("utf-8"))
+		col = self.tag_colour(t)
+		return "<span color=\"" + col + "\">" + name + "</span>"
+
 	def tagfield_key(self, tagfield, event):
 		if event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK): return
 		if gtk.gdk.keyval_name(event.keyval) == "Tab":
@@ -403,7 +419,9 @@ class TagWindow:
 				new_word, alts = complete(word)
 				if len(new_word) > 1:
 					if alts:
-						self.set_msg(u" ".join(sorted(alts)))
+						self.set_msg(u"")
+						mu = " ".join([self.fmt_tagalt(*a) for a in alts])
+						self.msg.set_markup(mu)
 					else:
 						if not right or right[0] != u" ":
 							new_word += u" "
