@@ -268,6 +268,13 @@ class TagWindow:
 			data += self.thumbs[path][0] + " "
 		selection.set(selection.target, 8, data[:-1])
 
+	def implications(self, widget, data):
+		parent, guid = data
+		dialog = ImplicationsDialog(parent, guid)
+		dialog.run()
+		self._needs_refresh = dialog.did_something
+		dialog.destroy()
+
 	def modify_tag(self, tv, row, *a):
 		model = tv.get_model()
 		pre = prefix(model[row][0])
@@ -277,8 +284,12 @@ class TagWindow:
 		entry = gtk.Entry()
 		entry.set_text(tag.name)
 		dialog.vbox.pack_start(entry)
+		implbutton = gtk.Button(u"Implications")
+		implbutton.connect("clicked", self.implications, (dialog, guid))
+		dialog.vbox.pack_start(implbutton)
 		entry.connect("activate", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
 		dialog.show_all()
+		self._needs_refresh = False
 		if dialog.run() == gtk.RESPONSE_ACCEPT:
 			new_type = None
 			t = dialog.get_tt()
@@ -294,6 +305,7 @@ class TagWindow:
 				except Exception:
 					pass
 		dialog.destroy()
+		if self._needs_refresh: self.refresh()
 
 	def tag_colour(self, type):
 		if type in self.type2colour: return self.type2colour[type]
@@ -544,6 +556,99 @@ class TagDialog(gtk.Dialog):
 		ls, iter = self._tv.get_selection().get_selected()
 		if iter:
 			return ls.get_value(iter, 0)
+
+class ImplicationsDialog(gtk.Dialog):
+	def __init__(self, parent, guid):
+		gtk.Dialog.__init__(self, u"Implications", parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.RESPONSE_ACCEPT))
+		self.guid = guid
+		impl = client.tag_implies(self.guid, True)
+		if impl:
+			lab = gtk.Label(u"Implied by")
+			self.vbox.pack_start(lab)
+			for guid, prio in impl:
+				hbox = gtk.HBox()
+				lab = gtk.Label(client.get_tag(guid, with_prefix=True).name)
+				hbox.pack_start(lab)
+				lab = gtk.Label(unicode(prio))
+				hbox.pack_end(lab)
+				self.vbox.pack_start(hbox)
+		lab = gtk.Label(u"Implies")
+		self.vbox.pack_start(lab)
+		self._ibox = gtk.VBox()
+		self.vbox.pack_start(self._ibox)
+		self._show_impl()
+		hbox = gtk.HBox()
+		self._add_name = gtk.Entry()
+		self._add_name.connect("activate", self._add)
+		hbox.pack_start(self._add_name)
+		self._add_prio = gtk.Entry()
+		self._add_prio.set_width_chars(5)
+		self._add_prio.set_text(u"0")
+		self._add_prio.connect("activate", self._add)
+		hbox.pack_start(self._add_prio)
+		btn = gtk.Button(u"Add")
+		btn.connect("clicked", self._add)
+		hbox.pack_start(btn)
+		self.vbox.pack_start(hbox)
+		self.did_something = False
+		self.show_all()
+
+	def _show_impl(self):
+		impl = client.tag_implies(self.guid)
+		[self._ibox.remove(c) for c in self._ibox.get_children()]
+		if not impl: return
+		boxes = [self._impl_box(guid, prio) for guid, prio in impl]
+		for name, hbox in sorted(boxes):
+			self._ibox.pack_start(hbox)
+		self._ibox.show_all()
+
+	def _impl_box(self, guid, prio):
+		hbox = gtk.HBox()
+		name = client.get_tag(guid, with_prefix=True).name
+		lab = gtk.Label(name)
+		hbox.pack_start(lab)
+		entry = gtk.Entry()
+		entry.set_width_chars(5)
+		entry.set_text(unicode(prio))
+		entry.connect("activate", lambda *a: self._update(entry, guid))
+		hbox.pack_start(entry)
+		btn = gtk.Button(u"Update")
+		btn.connect("clicked", lambda *a: self._update(entry, guid))
+		hbox.pack_start(btn)
+		btn = gtk.Button(u"Remove")
+		btn.connect("clicked", lambda *a: self._remove(hbox, guid))
+		hbox.pack_start(btn)
+		return (name, hbox)
+
+	def _update(self, entry, guid):
+		try:
+			prio = int(entry.get_text())
+		except Exception:
+			prio = 0
+		client.add_implies(self.guid, guid, prio)
+		self.did_something = True
+		entry.set_text(unicode(prio))
+
+	def _remove(self, hbox, guid):
+		client.remove_implies(self.guid, guid)
+		self.did_something = True
+		hbox.destroy()
+
+	def _add(self, *a):
+		name = self._add_name.get_text()
+		try:
+			prio = int(self._add_prio.get_text())
+		except Exception:
+			prio = 0
+		pre = prefix(name)
+		if pre and pre != u"-": return
+		tag = client.find_tag(name, with_prefix=True)
+		if not tag: return
+		client.add_implies(self.guid, tag, prio)
+		self.did_something = True
+		self._add_name.set_text(u"")
+		self._add_prio.set_text(u"0")
+		self._show_impl()
 
 # This doesn't actually manage the window, it just loads the image for it.
 # Only the main thread ever touches visible objects, because I don't want to
