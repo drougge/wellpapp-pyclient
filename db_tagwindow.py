@@ -275,6 +275,12 @@ class TagWindow:
 		self._needs_refresh = dialog.did_something
 		dialog.destroy()
 
+	def aliases(self, widget, data):
+		parent, guid = data
+		dialog = AliasesDialog(parent, guid)
+		dialog.run()
+		dialog.destroy()
+
 	def modify_tag(self, tv, row, *a):
 		model = tv.get_model()
 		pre = prefix(model[row][0])
@@ -287,6 +293,9 @@ class TagWindow:
 		implbutton = gtk.Button(u"_Implications")
 		implbutton.connect("clicked", self.implications, (dialog, guid))
 		dialog.vbox.pack_start(implbutton)
+		aliasbutton = gtk.Button(u"_Aliases")
+		aliasbutton.connect("clicked", self.aliases, (dialog, guid))
+		dialog.vbox.pack_start(aliasbutton)
 		entry.connect("activate", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
 		dialog.show_all()
 		self._needs_refresh = False
@@ -654,6 +663,53 @@ class ImplicationsDialog(gtk.Dialog):
 		self._add_name.set_text(u"")
 		self._add_prio.set_text(u"0")
 		self._show_impl()
+
+class AliasesDialog(gtk.Dialog):
+	def __init__(self, parent, guid):
+		gtk.Dialog.__init__(self, u"Aliases", parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.RESPONSE_ACCEPT))
+		self.guid = guid
+		self._add_name = gtk.Entry()
+		self._add_name.connect("activate", self._add)
+		self._add_btn = gtk.Button("Add")
+		self._add_btn.connect("clicked", self._add)
+		self._list = gtk.Table(1, 2)
+		self.vbox.pack_start(self._list)
+		self._refresh()
+		self.show_all()
+
+	def _refresh(self):
+		tag = client.get_tag(self.guid)
+		[self._list.remove(c) for c in self._list.get_children()]
+		if "alias" in tag:
+			lines = [self._wids(n) for n in sorted(tag.alias)]
+			self._list.resize(len(lines) + 1, 2)
+			for row, wids in zip(range(len(lines)), lines):
+				self._list.attach(wids[0], 0, 1, row, row + 1)
+				self._list.attach(wids[1], 1, 2, row, row + 1)
+			row = len(lines)
+		else:
+			row = 0
+		self._list.attach(self._add_name, 0, 1, row, row + 1)
+		self._list.attach(self._add_btn, 1, 2, row, row + 1)
+		self._list.show_all()
+		self._add_name.grab_focus()
+
+	def _wids(self, name):
+		lab = gtk.Label(name)
+		btn = gtk.Button("Remove")
+		btn.connect("clicked", lambda *a: self._rm(name))
+		return lab, btn
+
+	def _rm(self, name):
+		client.remove_alias(name)
+		self._refresh()
+
+	def _add(self, *a):
+		name = self._add_name.get_text()
+		if not name: return
+		client.add_alias(name, self.guid)
+		self._add_name.set_text(u"")
+		self._refresh()
 
 # This doesn't actually manage the window, it just loads the image for it.
 # Only the main thread ever touches visible objects, because I don't want to
