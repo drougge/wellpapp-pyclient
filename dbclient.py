@@ -422,7 +422,6 @@ class dbclient:
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
 	def mod_tag(self, guid, name=None, type=None):
-		if not type: return
 		guid = _utf(guid)
 		assert " " not in guid
 		cmd = "MTG" + guid
