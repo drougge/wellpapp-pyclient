@@ -273,19 +273,17 @@ class TagWindow:
 		pre = prefix(model[row][0])
 		guid = clean(model[row][1])
 		tag = client.get_tag(guid)
-		dialog, tv = self._make_tag_dialog(u"Modify tag", tag.name, tag.type)
+		dialog = TagDialog(self.window, u"Modify tag", tag.name, tag.type)
 		entry = gtk.Entry()
 		entry.set_text(tag.name)
 		dialog.vbox.pack_start(entry)
 		entry.connect("activate", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
 		dialog.show_all()
 		if dialog.run() == gtk.RESPONSE_ACCEPT:
-			ls, iter = tv.get_selection().get_selected()
 			new_type = None
-			if iter:
-				t = ls.get_value(iter, 0)
-				if t != tag.type:
-					new_type = t
+			t = dialog.get_tt()
+			if t and t != tag.type:
+				new_type = t
 			new_name = _uni(entry.get_text())
 			if new_name == tag.name: new_name = None
 			if new_type or new_name:
@@ -430,36 +428,11 @@ class TagWindow:
 					tagfield.set_position(pos + len(new_word) - len(word))
 			return True
 
-	def _make_tt_tv(self, selname=None):
-		selpos = 0
-		ls = gtk.ListStore(TYPE_STRING)
-		tt = client.metalist(u"tagtypes")
-		for pos, t in zip(range(len(tt)), tt):
-			ls.append((t,))
-			if t == selname: selpos = pos
-		tv = gtk.TreeView(ls)
-		crt = gtk.CellRendererText()
-		tv.append_column(gtk.TreeViewColumn(u"Type", crt, text=0))
-		tv.get_selection().select_path((selpos,))
-		return tv
-	
-	def _make_tag_dialog(self, title, tagname, tagtype=None):
-		dialog = gtk.Dialog(title, self.window, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
-		dialog.set_default_response(gtk.RESPONSE_ACCEPT)
-		lab = gtk.Label(tagname)
-		dialog.vbox.pack_start(lab)
-		tv = self._make_tt_tv(tagtype)
-		tv.connect("row-activated", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
-		dialog.vbox.pack_end(tv)
-		dialog.show_all()
-		return dialog, tv
-
 	def create_tag(self, name):
-		dialog, tv = self._make_tag_dialog(u"Create tag", name)
+		dialog = TagDialog(self.window, u"Create tag", name)
 		if dialog.run() == gtk.RESPONSE_ACCEPT:
-			ls, iter = tv.get_selection().get_selected()
-			if iter:
-				t = ls.get_value(iter, 0)
+			t = dialog.get_tt()
+			if t:
 				client.add_tag(name, t)
 		dialog.destroy()
 
@@ -542,6 +515,35 @@ class TagWindow:
 		self.window.show()
 		self.tagfield.grab_focus()
 		gtk.main()
+
+class TagDialog(gtk.Dialog):
+	def __init__(self, mainwin, title, tagname, tagtype=None):
+		gtk.Dialog.__init__(self, title, mainwin, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+		self.set_default_response(gtk.RESPONSE_ACCEPT)
+		lab = gtk.Label(tagname)
+		self.vbox.pack_start(lab)
+		self._tv = self._make_tt_tv(tagtype)
+		self._tv.connect("row-activated", lambda *a: self.response(gtk.RESPONSE_ACCEPT))
+		self.vbox.pack_end(self._tv)
+		self.show_all()
+
+	def _make_tt_tv(self, selname):
+		selpos = 0
+		ls = gtk.ListStore(TYPE_STRING)
+		tt = client.metalist(u"tagtypes")
+		for pos, t in zip(range(len(tt)), tt):
+			ls.append((t,))
+			if t == selname: selpos = pos
+		tv = gtk.TreeView(ls)
+		crt = gtk.CellRendererText()
+		tv.append_column(gtk.TreeViewColumn(u"Type", crt, text=0))
+		tv.get_selection().select_path((selpos,))
+		return tv
+
+	def get_tt(self):
+		ls, iter = self._tv.get_selection().get_selected()
+		if iter:
+			return ls.get_value(iter, 0)
 
 # This doesn't actually manage the window, it just loads the image for it.
 # Only the main thread ever touches visible objects, because I don't want to
