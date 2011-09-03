@@ -7,7 +7,7 @@ from itertools import chain
 import pygtk
 pygtk.require("2.0")
 import gtk
-from gobject import threads_init, idle_add, TYPE_STRING
+from gobject import threads_init, idle_add, TYPE_STRING, TYPE_INT
 from pango import ELLIPSIZE_END
 threads_init()
 from os.path import commonprefix
@@ -565,13 +565,20 @@ class ImplicationsDialog(gtk.Dialog):
 		if impl:
 			lab = gtk.Label(u"Implied by")
 			self.vbox.pack_start(lab)
-			for guid, prio in impl:
-				hbox = gtk.HBox()
-				lab = gtk.Label(client.get_tag(guid, with_prefix=True).name)
-				hbox.pack_start(lab)
-				lab = gtk.Label(unicode(prio))
-				hbox.pack_end(lab)
-				self.vbox.pack_start(hbox)
+			rev_impl = gtk.ListStore(TYPE_STRING, TYPE_INT)
+			lines = [(client.get_tag(guid, with_prefix=True).name, prio) for guid, prio in impl]
+			for d in sorted(lines):
+				rev_impl.append(d)
+			rev_impl = gtk.TreeView(rev_impl)
+			crt = gtk.CellRendererText()
+			tvc = gtk.TreeViewColumn("Tag", crt, text=0)
+			rev_impl.append_column(tvc)
+			crt = gtk.CellRendererText()
+			tvc = gtk.TreeViewColumn("Priority", crt, text=1)
+			rev_impl.append_column(tvc)
+			rev_impl.get_selection().set_mode(gtk.SELECTION_NONE)
+			self.vbox.pack_start(rev_impl)
+			self.vbox.pack_start(gtk.HSeparator())
 		lab = gtk.Label(u"Implies")
 		self.vbox.pack_start(lab)
 		self._ibox = gtk.VBox()
