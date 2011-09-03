@@ -284,7 +284,7 @@ class TagWindow:
 		entry = gtk.Entry()
 		entry.set_text(tag.name)
 		dialog.vbox.pack_start(entry)
-		implbutton = gtk.Button(u"Implications")
+		implbutton = gtk.Button(u"_Implications")
 		implbutton.connect("clicked", self.implications, (dialog, guid))
 		dialog.vbox.pack_start(implbutton)
 		entry.connect("activate", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
@@ -581,51 +581,49 @@ class ImplicationsDialog(gtk.Dialog):
 			self.vbox.pack_start(gtk.HSeparator())
 		lab = gtk.Label(u"Implies")
 		self.vbox.pack_start(lab)
-		self._ibox = gtk.VBox()
+		self._ibox = gtk.Table(1, 4)
 		self.vbox.pack_start(self._ibox)
-		self._show_impl()
-		hbox = gtk.HBox()
 		self._add_name = gtk.Entry()
 		self._add_name.connect("activate", self._add)
-		hbox.pack_start(self._add_name)
 		self._add_prio = gtk.Entry()
 		self._add_prio.set_width_chars(5)
 		self._add_prio.set_text(u"0")
 		self._add_prio.connect("activate", self._add)
-		hbox.pack_start(self._add_prio)
-		btn = gtk.Button(u"Add")
-		btn.connect("clicked", self._add)
-		hbox.pack_start(btn)
-		self.vbox.pack_start(hbox)
+		self._add_btn = gtk.Button(u"Add")
+		self._add_btn.connect("clicked", self._add)
+		self._show_impl()
 		self.did_something = False
 		self.show_all()
 
 	def _show_impl(self):
 		impl = client.tag_implies(self.guid)
 		[self._ibox.remove(c) for c in self._ibox.get_children()]
-		if not impl: return
-		boxes = [self._impl_box(guid, prio) for guid, prio in impl]
-		for name, hbox in sorted(boxes):
-			self._ibox.pack_start(hbox)
+		if impl:
+			lines = [self._impl_wids(guid, prio) for guid, prio in impl]
+			self._ibox.resize(len(lines) + 1, 4)
+			for row, l in zip(range(len(lines)), sorted(lines)):
+				for col, wid in zip(range(4), l[1]):
+					self._ibox.attach(wid, col, col + 1, row, row + 1)
+			row = len(lines)
+		else:
+			row = 0
+		self._ibox.attach(self._add_name, 0, 1, row, row + 1)
+		self._ibox.attach(self._add_prio, 1, 2, row, row + 1)
+		self._ibox.attach(self._add_btn, 2, 4, row, row + 1)
 		self._ibox.show_all()
 
-	def _impl_box(self, guid, prio):
-		hbox = gtk.HBox()
+	def _impl_wids(self, guid, prio):
 		name = client.get_tag(guid, with_prefix=True).name
 		lab = gtk.Label(name)
-		hbox.pack_start(lab)
 		entry = gtk.Entry()
 		entry.set_width_chars(5)
 		entry.set_text(unicode(prio))
 		entry.connect("activate", lambda *a: self._update(entry, guid))
-		hbox.pack_start(entry)
-		btn = gtk.Button(u"Update")
-		btn.connect("clicked", lambda *a: self._update(entry, guid))
-		hbox.pack_start(btn)
-		btn = gtk.Button(u"Remove")
-		btn.connect("clicked", lambda *a: self._remove(hbox, guid))
-		hbox.pack_start(btn)
-		return (name, hbox)
+		update = gtk.Button(u"Update")
+		update.connect("clicked", lambda *a: self._update(entry, guid))
+		remove = gtk.Button(u"Remove")
+		remove.connect("clicked", lambda *a: self._remove(hbox, guid))
+		return name, (lab, entry, update, remove)
 
 	def _update(self, entry, guid):
 		try:
