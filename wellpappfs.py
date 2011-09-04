@@ -19,7 +19,7 @@ fuse.fuse_python_api = (0, 2)
 NOTFOUND = IOError(errno.ENOENT, "Not found")
 md5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)$")
 metamd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)\.gq\.xmp$")
-sre = re.compile(r"[ /]")
+sre = re.compile(r"[ /]+")
 orient = {0: 1, 90: 6, 180: 3, 270: 8}
 
 class WpStat(fuse.Stat):
@@ -189,7 +189,7 @@ class Wellpapp(fuse.Fuse):
 		order = []
 		first = None
 		range = None
-		for e in sre.split(path[1:]):
+		for e in filter(None, sre.split(path[1:])):
 			if e[0] == "-":
 				dontwant.add(e[1:])
 			elif e[:2] == "O:":
