@@ -543,18 +543,19 @@ class TagDialog(gtk.Dialog):
 		self.set_default_response(gtk.RESPONSE_ACCEPT)
 		lab = gtk.Label(tagname)
 		self.vbox.pack_start(lab)
-		self._tv = self._make_tt_tv(tagtype)
+		self._tv = self._make_tt_tv(tagtype, tagname)
 		self._tv.connect("row-activated", lambda *a: self.response(gtk.RESPONSE_ACCEPT))
 		self.vbox.pack_end(self._tv)
 		self.show_all()
 
-	def _make_tt_tv(self, selname):
+	def _make_tt_tv(self, selname, tagname):
 		selpos = 0
 		ls = gtk.ListStore(TYPE_STRING)
 		tt = client.metalist(u"tagtypes")
 		for pos, t in zip(range(len(tt)), tt):
 			ls.append((t,))
 			if t == selname: selpos = pos
+			if not selname and tagname[:len(t)] == t: selpos = pos
 		tv = gtk.TreeView(ls)
 		crt = gtk.CellRendererText()
 		tv.append_column(gtk.TreeViewColumn(u"Type", crt, text=0))
