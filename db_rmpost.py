@@ -30,7 +30,7 @@ def delete_post(m, force):
 	tags = post["tagguid"]
 	if tags:
 		if force:
-			client.tag_post(m, remove_tags = tags)
+			client.tag_post(m, remove_tags=[t[-27:] for t in tags])
 		else:
 			print m, "post has tags"
 			return 1
