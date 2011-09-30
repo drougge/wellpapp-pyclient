@@ -32,13 +32,20 @@ def exif2rotation(exif):
 def exif2tags(exif, tags):
 	if not exif: return
 	cfg = client.cfg
-	lenstags = cfg.lenstags.split()
 	keys = exif.exifKeys()
-	for lt in lenstags:
-		if lt in keys:
-			lt = "lens:" + lt + ":" + exif[lt]
-			if lt in cfg:
-				tags.add(cfg[lt])
+	if "lenstags" in cfg:
+		lenstags = cfg.lenstags.split()
+		for lt in lenstags:
+			if lt in keys:
+				lt = "lens:" + lt + ":" + exif[lt]
+				if lt in cfg:
+					tags.add(cfg[lt])
+	if "Exif.Image.Make" in keys and "Exif.Image.Model" in keys:
+		make = exif["Exif.Image.Make"].strip()
+		model = exif["Exif.Image.Model"].strip()
+		cam = "camera:" + make + ":" + model
+		if cam in cfg:
+			tags.add(cfg[cam])
 
 class tagset(set):
 	def add(self, t):
