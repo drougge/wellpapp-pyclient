@@ -123,7 +123,7 @@ class dbcfg(DotDict):
 	def _load(self, fn):
 		for line in file(fn):
 			line = line.strip()
-			if line[0] != "#" and line:
+			if line and line[0] != "#":
 				a = line.split("=", 1)
 				assert(len(a) == 2)
 				self[a[0]] = a[1]
