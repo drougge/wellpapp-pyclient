@@ -37,7 +37,10 @@ def exif2tags(exif, tags):
 		lenstags = cfg.lenstags.split()
 		for lt in lenstags:
 			if lt in keys:
-				lt = "lens:" + lt + ":" + exif[lt]
+				v = exif[lt]
+				if type(v) is tuple:
+					v = " ".join([str(e) for e in v])
+				lt = "lens:" + lt + ":" + v
 				if lt in cfg:
 					tags.add(cfg[lt])
 	if "Exif.Image.Make" in keys and "Exif.Image.Model" in keys:
