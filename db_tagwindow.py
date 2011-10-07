@@ -65,6 +65,8 @@ def complete(word):
 		inc = lambda n: _completefuzz(n)[:len(word)] == word
 		candidates = filter(inc, tags) + filter(inc, aliases)
 		candidates = map(unicode.lower, candidates)
+		for k in names.keys():
+			names[k.lower()] = names[k]
 	word = pre + commonprefix(candidates)
 	candidates = [(c, names[c].type) for c in candidates]
 	return word, candidates
@@ -438,15 +440,16 @@ class TagWindow:
 			right = text[pos:]
 			if word:
 				new_word, alts = complete(word)
-				if len(new_word) > 1:
+				if alts:
 					self.set_msg(u"")
 					mu = " ".join([self.fmt_tagalt(*a) for a in alts])
 					self.msg.set_markup(mu)
-					if len(alts) == 1 and (not right or right[0] != u" "):
-						new_word += u" "
-					text = left + new_word + right
-					tagfield.set_text(text)
-					tagfield.set_position(pos + len(new_word) - len(word))
+					if new_word:
+						if len(alts) == 1 and (not right or right[0] != u" "):
+							new_word += u" "
+						text = left + new_word + right
+						tagfield.set_text(text)
+						tagfield.set_position(pos + len(new_word) - len(word))
 			return True
 
 	def create_tag(self, name):
