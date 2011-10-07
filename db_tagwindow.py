@@ -624,6 +624,7 @@ class ImplicationsDialog(gtk.Dialog):
 		self._ibox.attach(self._add_prio, 1, 2, row, row + 1)
 		self._ibox.attach(self._add_btn, 2, 4, row, row + 1)
 		self._ibox.show_all()
+		self._add_name.grab_focus()
 
 	def _impl_wids(self, guid, prio):
 		name = client.get_tag(guid, with_prefix=True).name
