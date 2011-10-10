@@ -23,7 +23,7 @@ def usage():
 	print "any number of include:tag and exclude:tag lines"
 	exit(1)
 
-_guid_re = re.compile(r"(?:\w{6}-){3}\w{6}$")
+_guid_re = re.compile(r"-?(?:\w{6}-){3}\w{6}$")
 def parse_tag(t, **a):
 	g = src_client.find_tag(t, **a)
 	if g: t = g
