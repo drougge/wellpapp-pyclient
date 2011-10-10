@@ -176,7 +176,8 @@ for t in spec.include:
 	impl = src_client.tag_implies(t)
 	if impl:
 		for g, p in impl:
-			dest_client.add_implies(t, g, p)
+			if g in spec.include:
+				dest_client.add_implies(t, g, p)
 
 print "Posts.."
 for post in posts:
