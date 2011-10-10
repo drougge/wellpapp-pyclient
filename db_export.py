@@ -137,6 +137,7 @@ for s in spec.search:
 	ps = src_client.search_post(wanted=["tagguid", "implied", "ext", "width", "height", "rotate", "imgdate", "created"], **s)[0]
 	for p in ps:
 		posts[p.md5] = p
+md5s = set(posts.keys())
 posts = posts.values()
 
 bad = set()
@@ -213,7 +214,7 @@ for post in posts:
 print "Ordering.."
 for g in ordered:
 	order = [p.md5 for p in src_client.search_post(guids=[g], order=["group"])[0]]
-	dest_client.order(g, order)
+	dest_client.order(g, [m for m in order if m in md5s])
 
 dest_client.end_transaction()
 
