@@ -636,8 +636,9 @@ class ImplicationsDialog(gtk.Dialog):
 		update = gtk.Button(u"Update")
 		update.connect("clicked", lambda *a: self._update(entry, guid))
 		remove = gtk.Button(u"Remove")
-		remove.connect("clicked", lambda *a: self._remove(hbox, guid))
-		return name, (lab, entry, update, remove)
+		wids = (lab, entry, update, remove)
+		remove.connect("clicked", lambda *a: self._remove(wids, guid))
+		return name, wids
 
 	def _update(self, entry, guid):
 		try:
@@ -648,10 +649,11 @@ class ImplicationsDialog(gtk.Dialog):
 		self.did_something = True
 		entry.set_text(unicode(prio))
 
-	def _remove(self, hbox, guid):
+	def _remove(self, wids, guid):
 		client.remove_implies(self.guid, guid)
 		self.did_something = True
-		hbox.destroy()
+		for w in wids:
+			w.hide()
 
 	def _add(self, *a):
 		name = self._add_name.get_text()
