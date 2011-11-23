@@ -81,6 +81,17 @@ def find_tags(fn):
 	tags.update(basename(fn).split()[:-1])
 	return tags
 
+def record_filename(m, fn):
+	dn = client.image_dir(m)
+	rec_fn = join(dn, "FILENAMES")
+	known = {}
+	if exists(rec_fn):
+		for line in file(rec_fn):
+			r_m, r_fn = line[:-1].split(" ", 1)
+			known.setdefault(r_m, []).append(r_fn)
+	if m not in known or fn not in known[m]:
+		open(rec_fn, "a").write(m + " " + fn + "\n")
+
 def add_image(fn):
 	if verbose: print fn
 	fn = realpath(fn)
@@ -91,11 +102,14 @@ def add_image(fn):
 	post = client.get_post(m, True)
 	p = client.image_path(m)
 	if lexists(p):
+		ld = readlink(p)
 		if exists(p):
-			ld = readlink(p)
-			if fn != ld and not quiet:
-				print "Not updating", m, fn
+			if fn != ld:
+				record_filename(m, fn)
+				if not quiet:
+					print "Not updating", m, fn
 		else:
+			record_filename(m, ld)
 			if not quiet: print "Updating", m, fn
 			unlink(p)
 	if not lexists(p):

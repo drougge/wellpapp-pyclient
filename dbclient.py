@@ -527,9 +527,12 @@ class dbclient:
 		fn = str(md5) + "." + str(ft)
 		md5 = hashlib.md5(fn).hexdigest()
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
+	def image_dir(self, md5):
+		md5 = str(md5)
+		return os.path.join(self.cfg.image_base, md5[0], md5[1:3])
 	def image_path(self, md5):
 		md5 = str(md5)
-		return os.path.join(self.cfg.image_base, md5[0], md5[1:3], md5)
+		return os.path.join(self.image_dir(md5), md5)
 	def postspec2md5(self, spec, default = None):
 		if os.path.lexists(spec) and not os.path.isdir(spec):
 			if os.path.islink(spec):
