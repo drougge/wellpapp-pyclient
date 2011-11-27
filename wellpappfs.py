@@ -57,6 +57,7 @@ class Cache:
 
 _thumbpaths = ([".thumblocal", "normal"], [".thumblocal", "large"])
 _cfgpath = "/.wellpapprc"
+_cloudname = ".cloud"
 
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
@@ -108,6 +109,10 @@ class Wellpapp(fuse.Fuse):
 			mode = stat.S_IFREG | 0444
 			nlink = 1
 			size = len(self._cfgfile)
+		elif spath[-1] == _cloudname:
+			mode = stat.S_IFREG | 0444
+			nlink = 1
+			size = len(self._generate_cloud(spath[:-1]))
 		else:
 			search = self._path2search(path)
 			if not search: raise NOTFOUND
@@ -116,6 +121,16 @@ class Wellpapp(fuse.Fuse):
 			except Exception:
 				raise NOTFOUND
 		return WpStat(mode, nlink, size)
+
+	def _generate_cloud(self, spath):
+		want, dontwant = self._path2search("/" + "/".join(spath))[:2]
+		want = [self._client.find_tag(n, with_prefix=True) for n in want]
+		range = (0, 19 + len(want))
+		tags = self._client.find_tags("EI", "", range=range, guids=want,
+		                              excl_tags=dontwant, order="-post")
+		want = [g[-27:] for g in want]
+		names = [t.name.encode("utf-8") for t in tags if t.guid not in want]
+		return "\n".join(names) + "\n"
 
 	def _generate_meta(self, m):
 		data = """<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 4.1.1-Exiv2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:tiff="http://ns.adobe.com/tiff/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" """
@@ -219,6 +234,9 @@ class Wellpapp(fuse.Fuse):
 				metam = metamd5re.match(spath[-1])
 				if metam:
 					self.data = wp._generate_meta(metam.group(1))
+					return
+				if spath[-1] == _cloudname:
+					self.data = wp._generate_cloud(spath[1:-1])
 					return
 				search = wp._path2search("/".join(spath[:-3]))
 				if not search: raise NOTFOUND
