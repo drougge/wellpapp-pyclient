@@ -109,10 +109,10 @@ class Wellpapp(fuse.Fuse):
 			mode = stat.S_IFREG | 0444
 			nlink = 1
 			size = len(self._cfgfile)
-		elif spath[-1] == _cloudname:
+		elif spath[-1][:len(_cloudname)] == _cloudname:
 			mode = stat.S_IFREG | 0444
 			nlink = 1
-			size = len(self._generate_cloud(spath[:-1]))
+			size = len(self._generate_cloud(spath[:-1], spath[-1]))
 		else:
 			search = self._path2search(path)
 			if not search: raise NOTFOUND
@@ -122,10 +122,18 @@ class Wellpapp(fuse.Fuse):
 				raise NOTFOUND
 		return WpStat(mode, nlink, size)
 
-	def _generate_cloud(self, spath):
+	def _generate_cloud(self, spath, fn):
+		fn = fn[len(_cloudname):]
+		count = 20
+		if fn and fn[0] == ":":
+			try:
+				count = int(fn[1:])
+			except ValueError:
+				pass
+			if count < 1: count = 1
 		want, dontwant = self._path2search("/" + "/".join(spath))[:2]
 		want = [self._client.find_tag(n, with_prefix=True) for n in want]
-		range = (0, 19 + len(want))
+		range = (0, count - 1 + len(want))
 		tags = self._client.find_tags("EI", "", range=range, guids=want,
 		                              excl_tags=dontwant, order="-post")
 		want = [g[-27:] for g in want]
@@ -235,8 +243,8 @@ class Wellpapp(fuse.Fuse):
 				if metam:
 					self.data = wp._generate_meta(metam.group(1))
 					return
-				if spath[-1] == _cloudname:
-					self.data = wp._generate_cloud(spath[1:-1])
+				if spath[-1][:len(_cloudname)] == _cloudname:
+					self.data = wp._generate_cloud(spath[1:-1], spath[-1])
 					return
 				search = wp._path2search("/".join(spath[:-3]))
 				if not search: raise NOTFOUND
