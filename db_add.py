@@ -105,14 +105,17 @@ def add_image(fn):
 		ld = readlink(p)
 		if exists(p):
 			if fn != ld:
-				record_filename(m, fn)
+				if not dummy: record_filename(m, fn)
 				if not quiet:
 					print "Not updating", m, fn
 		else:
-			record_filename(m, ld)
-			if not quiet: print "Updating", m, fn
-			unlink(p)
-	if not lexists(p):
+			if dummy:
+				if not quiet: print "Would have updated", m, fn
+			else:
+				record_filename(m, ld)
+				if not quiet: print "Updating", m, fn
+				unlink(p)
+	if not lexists(p) and not dummy:
 		make_pdirs(p)
 		symlink(fn, p)
 	if not post or needs_thumbs(m, ft):
@@ -135,15 +138,21 @@ def add_image(fn):
 			args["imgdate"] = date
 		except Exception:
 			pass
-		client.add_post(**args)
+		if dummy:
+			print "Would have created post " + m
+		else:
+			client.add_post(**args)
 	if needs_thumbs(m, ft):
-		rot = exif2rotation(exif)
-		client.save_thumbs(m, img, ft, rot, force_thumbs)
+		if dummy:
+			print "Would have generated thumbs for " + m
+		else:
+			rot = exif2rotation(exif)
+			client.save_thumbs(m, img, ft, rot, force_thumbs)
 	full = set()
 	weak = set()
 	post = client.get_post(m, True)
 	posttags = tagset()
-	posttags.update(post["tagname"])
+	if post: posttags.update(post["tagname"])
 	filetags = find_tags(fn)
 	exif2tags(exif, filetags)
 	for guid in filetags.difference(posttags):
@@ -152,19 +161,20 @@ def add_image(fn):
 		else:
 			full.add(guid)
 	if full or weak:
-		if no_tagging:
+		if no_tagging or dummy:
 			full = [client.get_tag(g).name for g in full]
 			weak = ["~" + client.get_tag(g).name for g in weak]
-			print "Would have tagged " + m + ": " + " ".join(full + weak)
+			print "Would have tagged " + m + " " + " ".join(full + weak)
 		else:
 			client.tag_post(m, full, weak)
 
 def usage():
-	print "Usage:", argv[0], "[-v] [-q] [-f] [-n] filename [filename [..]]"
+	print "Usage:", argv[0], "[-v] [-q] [-f] [-n] [-d] filename [filename [..]]"
 	print "\t-v Verbose"
 	print "\t-q Quiet"
 	print "\t-f Force thumbnail regeneration"
 	print "\t-n No tagging (prints what would have been tagged)"
+	print "\t-d Dummy, only print what would be done"
 	exit(1)
 
 if __name__ == '__main__':
@@ -172,11 +182,12 @@ if __name__ == '__main__':
 	from dbclient import dbclient
 	if len(argv) < 2: usage()
 	a = 1
-	switches = ("-v", "-q", "-f", "-h", "-n")
+	switches = ("-v", "-q", "-f", "-h", "-n", "-d")
 	quiet = False
 	verbose = False
 	force_thumbs = False
 	no_tagging = False
+	dummy = False
 	while argv[a] in switches:
 		if argv[a] == "-q":
 			quiet = True
@@ -186,6 +197,8 @@ if __name__ == '__main__':
 			force_thumbs = True
 		elif argv[a] == "-n":
 			no_tagging = True
+		elif argv[a] == "-d":
+			dummy = True
 		else:
 			usage()
 		a += 1
