@@ -24,7 +24,7 @@ sre = re.compile(r"[ /]+")
 orient = {0: 1, 90: 6, 180: 3, 270: 8}
 
 class WpStat(fuse.Stat):
-	def __init__(self, mode, nlink, size):
+	def __init__(self, mode, nlink, size, time):
 		self.st_mode = mode
 		self.st_ino = 0
 		self.st_dev = 0
@@ -32,9 +32,9 @@ class WpStat(fuse.Stat):
 		self.st_uid = 0
 		self.st_gid = 0
 		self.st_size = size
-		self.st_atime = 0
-		self.st_mtime = 0
-		self.st_ctime = 0
+		self.st_atime = time
+		self.st_mtime = time
+		self.st_ctime = time
 
 class Cache:
 	def __init__(self, ttl):
@@ -75,6 +75,9 @@ class Wellpapp(fuse.Fuse):
 			data.append(f + "=" + cfg[f] + "\n")
 		return "".join(sorted(data))
 
+	def _stat(self, m):
+		return os.stat(self._client.image_path(m))
+
 	def getattr(self, path):
 		spath = path.split("/")[1:]
 		mode = stat.S_IFDIR | 0555
@@ -82,22 +85,26 @@ class Wellpapp(fuse.Fuse):
 		size = 0
 		m = md5re.match(spath[-1])
 		metam = metamd5re.match(spath[-1])
+		time = 0
 		if spath[-3:-1] in _thumbpaths:
 			if not m or not m.group(2) != ".png": raise NOTFOUND
 			search = self._path2search("/" + " ".join(spath[:-3]))
 			if not search: raise NOTFOUND
 			if search[2]: # order specified
-				orgmd5 = self._resolve_thumb(search, spath[-1])[0]
+				orgmd5 = self._resolve_thumb(search, spath[-1])
 				if not orgmd5: raise NOTFOUND
 				mode = stat.S_IFREG | 0444
-				tfn = self._client.thumb_path(orgmd5, spath[-2])
+				tfn = self._client.thumb_path(orgmd5[0], spath[-2])
 				size = os.stat(tfn).st_size + 7
 				# size of thumb, plus six digits and a period
 			else:
 				mode = stat.S_IFLNK | 0444
 			nlink = 1
 		elif m:
-			mode = stat.S_IFLNK | 0444
+			mode = stat.S_IFREG | 0444
+			st = self._stat(m.group(1))
+			size = st.st_size
+			time = st.st_mtime
 			nlink = 1
 		elif metam:
 			mode = stat.S_IFREG | 0444
@@ -126,7 +133,7 @@ class Wellpapp(fuse.Fuse):
 					nlink = 1
 				else:
 					raise NOTFOUND
-		return WpStat(mode, nlink, size)
+		return WpStat(mode, nlink, size, time)
 
 	def _generate_cloud(self, spath, fn):
 		fn = fn[len(_cloudname):]
@@ -168,13 +175,11 @@ class Wellpapp(fuse.Fuse):
 
 	def readlink(self, path):
 		path = path.split("/")[1:]
-		m = md5re.match(path[-1])
-		if m:
-			if path[-3:-1] in _thumbpaths:
+		if path[-3:-1] in _thumbpaths:
+			m = md5re.match(path[-1])
+			if m:
 				return self._client.thumb_path(m.group(1), path[-2])
-			else:
-				return self._client.image_path(m.group(1))
-		if path[-3:-1] not in _thumbpaths:
+		else:
 			m = shortmd5re.match(path[-1])
 			if m: return self._client.image_path(m.group(1))
 		raise NOTFOUND
@@ -255,6 +260,16 @@ class Wellpapp(fuse.Fuse):
 				if spath[-1][:len(_cloudname)] == _cloudname:
 					self.data = wp._generate_cloud(spath[1:-1], spath[-1])
 					return
+				if spath[-3:-1] in _thumbpaths:
+					self.data = self._make_thumb(spath)
+				else:
+					m = spath[-1].split(".")[-2][-32:]
+					try:
+						self.fh = open(wp._client.image_path(m), "rb")
+						self.data = None
+					except Exception:
+						self.data = ""
+			def _make_thumb(self, spath):
 				search = wp._path2search("/".join(spath[:-3]))
 				if not search: raise NOTFOUND
 				orgmd5, fn = wp._resolve_thumb(search, spath[-1])
@@ -272,10 +287,13 @@ class Wellpapp(fuse.Fuse):
 				crc = crc32(tEXt)
 				if crc < 0: crc += 0x100000000
 				tEXt += pack(">I", crc)
-				data = pre + tEXt + post
-				self.data = data
+				return pre + tEXt + post
 			def read(self, length, offset):
-				return self.data[offset:offset + length]
+				if self.data is None:
+					self.fh.seek(offset)
+					return self.fh.read(length)
+				else:
+					return self.data[offset:offset + length]
 		self.file_class = FakeFile
 		return fuse.Fuse.main(self, *a, **kw)
 
