@@ -18,6 +18,7 @@ if not hasattr(fuse, "__version__"):
 fuse.fuse_python_api = (0, 2)
 NOTFOUND = IOError(errno.ENOENT, "Not found")
 md5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)$")
+shortmd5re = re.compile(r"^([0-9a-f]{32})$")
 metamd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)\.gq\.xmp$")
 sre = re.compile(r"[ /]+")
 orient = {0: 1, 90: 6, 180: 3, 270: 8}
@@ -119,7 +120,12 @@ class Wellpapp(fuse.Fuse):
 			try:
 				self._cache.get(search, self._search)
 			except Exception:
-				raise NOTFOUND
+				m = shortmd5re.match(spath[-1])
+				if m:
+					mode = stat.S_IFLNK | 0444
+					nlink = 1
+				else:
+					raise NOTFOUND
 		return WpStat(mode, nlink, size)
 
 	def _generate_cloud(self, spath, fn):
@@ -168,6 +174,9 @@ class Wellpapp(fuse.Fuse):
 				return self._client.thumb_path(m.group(1), path[-2])
 			else:
 				return self._client.image_path(m.group(1))
+		if path[-3:-1] not in _thumbpaths:
+			m = shortmd5re.match(path[-1])
+			if m: return self._client.image_path(m.group(1))
 		raise NOTFOUND
 
 	def readdir(self, path, offset):
