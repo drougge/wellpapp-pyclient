@@ -65,6 +65,7 @@ class Wellpapp(fuse.Fuse):
 		self._cache = Cache(30)
 		self._client = dbclient()
 		self._cfgfile = self._cfg2file()
+		self._stat_cache = {}
 		fuse.Fuse.__init__(self, *a, **kw)
 		self.multithreaded = False
 
@@ -76,7 +77,12 @@ class Wellpapp(fuse.Fuse):
 		return "".join(sorted(data))
 
 	def _stat(self, m):
-		return os.stat(self._client.image_path(m))
+		if m not in self._stat_cache:
+			p = self._client.image_path(m)
+			dest = os.readlink(p)
+			st = os.stat(dest)
+			self._stat_cache[m] = (st.st_size, st.st_mtime, dest)
+		return self._stat_cache[m]
 
 	def getattr(self, path):
 		spath = path.split("/")[1:]
@@ -102,9 +108,7 @@ class Wellpapp(fuse.Fuse):
 			nlink = 1
 		elif m:
 			mode = stat.S_IFREG | 0444
-			st = self._stat(m.group(1))
-			size = st.st_size
-			time = st.st_mtime
+			size, time, dest = self._stat(m.group(1))
 			nlink = 1
 		elif metam:
 			mode = stat.S_IFREG | 0444
@@ -265,7 +269,8 @@ class Wellpapp(fuse.Fuse):
 				else:
 					m = spath[-1].split(".")[-2][-32:]
 					try:
-						self.fh = open(wp._client.image_path(m), "rb")
+						dest = wp._stat(m)[2]
+						self.fh = open(dest, "rb")
 						self.data = None
 					except Exception:
 						self.data = ""
