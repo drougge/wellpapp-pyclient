@@ -12,6 +12,7 @@ from hashlib import md5
 from struct import pack, unpack
 from zlib import crc32
 from xml.sax.saxutils import escape as xmlescape
+from os.path import exists
 
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
@@ -62,10 +63,10 @@ _cloudname = ".cloud"
 
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
-		print "Starting.."
 		self._cache = Cache(30)
 		self._client = dbclient()
 		self._cfgfile = self._cfg2file()
+		self._use_cache = False
 		self._prime_stat_cache()
 		fuse.Fuse.__init__(self, *a, **kw)
 		self.multithreaded = False
@@ -79,15 +80,21 @@ class Wellpapp(fuse.Fuse):
 		return "".join(sorted(data))
 
 	def _prime_stat_cache(self):
-		c = {}
 		fn = self._client.cfg.image_base + "/cache"
+		if not exists(fn): return
+		c = {}
 		try:
+			print "Loading cache.."
 			for line in file(fn):
-				v, m, size, mtime, dest = line.rstrip("\n").split(" ", 4)
-				if v == "0": c[m] = [int(size), int(mtime), dest]
+				try:
+					v, m, size, mtime, dest = line.rstrip("\n").split(" ", 4)
+					if v == "0": c[m] = [int(size), int(mtime), dest]
+				except Exception:
+					print "Bad line in cache:", line
 		except Exception:
 			print "Failed to load cache"
 		self._stat_cache = c
+		self._use_cache = True
 
 	def _stat(self, m):
 		if m not in self._stat_cache:
@@ -121,8 +128,11 @@ class Wellpapp(fuse.Fuse):
 				mode = stat.S_IFLNK | 0444
 			nlink = 1
 		elif m:
-			mode = stat.S_IFREG | 0444
-			size, time, dest = self._stat(m.group(1))
+			if self._use_cache:
+				mode = stat.S_IFREG | 0444
+				size, time, dest = self._stat(m.group(1))
+			else:
+				mode = stat.S_IFLNK | 0444
 			nlink = 1
 		elif metam:
 			mode = stat.S_IFREG | 0444
@@ -193,11 +203,13 @@ class Wellpapp(fuse.Fuse):
 
 	def readlink(self, path):
 		path = path.split("/")[1:]
-		if path[-3:-1] in _thumbpaths:
-			m = md5re.match(path[-1])
-			if m:
+		m = md5re.match(path[-1])
+		if m:
+			if path[-3:-1] in _thumbpaths:
 				return self._client.thumb_path(m.group(1), path[-2])
-		else:
+			else:
+				return self._client.image_path(m.group(1))
+		if path[-3:-1] not in _thumbpaths:
 			m = shortmd5re.match(path[-1])
 			if m: return self._client.image_path(m.group(1))
 		raise NOTFOUND
