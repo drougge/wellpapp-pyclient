@@ -7,12 +7,13 @@ import errno
 import os
 from dbclient import dbclient
 import re
-from time import time
+from time import time, sleep
 from hashlib import md5
 from struct import pack, unpack
 from zlib import crc32
 from xml.sax.saxutils import escape as xmlescape
 from os.path import exists
+from threading import Thread
 
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
@@ -69,8 +70,6 @@ class Wellpapp(fuse.Fuse):
 		self._use_cache = False
 		self._prime_stat_cache()
 		fuse.Fuse.__init__(self, *a, **kw)
-		self.multithreaded = False
-		print "Ready"
 
 	def _cfg2file(self):
 		cfg = self._client.cfg
@@ -79,22 +78,41 @@ class Wellpapp(fuse.Fuse):
 			data.append(f + "=" + cfg[f] + "\n")
 		return "".join(sorted(data))
 
+	def _cache_read(self):
+		self._cache_fh.seek(0, 1)
+		for line in self._cache_fh:
+			try:
+				v, m, size, mtime, dest = line.rstrip("\n").split(" ", 4)
+				assert v == "0"
+				self._stat_cache[m] = [int(size), int(mtime), dest]
+			except Exception:
+				print "Bad line in cache:", line
+
+	def _cache_thread(self):
+		while True:
+			sleep(1)
+			self._cache_read()
+
 	def _prime_stat_cache(self):
 		fn = self._client.cfg.image_base + "/cache"
 		if not exists(fn): return
-		c = {}
 		try:
 			print "Loading cache.."
-			for line in file(fn):
-				try:
-					v, m, size, mtime, dest = line.rstrip("\n").split(" ", 4)
-					if v == "0": c[m] = [int(size), int(mtime), dest]
-				except Exception:
-					print "Bad line in cache:", line
+			self._cache_fh = file(fn)
+			self._stat_cache = {}
+			self._cache_read()
+			self._use_cache = True
 		except Exception:
 			print "Failed to load cache"
-		self._stat_cache = c
-		self._use_cache = True
+
+	# Starting threads doesn't work from __init__.
+	def fsinit(self):
+		if self._use_cache:
+			t = Thread(target=self._cache_thread)
+			t.name = "cache loader"
+			t.daemon = True
+			t.start()
+		print "Ready"
 
 	def _stat(self, m):
 		if m not in self._stat_cache:
