@@ -24,6 +24,7 @@ shortmd5re = re.compile(r"^([0-9a-f]{32})$")
 metamd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)\.gq\.xmp$")
 sre = re.compile(r"[ /]+")
 orient = {0: 1, 90: 6, 180: 3, 270: 8}
+default_range = (0, 10000)
 
 class WpStat(fuse.Stat):
 	def __init__(self, mode, nlink, size, time):
@@ -257,12 +258,14 @@ class Wellpapp(fuse.Fuse):
 
 	def _search(self, search):
 		order = search[2]
+		range = search[3]
+		if not range: range = default_range
 		with self._client_lock:
 			s = self._client.search_post(tags=search[0],
 			                             excl_tags=search[1],
 			                             wanted=["ext"],
 			                             order=order,
-			                             range=search[3])[0]
+			                             range=range)[0]
 		r = []
 		idx = 0
 		prefix = ""
