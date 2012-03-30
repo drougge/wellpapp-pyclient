@@ -535,10 +535,22 @@ class dbclient:
 		return os.path.join(self.image_dir(md5), md5)
 	def postspec2md5(self, spec, default = None):
 		if os.path.lexists(spec) and not os.path.isdir(spec):
+			# some extra magic to avoid reading the files if possible
 			if os.path.islink(spec):
 				dest = os.readlink(spec)
 				m = self._destmd5re.match(dest)
 				if m: return m.group(1)
+			# Even when the fuse fs returns files, bare IDs are links
+			aspec = spec.split("/")
+			afn = aspec[-1].split(".")
+			if len(afn) == 2 and self._md5re.match(afn[0]):
+				aspec[-1] = afn[0]
+				shortspec = "/".join(aspec)
+				if os.path.islink(shortspec):
+					dest = os.readlink(shortspec)
+					m = self._destmd5re.match(dest)
+					if m: return m.group(1)
+			# Oh well, hash the file.
 			return hashlib.md5(file(spec).read()).hexdigest()
 		if self._md5re.match(spec): return spec
 		return default
