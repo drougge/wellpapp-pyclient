@@ -6,7 +6,7 @@ import Image
 from cStringIO import StringIO
 from pyexiv2 import Image as ExivImage
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
-from os import readlink, symlink, unlink, getcwd
+from os import readlink, symlink, unlink, getcwd, stat
 from dbclient import make_pdirs
 
 def determine_filetype(data):
@@ -92,6 +92,17 @@ def record_filename(m, fn):
 	if m not in known or fn not in known[m]:
 		open(rec_fn, "a").write(m + " " + fn + "\n")
 
+def generate_cache(m, fn):
+	cache_fn = client.cfg.image_base + "/cache"
+	if exists(cache_fn):
+		fh = open(cache_fn, "a")
+		s = stat(fn)
+		z = s.st_size
+		mt = int(s.st_mtime)
+		l = "0 %s %d %d %s\n" % (m, z, mt, fn)
+		fh.write(l)
+		fh.close()
+
 def add_image(fn):
 	if verbose: print fn
 	fn = realpath(fn)
@@ -118,6 +129,7 @@ def add_image(fn):
 	if not lexists(p) and not dummy:
 		make_pdirs(p)
 		symlink(fn, p)
+		generate_cache(m, fn)
 	if not post or needs_thumbs(m, ft):
 		datafh = StringIO(data)
 		img = Image.open(datafh)
