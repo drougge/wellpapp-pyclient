@@ -13,7 +13,7 @@ from struct import pack, unpack
 from zlib import crc32
 from xml.sax.saxutils import escape as xmlescape
 from os.path import exists
-from threading import Thread
+from threading import Thread, RLock
 
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
@@ -43,15 +43,17 @@ class Cache:
 		self._data = {}
 		self._time = time()
 		self._ttl  = ttl
+		self._lock = RLock()
 
 	def get(self, key, getter):
-		if self._time < time() - self._ttl:
-			self.clean()
-		if key not in self._data:
-			self._data[key] = (time(), getter(key))
-		return self._data[key][1]
+		with self._lock:
+			if self._time < time() - self._ttl:
+				self._clean()
+			if key not in self._data:
+				self._data[key] = (time(), getter(key))
+			return self._data[key][1]
 
-	def clean(self):
+	def _clean(self):
 		self._time = time()
 		t = self._time - (self._ttl / 1.5)
 		for key in self._data.keys():
@@ -66,6 +68,7 @@ class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
 		self._cache = Cache(30)
 		self._client = dbclient()
+		self._client_lock = RLock()
 		self._cfgfile = self._cfg2file()
 		self._use_cache = False
 		self._prime_stat_cache()
@@ -191,17 +194,19 @@ class Wellpapp(fuse.Fuse):
 				pass
 			if count < 1: count = 1
 		want, dontwant = self._path2search("/" + "/".join(spath))[:2]
-		want = [self._client.find_tag(n, with_prefix=True) for n in want]
-		range = (0, count - 1 + len(want))
-		tags = self._client.find_tags("EI", "", range=range, guids=want,
-		                              excl_tags=dontwant, order="-post")
+		with self._client_lock:
+			want = [self._client.find_tag(n, with_prefix=True) for n in want]
+			range = (0, count - 1 + len(want))
+			tags = self._client.find_tags("EI", "", range=range, guids=want,
+						      excl_tags=dontwant, order="-post")
 		want = [g[-27:] for g in want]
 		names = [t.name.encode("utf-8") for t in tags if t.guid not in want]
 		return "\n".join(names) + "\n"
 
 	def _generate_meta(self, m):
 		data = """<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 4.1.1-Exiv2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:tiff="http://ns.adobe.com/tiff/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" """
-		post = self._client.get_post(m, wanted=["tagname", "rotate"])
+		with self._client_lock:
+			post = self._client.get_post(m, wanted=["tagname", "rotate"])
 		if "rotate" in post and post["rotate"] in orient:
 			data += "tiff:Orientation=\"" + str(orient[post["rotate"]]) + "\""
 		data += "><dc:subject><rdf:Bag>"
@@ -252,11 +257,12 @@ class Wellpapp(fuse.Fuse):
 
 	def _search(self, search):
 		order = search[2]
-		s = self._client.search_post(tags=search[0],
-		                             excl_tags=search[1],
-		                             wanted=["ext"],
-		                             order=order,
-		                             range=search[3])[0]
+		with self._client_lock:
+			s = self._client.search_post(tags=search[0],
+			                             excl_tags=search[1],
+			                             wanted=["ext"],
+			                             order=order,
+			                             range=search[3])[0]
 		r = []
 		idx = 0
 		prefix = ""
