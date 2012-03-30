@@ -62,12 +62,14 @@ _cloudname = ".cloud"
 
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
+		print "Starting.."
 		self._cache = Cache(30)
 		self._client = dbclient()
 		self._cfgfile = self._cfg2file()
-		self._stat_cache = {}
+		self._prime_stat_cache()
 		fuse.Fuse.__init__(self, *a, **kw)
 		self.multithreaded = False
+		print "Ready"
 
 	def _cfg2file(self):
 		cfg = self._client.cfg
@@ -76,12 +78,24 @@ class Wellpapp(fuse.Fuse):
 			data.append(f + "=" + cfg[f] + "\n")
 		return "".join(sorted(data))
 
+	def _prime_stat_cache(self):
+		c = {}
+		fn = self._client.cfg.image_base + "/cache"
+		try:
+			for line in file(fn):
+				v, m, size, mtime, dest = line.rstrip("\n").split(" ", 4)
+				if v == "0": c[m] = [int(size), int(mtime), dest]
+		except Exception:
+			print "Failed to load cache"
+		self._stat_cache = c
+
 	def _stat(self, m):
 		if m not in self._stat_cache:
+			print m, "not in cache"
 			p = self._client.image_path(m)
 			dest = os.readlink(p)
 			st = os.stat(dest)
-			self._stat_cache[m] = (st.st_size, st.st_mtime, dest)
+			self._stat_cache[m] = [st.st_size, st.st_mtime, dest]
 		return self._stat_cache[m]
 
 	def getattr(self, path):
@@ -250,6 +264,8 @@ class Wellpapp(fuse.Fuse):
 		class FakeFile:
 			keep_cache = False
 			direct_io = False
+			_fh = None
+			data = ""
 			def __init__(self, path, flags, *mode):
 				rwflags = flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)
 				if rwflags != os.O_RDONLY: raise NOTFOUND
@@ -270,10 +286,17 @@ class Wellpapp(fuse.Fuse):
 					m = spath[-1].split(".")[-2][-32:]
 					try:
 						dest = wp._stat(m)[2]
-						self.fh = open(dest, "rb")
-						self.data = None
+						self._fh = open(dest, "rb")
+						return
 					except Exception:
-						self.data = ""
+						pass
+					try:
+						p = wp._client.image_path(m)
+						dest = os.readlink(p)
+						self._fh = open(dest, "rb")
+						wp._stat(m)[2] = dest
+					except Exception:
+						pass
 			def _make_thumb(self, spath):
 				search = wp._path2search("/".join(spath[:-3]))
 				if not search: raise NOTFOUND
@@ -294,9 +317,9 @@ class Wellpapp(fuse.Fuse):
 				tEXt += pack(">I", crc)
 				return pre + tEXt + post
 			def read(self, length, offset):
-				if self.data is None:
-					self.fh.seek(offset)
-					return self.fh.read(length)
+				if self._fh:
+					self._fh.seek(offset)
+					return self._fh.read(length)
 				else:
 					return self.data[offset:offset + length]
 		self.file_class = FakeFile
