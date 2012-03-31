@@ -336,6 +336,13 @@ class Wellpapp(fuse.Fuse):
 						wp._stat(m)[2] = dest
 					except Exception:
 						pass
+			# FUSE doesn't seem to like destroying these objects.
+			# But it does call release, so I'll do what I can.
+			def __del__(self):
+				self.release(0)
+			def release(self, flags):
+				if self._fh: self._fh.close()
+				self.data = self._fh = None
 			def _make_thumb(self, spath):
 				search = wp._path2search("/".join(spath[:-3]))
 				if not search: raise NOTFOUND
