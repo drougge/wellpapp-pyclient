@@ -4,10 +4,33 @@ thumbnails.
 
 You can separate search terms with spaces or as subdirs. Note that all
 parent searches for directory separated searches are performed, which can
-be slow.
+be slow. Searches are however limited to 10000 results by default, so it's
+not that bad.
 
-You can also sort searches by specifying O:sort-spec (which becomes
-Osort-spec when talking to the server). This prefixes image names with a
-sequence number that your viewer can hopefully sort by.
+You can sort searches by specifying O:sort-spec (which becomes Osort-spec
+when talking to the server). This prefixes image names with a sequence
+number that your viewer can hopefully sort by.
+
+You can also specify R:first:last to show only a range of results. This is
+mostly useful for sorted searches, but works on any search. What you end up
+with without sorting is stable as long as nothing in tagged, but otherwise
+undefined. This is still useful to override the default limit of 10000
+results.
 
 Searches are cached for 30 seconds, to keep the slowness down a bit.
+
+A more serious source of slownes in actual use is waiting for your disk to
+seek when your image viewer stats all the files in a result set. Even in
+the ideal case you'll get at least two seeks for every file (unless cached
+of course), one for the symlink and one for the file. In practice it's
+more. This can now be avoiding by keeping a cache for all files in the
+filesystem, read at startup. (Not much to be done about waiting for
+thumbnails, but any decent viewer will do that without blocking.)
+
+I recommend you use such a cache. Generate it with db_make_cache.py from
+pyclient, and db_add.py will keep it up to date automatically. The
+filsystem uses a cache if available on startup.
+
+Posts are returned as symlinks (to something in image_base) without a
+cache, and as normal files with a cache. You can reference a bare post ID
+(without suffix) to always get a symlink.
