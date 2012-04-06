@@ -13,7 +13,7 @@ from struct import pack, unpack
 from zlib import crc32
 from xml.sax.saxutils import escape as xmlescape
 from os.path import exists
-from threading import Thread, RLock
+from threading import Thread, RLock, Lock
 
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
@@ -323,6 +323,7 @@ class Wellpapp(fuse.Fuse):
 					self.data = self._make_thumb(spath)
 				else:
 					m = spath[-1].split(".")[-2][-32:]
+					self._lock = Lock()
 					try:
 						dest = wp._stat(m)[2]
 						self._fh = open(dest, "rb")
@@ -342,7 +343,7 @@ class Wellpapp(fuse.Fuse):
 				self.release(0)
 			def release(self, flags):
 				if self._fh: self._fh.close()
-				self.data = self._fh = None
+				self.data = self._fh = self._Lock = None
 			def _make_thumb(self, spath):
 				search = wp._path2search("/".join(spath[:-3]))
 				if not search: raise NOTFOUND
@@ -364,8 +365,9 @@ class Wellpapp(fuse.Fuse):
 				return pre + tEXt + post
 			def read(self, length, offset):
 				if self._fh:
-					self._fh.seek(offset)
-					return self._fh.read(length)
+					with self._lock:
+						self._fh.seek(offset)
+						return self._fh.read(length)
 				else:
 					return self.data[offset:offset + length]
 		self.file_class = FakeFile
