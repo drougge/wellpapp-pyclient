@@ -122,16 +122,6 @@ dest_client = dbclient(dest_cfg)
 
 spec.parse()
 
-if not test:
-	posts = dest_client._search_post("SP", [])
-	if posts:
-		print "ERROR: destination server has posts"
-		exit(1)
-	tags = dest_client.find_tags("EAI", "")
-	if tags:
-		print "ERROR: destination server has tags"
-		exit(1)
-
 posts = {}
 for s in spec.search:
 	ps = src_client.search_post(wanted=["tagguid", "implied", "ext", "width", "height", "rotate", "imgdate", "created"], **s)[0]
@@ -160,7 +150,51 @@ if test: exit(0)
 
 z = spec.max_side
 
+print "Copying/rescaling images"
+count = 0
+for post in posts:
+	m = post.md5
+	w, h = post.width, post.height
+	src_fn = src_client.image_path(m)
+	dest_fn = dest_client.image_path(m)
+	if not exists(dest_fn):
+		d = dirname(dest_fn)
+		if not exists(d): makedirs(dirname(dest_fn))
+		if w > z or h > z or post.rotate > 0:
+			img = Image.open(src_fn)
+			if w > z or h > z:
+				img.thumbnail((z, z), Image.ANTIALIAS)
+			img = rotate_image(img, post.rotate)
+			if post.ext == "jpeg":
+				opts = dict(quality=90)
+			else:
+				opts = {}
+			img.save(dest_fn, format=post.ext.upper(), **opts)
+			if post.ext == "jpeg":
+				copyexif(src_fn, dest_fn)
+		else:
+			copyfile(src_fn, dest_fn)
+	src_fn = src_client.thumb_path(m, 200)
+	dest_fn = dest_client.thumb_path(m, 200)
+	if not exists(dest_fn) or newer(src_fn, dest_fn):
+		d = dirname(dest_fn)
+		if not exists(d): makedirs(dirname(dest_fn))
+		copyfile(src_fn, dest_fn)
+	count += 1
+	progress = "\r%d/%d" % (count, len(posts))
+	stdout.write(progress)
+	stdout.flush()
+print
+
 print "Copying to destination server.."
+
+if dest_client._search_post("SP", []):
+	print "ERROR: destination server has posts"
+	exit(1)
+if dest_client.find_tags("EAI", ""):
+	print "ERROR: destination server has tags"
+	exit(1)
+
 dest_client.begin_transaction()
 
 print "Tags.."
@@ -217,38 +251,3 @@ for g in ordered:
 	dest_client.order(g, [m for m in order if m in md5s])
 
 dest_client.end_transaction()
-
-print "Copying/rescaling images"
-count = 0
-for post in posts:
-	m = post.md5
-	w, h = post.width, post.height
-	src_fn = src_client.image_path(m)
-	dest_fn = dest_client.image_path(m)
-	if not exists(dest_fn):
-		d = dirname(dest_fn)
-		if not exists(d): makedirs(dirname(dest_fn))
-		if w > z or h > z or post.rotate > 0:
-			img = Image.open(src_fn)
-			img.thumbnail((z, z), Image.ANTIALIAS)
-			img = rotate_image(img, post.rotate)
-			if post.ext == "jpeg":
-				opts = dict(quality=90)
-			else:
-				opts = {}
-			img.save(dest_fn, format=post.ext.upper(), **opts)
-			if post.ext == "jpeg":
-				copyexif(src_fn, dest_fn)
-		else:
-			copyfile(src_fn, dest_fn)
-	src_fn = src_client.thumb_path(m, 200)
-	dest_fn = dest_client.thumb_path(m, 200)
-	if not exists(dest_fn) or newer(src_fn, dest_fn):
-		d = dirname(dest_fn)
-		if not exists(d): makedirs(dirname(dest_fn))
-		copyfile(src_fn, dest_fn)
-	count += 1
-	progress = "\r%d/%d" % (count, len(posts))
-	stdout.write(progress)
-	stdout.flush()
-print
