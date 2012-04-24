@@ -239,7 +239,7 @@ print "Relationships.."
 for post in posts:
 	all = []
 	for rel in src_client.post_rels(post.md5) or []:
-		if rel + post.md5 not in rels:
+		if rel + post.md5 not in rels and rel in md5s:
 			rels.add(post.md5 + rel)
 			all.append(rel)
 	if all:
