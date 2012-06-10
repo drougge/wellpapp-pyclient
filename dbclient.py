@@ -595,11 +595,19 @@ class dbclient:
 		fn = self.image_path(m)
 		mtime = os.stat(fn).st_mtime
 		if not img: img = Image.open(fn)
+		img.load()
 		# PIL rotates CCW
 		rotation = {90: Image.ROTATE_270, 180: Image.ROTATE_180, 270: Image.ROTATE_90}
 		if rot in rotation: img = img.transpose(rotation[rot])
 		w, h = img.size
-		if img.mode not in ("RGB", "L", "1"):
+		if img.mode == "1":
+			# We want to scale B/W as grayscale.
+			img = img.convert("L")
+		if img.mode == "P" and "transparency" in img.info:
+			# special case for transparent gif
+			img = img.convert("RGBA")
+		if img.mode not in ("RGB", "RGBA", "L", "LA"):
+			# Are there other modes to worry about?
 			img = img.convert("RGB")
 		jpeg_fns, png_fns = self.thumb_fns(m, ft)
 		jpeg_opts = {"format": "JPEG", "quality": 95, "optimize": 1}
@@ -612,10 +620,33 @@ class dbclient:
 		z = max(map(lambda d: d[1], jpeg + png)) * 2
 		if w > z or h > z:
 			img.thumbnail((z, z), Image.ANTIALIAS)
+		if img.mode[-1] == "A":
+			# Images with transparency tend to have crap in the
+			# tansparent pixel values. This is not handled well
+			# when they are saved without transparency (jpeg).
+			# So we put it on a white background.
+			if img.mode == "LA":
+				mode = "LA"
+				col = 255
+			else:
+				mode = "RGBA"
+				col = (255, 255, 255)
+			bgfix = Image.new(mode, img.size, col)
+			alpha = img.split()[-1]
+			bgfix.paste(img, None, alpha)
+			# It seems reasonable to assume that not everything
+			# handles transparency properly in PNG thumbs, so
+			# we want to use this as the data for them as well.
+			# Just copy the alpha and call it good.
+			bgfix.putalpha(alpha)
+			img = bgfix
 		for fn, z, opts in jpeg + png:
 			if force or not os.path.exists(fn):
 				t = img.copy()
 				if w > z or h > z:
 					t.thumbnail((z, z), Image.ANTIALIAS)
 				make_pdirs(fn)
+				if t.mode == "LA" and opts["format"] == "JPEG":
+					# This is probably a PIL bug
+					t = t.convert("L")
 				t.save(fn, **opts)
