@@ -16,11 +16,13 @@ from threading import Thread
 from glib import markup_escape_text
 
 def clean(n):
+	n = _uni(n)
 	if n[0] in u"-~": return n[1:]
 	return n
 def prefix(n):
+	n = _uni(n)
 	if n[0] in u"-~": return n[0]
-	return ""
+	return u""
 
 def ishex(s):
 	return False not in [c in "1234567890abcdef" for c in s.lower()]
