@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from dbclient import dbclient, raw_wrapper
 from itertools import chain
 import pygtk
 pygtk.require("2.0")
@@ -731,13 +731,29 @@ class FullscreenWindowThread(Thread):
 		self._tw = tw
 
 	def run(self):
+		loader = None
 		try:
-			pixbuf = gtk.gdk.pixbuf_new_from_file(self._fn)
+			fh = raw_wrapper(file(self._fn, "rb"))
+			loader = gtk.gdk.PixbufLoader()
+			fh.seek(0, 2)
+			l = fh.tell()
+			fh.seek(0)
+			r = 0
+			Z = 1024 * 512
+			data = fh.read(Z)
+			while r < l:
+				loader.write(data)
+				r += len(data)
+				# we should have a progressbar with float(r)/l
+				data = fh.read(Z)
+			pixbuf = loader.get_pixbuf()
 			self._win = FullscreenWindow()
 			idle_add(self._win._init, self._tw, pixbuf)
 			idle_add(self._tw.set_msg, u"")
 		except Exception:
 			self._cleanup()
+		finally:
+			if loader: loader.close()
 
 	def _cleanup(self, *args):
 		self._tw.fullscreen_open = False
