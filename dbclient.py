@@ -5,6 +5,120 @@ import socket, base64, codecs, os, hashlib, re
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
 
+class _tiff:
+	"""Pretty minimal TIFF container parser"""
+	
+	def __init__(self, fh):
+		from struct import unpack
+		self._fh = fh
+		d = fh.read(4)
+		if d not in ("II*\0", "MM\0*"): raise Exception("Not TIFF")
+		endian = {"M": ">", "I": "<"}[d[0]]
+		self._up = lambda fmt, *a: unpack(endian + fmt, *a)
+		self._up1 = lambda *a: self._up(*a)[0]
+		self.ifd = []
+		next_ifd = self._up1("I", fh.read(4))
+		while next_ifd:
+			self.ifd.append(self._ifdread(next_ifd))
+			next_ifd = self._up1("I", fh.read(4))
+		self.subifd = []
+		subifd = self.ifdget(self.ifd[0], 0x14a) or []
+		for next_ifd in subifd:
+			self.subifd.append(self._ifdread(next_ifd))
+	
+	def ifdget(self, ifd, tag):
+		if tag in ifd:
+			type, vc, off = ifd[tag]
+			if type in (3, 4): # only handle SHORT and LONG
+				if vc == 1: return (off,)
+				self._fh.seek(off)
+				dt = {3: "H", 4: "I"}[type]
+				return self._up(dt * vc, self._fh.read(4 * vc))
+	
+	def _ifdread(self, next_ifd):
+		ifd = {}
+		self._fh.seek(next_ifd)
+		count = self._up1("H", self._fh.read(2))
+		for i in range(count):
+			d = self._fh.read(12)
+			tag, type, vc = self._up("HHI", d[:8])
+			if type == 3 and vc == 1:
+				off = self._up1("H", d[8:10])
+			else:
+				off = self._up1("I", d[8:])
+			ifd[tag] = (type, vc, off)
+		return ifd
+
+def _identify_raw(fh, tiff):
+	ifd0 = tiff.ifd[0]
+	if 0xc612 in ifd0: return "dng"
+	if 0x010f in ifd0:
+		type, count, off = ifd0[0x010f]
+		if type == 2:
+			fh.seek(off)
+			make = fh.read(min(count, 7))
+			if make[:7] == "PENTAX ":
+				return "pef"
+			if make[:6] == "NIKON ":
+				return "nef"
+def identify_raw(fh):
+	return _identify_raw(fh, _tiff(fh))
+
+class raw_wrapper:
+	"""Wraps (read only) IO to an image, so that RAW images look like JPEGs.
+	Handles DNG, NEF and PEF.
+	Wraps fh as is if no reasonable embedded JPEG is found."""
+	
+	def __init__(self, fh):
+		self._set_fh(fh)
+		try:
+			tiff = _tiff(self)
+			fmt = _identify_raw(self, tiff)
+			if fmt == "dng" and len(tiff.subifd) > 1:
+				jpeg = tiff.ifdget(tiff.subifd[1], 0x111)
+				jpeglen = tiff.ifdget(tiff.subifd[1], 0x117)
+				self._test_jpeg(jpeg, jpeglen)
+			elif fmt == "nef" and tiff.subifd:
+				jpeg = tiff.ifdget(tiff.subifd[0], 0x201)
+				jpeglen = tiff.ifdget(tiff.subifd[0], 0x202)
+				self._test_jpeg(jpeg, jpeglen)
+			elif fmt == "pef": self._test_pef(tiff)
+		except Exception:
+			pass
+		self.seek(0)
+	
+	def _set_fh(self, fh):
+		self._fh = fh
+		self.close = fh.close
+		self.flush = fh.flush
+		self.isatty = fh.isatty
+		self.next = fh.next
+		self.read = fh.read
+		self.readline = fh.readline
+		self.readlines = fh.readlines
+		self.seek = fh.seek
+		self.tell = fh.tell
+	
+	def _test_pef(self, tiff):
+		for ifd in tiff.ifd[1:]:
+			w, h = tiff.ifdget(ifd, 0x100), tiff.ifdget(ifd, 0x101)
+			if w and h and max(w[0], h[0]) > 1000: # looks like a real image
+				jpeg = tiff.ifdget(ifd, 0x201)
+				jpeglen = tiff.ifdget(ifd, 0x202)
+				if self._test_jpeg(jpeg, jpeglen): return True
+	
+	def _test_jpeg(self, jpeg, jpeglen):
+		if not jpeg or not jpeglen: return
+		if len(jpeg) != len(jpeglen): return
+		jpeg, jpeglen = jpeg[-1], jpeglen[-1]
+		self.seek(jpeg)
+		if self.read(3) == "\xff\xd8\xff":
+			from cStringIO import StringIO
+			self.seek(jpeg)
+			data = self.read(jpeglen)
+			self._set_fh(StringIO(data))
+			return True
+
 def make_pdirs(fn):
 	dn = os.path.dirname(fn)
 	if not os.path.exists(dn): os.makedirs(dn)

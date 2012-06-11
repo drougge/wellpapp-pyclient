@@ -7,7 +7,7 @@ from cStringIO import StringIO
 from pyexiv2 import Image as ExivImage
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, getcwd, stat
-from dbclient import make_pdirs
+from dbclient import make_pdirs, raw_wrapper, identify_raw
 
 def determine_filetype(data):
 	if data[:3] == "\xff\xd8\xff": return "jpeg"
@@ -15,6 +15,8 @@ def determine_filetype(data):
 	if data[:4] == "\x89PNG": return "png"
 	if data[:2] == "BM": return "bmp"
 	if data[:3] == "FWS" or data[:3] == "CWS": return "swf"
+	if data[:4] in ("MM\0*", "II*\0"):
+		return identify_raw(StringIO(data))
 
 def needs_thumbs(m, ft):
 	if force_thumbs: return True
@@ -131,7 +133,7 @@ def add_image(fn):
 		symlink(fn, p)
 		generate_cache(m, fn)
 	if not post or needs_thumbs(m, ft):
-		datafh = StringIO(data)
+		datafh = raw_wrapper(StringIO(data))
 		img = Image.open(datafh)
 	try:
 		exif = ExivImage(fn)
