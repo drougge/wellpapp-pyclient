@@ -4,10 +4,9 @@
 from hashlib import md5
 import Image
 from cStringIO import StringIO
-from pyexiv2 import Image as ExivImage
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, getcwd, stat
-from dbclient import make_pdirs, raw_wrapper, identify_raw
+from dbclient import make_pdirs, raw_wrapper, identify_raw, exif_wrapper
 
 def determine_filetype(data):
 	if data[:3] == "\xff\xd8\xff": return "jpeg"
@@ -25,32 +24,32 @@ def needs_thumbs(m, ft):
 		if not exists(fn): return True
 
 def exif2rotation(exif):
-	if not exif or "Exif.Image.Orientation" not in exif.exifKeys(): return -1
+	if "Exif.Image.Orientation" not in exif: return -1
 	o = exif["Exif.Image.Orientation"]
 	orient = {1: 0, 3: 180, 6: 90, 8: 270}
 	if o not in orient: return -1
 	return orient[o]
 
 def exif2tags(exif, tags):
-	if not exif: return
 	cfg = client.cfg
-	keys = exif.exifKeys()
 	if "lenstags" in cfg:
 		lenstags = cfg.lenstags.split()
 		for lt in lenstags:
-			if lt in keys:
+			if lt in exif:
 				v = exif[lt]
 				if type(v) is tuple:
 					v = " ".join([str(e) for e in v])
 				lt = "lens:" + lt + ":" + v
 				if lt in cfg:
 					tags.add(cfg[lt])
-	if "Exif.Image.Make" in keys and "Exif.Image.Model" in keys:
+	try:
 		make = exif["Exif.Image.Make"].strip()
 		model = exif["Exif.Image.Model"].strip()
 		cam = "camera:" + make + ":" + model
 		if cam in cfg:
 			tags.add(cfg[cam])
+	except Exception:
+		pass
 
 class tagset(set):
 	def add(self, t):
@@ -135,23 +134,15 @@ def add_image(fn):
 	if not post or needs_thumbs(m, ft):
 		datafh = raw_wrapper(StringIO(data))
 		img = Image.open(datafh)
-	try:
-		exif = ExivImage(fn)
-		exif.readMetadata()
-	except Exception:
-		exif = None
+	exif = exif_wrapper(fn)
 	if not post:
 		w, h = img.size
 		rot = exif2rotation(exif)
 		if rot in (90, 270): w, h = h, w
 		args = {"md5": m, "width": w, "height": h, "ext": ft}
 		if rot >= 0: args["rotate"] = rot
-		try:
-			date = exif['Exif.Image.DateTime']
-			if isinstance(date, basestring): date = int(date)
-			args["imgdate"] = date
-		except Exception:
-			pass
+		date = exif.date()
+		if date: args["imgdate"] = date
 		if dummy:
 			print "Would have created post " + m
 		else:

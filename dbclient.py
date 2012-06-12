@@ -16,11 +16,14 @@ class _tiff:
 		endian = {"M": ">", "I": "<"}[d[0]]
 		self._up = lambda fmt, *a: unpack(endian + fmt, *a)
 		self._up1 = lambda *a: self._up(*a)[0]
-		self.ifd = []
 		next_ifd = self._up1("I", fh.read(4))
+		self.reinit_from(next_ifd)
+	
+	def reinit_from(self, next_ifd):
+		self.ifd = []
 		while next_ifd:
 			self.ifd.append(self._ifdread(next_ifd))
-			next_ifd = self._up1("I", fh.read(4))
+			next_ifd = self._up1("I", self._fh.read(4))
 		self.subifd = []
 		subifd = self.ifdget(self.ifd[0], 0x14a) or []
 		for next_ifd in subifd:
@@ -29,11 +32,14 @@ class _tiff:
 	def ifdget(self, ifd, tag):
 		if tag in ifd:
 			type, vc, off = ifd[tag]
-			if type in (3, 4): # only handle SHORT and LONG
+			if type in (3, 4): # SHORT or LONG
 				if vc == 1: return (off,)
 				self._fh.seek(off)
 				dt = {3: "H", 4: "I"}[type]
 				return self._up(dt * vc, self._fh.read(4 * vc))
+			elif type == 2: # STRING
+				self._fh.seek(off)
+				return self._fh.read(vc).rstrip("\0")
 	
 	def _ifdread(self, next_ifd):
 		ifd = {}
@@ -49,6 +55,107 @@ class _tiff:
 			ifd[tag] = (type, vc, off)
 		return ifd
 
+class exif_wrapper:
+	"""Wrapper for several EXIF libraries.
+	Tries to use two incompatible versions of pyexiv2, and then falls back
+	to internal (less functional) EXIF parser. Presents the same interface
+	to all three.
+	
+	Never fails, just returns empty data (even if file doesn't exist)."""
+	
+	def __init__(self, fn):
+		try:
+			self._pyexiv2_old(fn)
+		except Exception:
+			try:
+				self._pyexiv2_new(fn)
+			except Exception:
+				try:
+					self._internal(fn)
+				except Exception:
+					d = {}
+					self.__getitem__ = d.__getitem__
+					self.__contains__ = d.__contains__
+	
+	def _pyexiv2_old(self, fn):
+		from pyexiv2 import Image
+		exif = Image(fn)
+		exif.readMetadata()
+		keys = set(exif.exifKeys())
+		self.__getitem__ = exif.__getitem__
+		self.__contains__ = keys.__contains__
+	
+	def _pyexiv2_new(self, fn):
+		raise Exception("not yet")
+	
+	def _internal(self, fn):
+		fh = file(fn, "rb")
+		try:
+			data = fh.read(12)
+			if data[:3] == "\xff\xd8\xff": # JPEG
+				from struct import unpack
+				from cStringIO import StringIO
+				data = data[3:]
+				while data and data[3:7] != "Exif":
+					l = unpack(">H", data[1:3])[0]
+					fh.seek(l - 7, 1)
+					data = fh.read(9)
+				if not data: return
+				# Now comes a complete TIFF, with offsets relative to its' start
+				l = unpack(">H", data[1:3])[0]
+				data = fh.read(l)
+				fh.close()
+				fh = StringIO(data)
+			# hopefully mostly TIFF (now)
+			fh.seek(0)
+			tiff = _tiff(fh) # This is the outer TIFF
+			ifd0 = tiff.ifd[0]
+			exif = tiff.ifdget(ifd0, 0x8769)[0]
+			tiff.reinit_from(exif) # replace with Exif IFD(s)
+			ifd0.update(tiff.ifd[0]) # merge back into original ifd0
+			self._tiff = tiff
+			self._ifd = ifd0
+			d = {}
+			for tag, name in ((0x010f, "Exif.Image.Make"),
+					  (0x0110, "Exif.Image.Model"),
+					  (0x0112, "Exif.Image.Orientation"),
+					  (0x9003, "Exif.Photo.DateTimeOriginal"),
+					  (0x9004, "Exif.Photo.CreateDate"),
+					 ):
+				val = self._get(tag)
+				if val is not None: d[name] = val
+			self.__contains__ = d.__contains__
+			self.__getitem__ = d.__getitem__
+		finally:
+			fh.close()
+	
+	def _get(self, tag):
+		d = self._tiff.ifdget(self._ifd, tag)
+		if type(d) is tuple:
+			if len(d) == 1: return d[0]
+			return None
+		return d
+	
+	def date(self):
+		"""Return some reasonable EXIF date field as unix timestamp, or None"""
+		fields = ("Exif.Image.Date", "Exif.Photo.DateTimeOriginal", "Exif.Photo.CreateDate")
+		for f in fields:
+			try:
+				date = self[f]
+				if isinstance(date, basestring):
+					try:
+						from time import strptime, mktime
+						date = mktime(strptime(date, "%Y:%m:%d %H:%M:%S"))
+					except Exception:
+						pass
+				try:
+					date = int(date.strftime("%s"))
+				except Exception:
+					pass
+				return int(date)
+			except Exception:
+				pass
+
 def _identify_raw(fh, tiff):
 	ifd0 = tiff.ifd[0]
 	if 0xc612 in ifd0: return "dng"
@@ -62,6 +169,7 @@ def _identify_raw(fh, tiff):
 			if make[:6] == "NIKON ":
 				return "nef"
 def identify_raw(fh):
+	"""A lower case file extension (e.g. "dng") or None."""
 	return _identify_raw(fh, _tiff(fh))
 
 class raw_wrapper:
@@ -120,6 +228,8 @@ class raw_wrapper:
 			return True
 
 def make_pdirs(fn):
+	"""Like mkdir -p `dirname fn`"""
+	import os.path
 	dn = os.path.dirname(fn)
 	if not os.path.exists(dn): os.makedirs(dn)
 
@@ -166,9 +276,9 @@ def _p_str(val):
 	assert " " not in val
 	return val
 def _p_date(val):
-	if isinstance(val, basestring): val = int(val)
-	if not isinstance(val, int):
-		val = int(val.strftime("%s"))
+	if isinstance(val, basestring) and not val.isdigit():
+		from time import strptime, mktime
+		date = mktime(strptime(date, "%Y:%m:%d %H:%M:%S"))
 	return _p_hexint(val)
 _field_cparser = {
 	"width"          : _p_hexint,
