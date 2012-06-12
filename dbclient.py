@@ -86,7 +86,15 @@ class exif_wrapper:
 		self.__contains__ = keys.__contains__
 	
 	def _pyexiv2_new(self, fn):
-		raise Exception("not yet")
+		from pyexiv2 import ImageMetadata
+		exif = ImageMetadata(fn)
+		exif.read()
+		self._exif = exif
+		self.__getitem__ = self._new_getitem
+		self.__contains__ = exif.__contains__
+	
+	def _new_getitem(self, *a):
+		return self._exif.__getitem__(*a).value
 	
 	def _internal(self, fn):
 		fh = file(fn, "rb")
