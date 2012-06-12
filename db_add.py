@@ -6,7 +6,7 @@ import Image
 from cStringIO import StringIO
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, getcwd, stat
-from dbclient import make_pdirs, raw_wrapper, identify_raw, exif_wrapper
+from dbutil import make_pdirs, raw_wrapper, identify_raw, exif_wrapper
 
 def determine_filetype(data):
 	if data[:3] == "\xff\xd8\xff": return "jpeg"

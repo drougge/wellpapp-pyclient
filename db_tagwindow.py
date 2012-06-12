@@ -2,7 +2,8 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient, raw_wrapper
+from dbclient import dbclient
+from dbutil import raw_wrapper
 from itertools import chain
 import pygtk
 pygtk.require("2.0")
