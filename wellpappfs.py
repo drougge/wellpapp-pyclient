@@ -64,10 +64,14 @@ class Cache:
 _thumbpaths = ([".thumblocal", "normal"], [".thumblocal", "large"])
 _cfgpath = "/.wellpapprc"
 _cloudname = ".cloud"
+_rawext = set(["dng", "pef", "nef"])
 
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
 		fuse.Fuse.__init__(self, *a, **kw)
+		self._raw2jpeg = False
+		self.parser.add_option(mountopt="raw2jpeg", action="store_true", dest="_raw2jpeg",
+		                       help="Present RAW files as JPEG")
 
 	def _cfg2file(self):
 		cfg = self._client.cfg
@@ -95,7 +99,7 @@ class Wellpapp(fuse.Fuse):
 		fn = self._client.cfg.image_base + "/cache"
 		if not exists(fn): return
 		try:
-			print "Loading cache.."
+			print "Loading stat-cache.."
 			self._cache_fh = file(fn)
 			self._stat_cache = {}
 			self._cache_read()
@@ -147,6 +151,12 @@ class Wellpapp(fuse.Fuse):
 			if self._use_cache:
 				mode = stat.S_IFREG | 0444
 				size, time, dest = self._stat(m.group(1))
+				if spath[-1][-4:] == ".jpg" and self._raw2jpeg: # wrapped RAW
+					from dbutil import raw_wrapper
+					fh = raw_wrapper(open(dest, "rb"))
+					fh.seek(0, 2)
+					size = fh.tell()
+					fh.close()
 			else:
 				mode = stat.S_IFLNK | 0444
 			nlink = 1
@@ -267,7 +277,9 @@ class Wellpapp(fuse.Fuse):
 			if order:
 				prefix = "%06d." % (idx,)
 				idx += 1
-			r.append(prefix + p["md5"] + "." + p["ext"])
+			ext = p["ext"]
+			if self._raw2jpeg and ext in _rawext: ext = "jpg"
+			r.append(prefix + p["md5"] + "." + ext)
 		return map(str, r)
 
 	def _path2search(self, path):
@@ -299,6 +311,10 @@ class Wellpapp(fuse.Fuse):
 		self._cfgfile = self._cfg2file()
 		self._use_cache = False
 		self._prime_stat_cache()
+		if self._raw2jpeg and not self._use_cache:
+			raise Exception("raw2jpeg only works with a stat-cache")
+		if self._raw2jpeg:
+			from dbutil import raw_wrapper
 		wp = self
 		class FakeFile:
 			keep_cache = False
@@ -322,21 +338,29 @@ class Wellpapp(fuse.Fuse):
 				if spath[-3:-1] in _thumbpaths:
 					self.data = self._make_thumb(spath)
 				else:
-					m = spath[-1].split(".")[-2][-32:]
+					fn = spath[-1].split(".")
+					m = fn[-2][-32:]
+					fh = self._open(m)
+					if fh:
+						if wp._raw2jpeg and fn[-1] == "jpg":
+							self._fh = raw_wrapper(fh)
+						else:
+							self._fh = fh
 					self._lock = Lock()
-					try:
-						dest = wp._stat(m)[2]
-						self._fh = open(dest, "rb")
-						return
-					except Exception:
-						pass
-					try:
-						p = wp._client.image_path(m)
-						dest = os.readlink(p)
-						self._fh = open(dest, "rb")
-						wp._stat(m)[2] = dest
-					except Exception:
-						pass
+			def _open(self, m):
+				try:
+					dest = wp._stat(m)[2]
+					return open(dest, "rb")
+				except Exception:
+					pass
+				try:
+					p = wp._client.image_path(m)
+					dest = os.readlink(p)
+					fh = open(dest, "rb")
+					wp._stat(m)[2] = dest
+					return fh
+				except Exception:
+					pass
 			# FUSE doesn't seem to like destroying these objects.
 			# But it does call release, so I'll do what I can.
 			def __del__(self):
@@ -374,5 +398,5 @@ class Wellpapp(fuse.Fuse):
 		return fuse.Fuse.main(self, *a, **kw)
 
 server = Wellpapp()
-server.parse(errex = 1)
+server.parse(errex=1, values=server)
 server.main()
