@@ -1,7 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
 import socket, base64, codecs, os, hashlib, re
-from dbutil import make_pdirs
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
@@ -589,9 +588,12 @@ class dbclient:
 	def save_thumbs(self, m, img, ft, rot, force=False):
 		import Image
 		from PIL import PngImagePlugin
+		from dbutil import make_pdirs
 		fn = self.image_path(m)
 		mtime = os.stat(fn).st_mtime
-		if not img: img = Image.open(fn)
+		if not img:
+			from dbutil import raw_wrapper
+			img = Image.open(raw_wrapper(open(fn, "rb")))
 		img.load()
 		# PIL rotates CCW
 		rotation = {90: Image.ROTATE_270, 180: Image.ROTATE_180, 270: Image.ROTATE_90}
