@@ -67,12 +67,6 @@ _cloudname = ".cloud"
 
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
-		self._cache = Cache(30)
-		self._client = dbclient()
-		self._client_lock = RLock()
-		self._cfgfile = self._cfg2file()
-		self._use_cache = False
-		self._prime_stat_cache()
 		fuse.Fuse.__init__(self, *a, **kw)
 
 	def _cfg2file(self):
@@ -299,6 +293,12 @@ class Wellpapp(fuse.Fuse):
 		return tuple(want), tuple(dontwant), tuple(order), range
 
 	def main(self, *a, **kw):
+		self._cache = Cache(30)
+		self._client = dbclient()
+		self._client_lock = RLock()
+		self._cfgfile = self._cfg2file()
+		self._use_cache = False
+		self._prime_stat_cache()
 		wp = self
 		class FakeFile:
 			keep_cache = False
