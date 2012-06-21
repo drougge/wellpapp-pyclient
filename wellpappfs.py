@@ -284,7 +284,8 @@ class Wellpapp(fuse.Fuse):
 				prefix = "%06d." % (idx,)
 				idx += 1
 			ext = p["ext"]
-			if self._raw2jpeg: ext = _rawext.get(ext, ext)
+			if self._raw2jpeg and ext in _rawext:
+				r.append(prefix + p["md5"] + "." + _rawext[ext])
 			r.append(prefix + p["md5"] + "." + ext)
 		return map(str, r), {}
 
