@@ -224,14 +224,16 @@ class Wellpapp(fuse.Fuse):
 		return data
 
 	def _resolve_thumb(self, search, thumbname):
-		idx = 0;
 		thumbmd5 = thumbname[:32]
-		for fn in self._cache.get(search, self._search):
-			if md5(fn).hexdigest() == thumbmd5:
+		fns, pcache = self._cache.get(search, self._search)
+		if not pcache:
+			for fn in fns:
 				m = md5re.match(fn)
 				ext = m.group(2)
 				ofn = m.group(1) + "." + _rawext_r.get(ext, ext)
-				return md5(ofn).hexdigest(), fn
+				tmd5 = md5(fn).hexdigest()
+				pcache[tmd5] = (md5(ofn).hexdigest(), fn)
+		return pcache.get(thumbmd5)
 
 	def readlink(self, path):
 		path = path.split("/")[1:]
@@ -256,7 +258,7 @@ class Wellpapp(fuse.Fuse):
 			pass
 		elif search:
 			try:
-				list += self._cache.get(search, self._search)
+				list += self._cache.get(search, self._search)[0]
 			except Exception:
 				raise NOTFOUND
 		else:
@@ -284,7 +286,7 @@ class Wellpapp(fuse.Fuse):
 			ext = p["ext"]
 			if self._raw2jpeg: ext = _rawext.get(ext, ext)
 			r.append(prefix + p["md5"] + "." + ext)
-		return map(str, r)
+		return map(str, r), {}
 
 	def _path2search(self, path):
 		if path == "/": return None
