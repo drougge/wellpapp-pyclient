@@ -154,7 +154,7 @@ class Wellpapp(fuse.Fuse):
 			if self._use_cache:
 				mode = stat.S_IFREG | 0444
 				size, time, dest = self._stat(m.group(1))
-				if spath[-1][-4:] == ".jpg" and self._raw2jpeg: # wrapped RAW
+				if self._raw2jpeg and spath[-1][-3:] in _rawext_r: # wrapped RAW
 					from dbutil import raw_wrapper
 					fh = raw_wrapper(open(dest, "rb"))
 					fh.seek(0, 2)
