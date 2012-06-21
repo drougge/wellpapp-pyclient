@@ -64,7 +64,8 @@ class Cache:
 _thumbpaths = ([".thumblocal", "normal"], [".thumblocal", "large"])
 _cfgpath = "/.wellpapprc"
 _cloudname = ".cloud"
-_rawext = set(["dng", "pef", "nef"])
+_rawext = {"dng": "Jpg", "pef": "jPg", "nef": "jpG"}
+_rawext_r = dict([(v, k) for k, v in _rawext.items()])
 
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
@@ -137,13 +138,15 @@ class Wellpapp(fuse.Fuse):
 			if not m or not m.group(2) != ".png": raise NOTFOUND
 			search = self._path2search("/" + " ".join(spath[:-3]))
 			if not search: raise NOTFOUND
-			if search[2]: # order specified
+			if search[2] or self._raw2jpeg: # order specified or potentially unwrapped
 				orgmd5 = self._resolve_thumb(search, spath[-1])
 				if not orgmd5: raise NOTFOUND
 				mode = stat.S_IFREG | 0444
 				tfn = self._client.thumb_path(orgmd5[0], spath[-2])
-				size = os.stat(tfn).st_size + 7
-				# size of thumb, plus six digits and a period
+				size = os.stat(tfn).st_size
+				if search[2]: # ordered
+					# plus six digits and a period
+					size += 7
 			else:
 				mode = stat.S_IFLNK | 0444
 			nlink = 1
@@ -226,7 +229,8 @@ class Wellpapp(fuse.Fuse):
 		for fn in self._cache.get(search, self._search):
 			if md5(fn).hexdigest() == thumbmd5:
 				m = md5re.match(fn)
-				ofn = m.group(1) + "." + m.group(2)
+				ext = m.group(2)
+				ofn = m.group(1) + "." + _rawext_r.get(ext, ext)
 				return md5(ofn).hexdigest(), fn
 
 	def readlink(self, path):
@@ -278,7 +282,7 @@ class Wellpapp(fuse.Fuse):
 				prefix = "%06d." % (idx,)
 				idx += 1
 			ext = p["ext"]
-			if self._raw2jpeg and ext in _rawext: ext = "jpg"
+			if self._raw2jpeg: ext = _rawext.get(ext, ext)
 			r.append(prefix + p["md5"] + "." + ext)
 		return map(str, r)
 
@@ -342,7 +346,7 @@ class Wellpapp(fuse.Fuse):
 					m = fn[-2][-32:]
 					fh = self._open(m)
 					if fh:
-						if wp._raw2jpeg and fn[-1] == "jpg":
+						if wp._raw2jpeg and fn[-1] in _rawext_r:
 							self._fh = raw_wrapper(fh)
 						else:
 							self._fh = fh
@@ -372,15 +376,19 @@ class Wellpapp(fuse.Fuse):
 				search = wp._path2search("/".join(spath[:-3]))
 				if not search: raise NOTFOUND
 				orgmd5, fn = wp._resolve_thumb(search, spath[-1])
+				ext = fn.split(".")[-1]
 				tfn = wp._client.thumb_path(orgmd5, spath[-2])
 				fh = open(tfn)
 				data = fh.read()
 				fh.close()
+				if not (search[2] or ext in _rawext_r):
+					return data
 				data = data.split("tEXtThumb::URI\0")
 				if len(data) != 2: raise NOTFOUND
 				pre, post = data
 				clen, = unpack(">I", pre[-4:])
-				pre = pre[:-4] + pack(">I", clen + 7)
+				if search[2]: # It's longer only of search was ordered
+					pre = pre[:-4] + pack(">I", clen + 7)
 				post = post[clen - 7:]
 				tEXt = "tEXtThumb::URI\0" + fn
 				crc = crc32(tEXt)
