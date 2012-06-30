@@ -182,13 +182,16 @@ class exif_wrapper:
 			self._pentax_makernotes(d, data)
 	
 	def _pentax_makernotes(self, d, data):
-		if data[:4] == "AOC\0": # JPEG MakerNotes
-			pass # don't know yet.
+		from cStringIO import StringIO
+		if data[:4] == "AOC\0": # JPEG/PEF MakerNotes
+			fh = StringIO(data[4:])
 		elif data[:8] == "PENTAX \0": # DNG MakerNotes
-			from cStringIO import StringIO
-			t = _tiff(StringIO(data[8:]), short_header=2)
-			lens = " ".join(map(str, t.ifdget(t.ifd[0], 0x3f)))
-			d["Exif.Pentax.LensType"] = lens
+			fh = StringIO(data[8:])
+		else:
+			return
+		t = _tiff(fh, short_header=2)
+		lens = " ".join(map(str, t.ifdget(t.ifd[0], 0x3f)))
+		d["Exif.Pentax.LensType"] = lens
 	
 	def date(self):
 		"""Return some reasonable EXIF date field as unix timestamp, or None"""
