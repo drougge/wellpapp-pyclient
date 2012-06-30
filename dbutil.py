@@ -3,23 +3,38 @@
 class _tiff:
 	"""Pretty minimal TIFF container parser"""
 	
-	def __init__(self, fh):
+	types = {1: (1, "B"),  # BYTE
+		 2: (1, None), # ASCII
+		 3: (2, "H"),  # SHORT
+		 4: (4, "I"),  # LONG
+		 5: (8, "II"), # RATIONAL
+		 # No TIFF6 fields, sorry
+		}
+	
+	def __init__(self, fh, short_header=False):
 		from struct import unpack
 		self._fh = fh
 		d = fh.read(4)
-		if d not in ("II*\0", "MM\0*"): raise Exception("Not TIFF")
+		if short_header:
+			if d[:2] not in ("II", "MM"): raise Exception("Not TIFF")
+		else:
+			if d not in ("II*\0", "MM\0*"): raise Exception("Not TIFF")
 		endian = {"M": ">", "I": "<"}[d[0]]
 		self._up = lambda fmt, *a: unpack(endian + fmt, *a)
 		self._up1 = lambda *a: self._up(*a)[0]
-		next_ifd = self._up1("I", fh.read(4))
-		self.reinit_from(next_ifd)
+		if short_header:
+			next_ifd = short_header
+		else:
+			next_ifd = self._up1("I", fh.read(4))
+		self.reinit_from(next_ifd, short_header)
 	
-	def reinit_from(self, next_ifd):
+	def reinit_from(self, next_ifd, short_header=False):
 		self.ifd = []
+		self.subifd = []
 		while next_ifd:
 			self.ifd.append(self._ifdread(next_ifd))
+			if short_header: return
 			next_ifd = self._up1("I", self._fh.read(4))
-		self.subifd = []
 		subifd = self.ifdget(self.ifd[0], 0x14a) or []
 		for next_ifd in subifd:
 			self.subifd.append(self._ifdread(next_ifd))
@@ -27,14 +42,15 @@ class _tiff:
 	def ifdget(self, ifd, tag):
 		if tag in ifd:
 			type, vc, off = ifd[tag]
-			if type in (3, 4): # SHORT or LONG
-				if vc == 1: return (off,)
+			if type not in self.types: return None
+			if isinstance(off, int): # offset
 				self._fh.seek(off)
-				dt = {3: "H", 4: "I"}[type]
-				return self._up(dt * vc, self._fh.read(4 * vc))
-			elif type == 2: # STRING
-				self._fh.seek(off)
-				return self._fh.read(vc).rstrip("\0")
+				tl, fmt = self.types[type]
+				off = self._fh.read(tl * vc)
+				if fmt: off = self._up(fmt * vc, off)
+			if isinstance(off, basestring):
+				off = off.rstrip("\0")
+			return off
 	
 	def _ifdread(self, next_ifd):
 		ifd = {}
@@ -43,8 +59,13 @@ class _tiff:
 		for i in range(count):
 			d = self._fh.read(12)
 			tag, type, vc = self._up("HHI", d[:8])
-			if type == 3 and vc == 1:
-				off = self._up1("H", d[8:10])
+			if type in self.types and self.types[type][0] * vc <= 4:
+				tl, fmt = self.types[type]
+				d = d[8:8 + (tl * vc)]
+				if fmt:
+					off = self._up(fmt * vc, d)
+				else:
+					off = d # ASCII
 			else:
 				off = self._up1("I", d[8:])
 			ifd[tag] = (type, vc, off)
@@ -129,15 +150,45 @@ class exif_wrapper:
 				if val is not None: d[name] = val
 			self.__contains__ = d.__contains__
 			self.__getitem__ = d.__getitem__
+			try:
+				self._parse_makernotes(d)
+			except Exception:
+				pass
 		finally:
 			fh.close()
 	
-	def _get(self, tag):
+	def _get(self, tag, tuple_ok=False):
 		d = self._tiff.ifdget(self._ifd, tag)
 		if type(d) is tuple:
 			if len(d) == 1: return d[0]
-			return None
+			if not tuple_ok: return None
 		return d
+	
+	def _parse_makernotes(self, d):
+		if "Exif.Image.Make" not in self: return
+		make = self["Exif.Image.Make"]
+		if make[:7] == "PENTAX ":
+			if 0x927c in self._ifd:
+				type, vc, off = self._ifd[0x927c]
+				if type != 7: return
+			elif 0xc634 in self._ifd:
+				type, vc, off = self._ifd[0xc634]
+				if type != 1: return
+			else:
+				return
+			fh = self._tiff._fh
+			fh.seek(off)
+			data = fh.read(vc)
+			self._pentax_makernotes(d, data)
+	
+	def _pentax_makernotes(self, d, data):
+		if data[:4] == "AOC\0": # JPEG MakerNotes
+			pass # don't know yet.
+		elif data[:8] == "PENTAX \0": # DNG MakerNotes
+			from cStringIO import StringIO
+			t = _tiff(StringIO(data[8:]), short_header=2)
+			lens = " ".join(map(str, t.ifdget(t.ifd[0], 0x3f)))
+			d["Exif.Pentax.LensType"] = lens
 	
 	def date(self):
 		"""Return some reasonable EXIF date field as unix timestamp, or None"""
