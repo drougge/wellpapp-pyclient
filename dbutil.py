@@ -73,41 +73,52 @@ class _tiff:
 
 class exif_wrapper:
 	"""Wrapper for several EXIF libraries.
-	Tries to use two incompatible versions of pyexiv2, and then falls back
-	to internal (less functional) EXIF parser. Presents the same interface
-	to all three.
+	Starts out with an internal parser, falls back to two incompatible
+	versions of pyexiv2 for fields it doesn't know about.
 	
 	Never fails, just returns empty data (even if file doesn't exist)."""
 	
 	def __init__(self, fn):
+		self._d = {}
+		try:
+			self._internal(fn)
+		except Exception:
+			pass
 		try:
 			self._pyexiv2_old(fn)
 		except Exception:
 			try:
 				self._pyexiv2_new(fn)
 			except Exception:
-				try:
-					self._internal(fn)
-				except Exception:
-					d = {}
-					self.__getitem__ = d.__getitem__
-					self.__contains__ = d.__contains__
+				pass
+	
+	def _getitem(self, name): # usually overridden from pyexiv2
+		raise KeyError(name)
+	def _contains(self, name): # usually overridden from pyexiv2
+		return False
+	
+	def __getitem__(self, name):
+		if name in self._d: return self._d[name]
+		return self._getitem(name)
+	
+	def __contains__(self, name):
+		return name in self._d or self._contains(name)
 	
 	def _pyexiv2_old(self, fn):
 		from pyexiv2 import Image
 		exif = Image(fn)
 		exif.readMetadata()
 		keys = set(exif.exifKeys())
-		self.__getitem__ = exif.__getitem__
-		self.__contains__ = keys.__contains__
+		self._getitem = exif.__getitem__
+		self._contains = keys.__contains__
 	
 	def _pyexiv2_new(self, fn):
 		from pyexiv2 import ImageMetadata
 		exif = ImageMetadata(fn)
 		exif.read()
 		self._exif = exif
-		self.__getitem__ = self._new_getitem
-		self.__contains__ = exif.__contains__
+		self._getitem = self._new_getitem
+		self._contains = exif.__contains__
 	
 	def _new_getitem(self, *a):
 		return self._exif.__getitem__(*a).value
@@ -139,7 +150,6 @@ class exif_wrapper:
 			ifd0.update(tiff.ifd[0]) # merge back into original ifd0
 			self._tiff = tiff
 			self._ifd = ifd0
-			d = {}
 			for tag, name in ((0x010f, "Exif.Image.Make"),
 					  (0x0110, "Exif.Image.Model"),
 					  (0x0112, "Exif.Image.Orientation"),
@@ -147,11 +157,9 @@ class exif_wrapper:
 					  (0x9004, "Exif.Photo.CreateDate"),
 					 ):
 				val = self._get(tag)
-				if val is not None: d[name] = val
-			self.__contains__ = d.__contains__
-			self.__getitem__ = d.__getitem__
+				if val is not None: self._d[name] = val
 			try:
-				self._parse_makernotes(d)
+				self._parse_makernotes()
 			except Exception:
 				pass
 		finally:
@@ -164,7 +172,7 @@ class exif_wrapper:
 			if not tuple_ok: return None
 		return d
 	
-	def _parse_makernotes(self, d):
+	def _parse_makernotes(self):
 		if "Exif.Image.Make" not in self: return
 		make = self["Exif.Image.Make"]
 		if make[:7] == "PENTAX ":
@@ -179,9 +187,9 @@ class exif_wrapper:
 			fh = self._tiff._fh
 			fh.seek(off)
 			data = fh.read(vc)
-			self._pentax_makernotes(d, data)
+			self._pentax_makernotes(data)
 	
-	def _pentax_makernotes(self, d, data):
+	def _pentax_makernotes(self, data):
 		from cStringIO import StringIO
 		if data[:4] == "AOC\0": # JPEG/PEF MakerNotes
 			fh = StringIO(data[4:])
@@ -191,7 +199,7 @@ class exif_wrapper:
 			return
 		t = _tiff(fh, short_header=2)
 		lens = " ".join(map(str, t.ifdget(t.ifd[0], 0x3f)))
-		d["Exif.Pentax.LensType"] = lens
+		self._d["Exif.Pentax.LensType"] = lens
 	
 	def date(self):
 		"""Return some reasonable EXIF date field as unix timestamp, or None"""
