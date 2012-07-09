@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient, dbcfg, Post
+from dbclient import dbclient, dbcfg, Post, CommentWrapper
 from dbutil import raw_wrapper
 import re
 from os.path import exists, dirname
@@ -44,6 +44,7 @@ def parse_search(s):
 
 class Spec:
 	def __init__(self, fh):
+		fh = CommentWrapper(fh, allow_empty=True)
 		self.src = fh.readline().strip().split()
 		self.dest = fh.readline().strip().split()
 		self.max_side = int(fh.readline())
@@ -58,8 +59,8 @@ class Spec:
 			line = fh.readline().strip()
 		self.include = []
 		self.exclude = []
-		self.fh = fh
-		for line in self.fh:
+		fh.allow_empty = False
+		for line in fh:
 			ie, t = line.strip().split(":", 1)
 			if ie == "include":
 				self.include.append(t)

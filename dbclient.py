@@ -66,6 +66,28 @@ _field_cparser = {
 	"title"          : _enc,
 }
 
+class CommentWrapper:
+	"""Wrap a file so readline/iteration skips comments
+	and optionally empty lines"""
+	def __init__(self, fh, allow_empty=False):
+		self.fh = fh
+		self.allow_empty = allow_empty
+	def __iter__(self):
+		return self
+	def next(self):
+		line = self.readline()
+		if not line: raise StopIteration()
+		return line
+	def readline(self):
+		while 42:
+			line = self.fh.readline()
+			if not line: return line
+			s = line.strip()
+			if s:
+				if s[0] != "#": return line
+			elif self.allow_empty:
+				return line
+
 class DotDict(dict):
 	__setattr__ = dict.__setitem__
 	__delattr__ = dict.__delitem__
@@ -117,12 +139,11 @@ class dbcfg(DotDict):
 		for RC in RCs + EXTRA_RCs:
 			self._load(RC)
 	def _load(self, fn):
-		for line in file(fn):
+		for line in CommentWrapper(file(fn)):
 			line = line.strip()
-			if line and line[0] != "#":
-				a = line.split("=", 1)
-				assert(len(a) == 2)
-				self[a[0]] = a[1]
+			a = line.split("=", 1)
+			assert(len(a) == 2)
+			self[a[0]] = a[1]
 
 class dbclient:
 	_prot_max_len = 4096
