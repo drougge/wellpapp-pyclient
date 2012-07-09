@@ -3,6 +3,7 @@
 
 from sys import argv, exit
 from dbclient import dbclient, dbcfg, Post
+from dbutil import raw_wrapper
 import re
 from os.path import exists, dirname
 from os import makedirs, stat
@@ -152,6 +153,7 @@ z = spec.max_side
 
 print "Copying/rescaling images"
 count = 0
+raw_exts = ("dng", "pef", "nef")
 for post in posts:
 	m = post.md5
 	w, h = post.width, post.height
@@ -160,17 +162,19 @@ for post in posts:
 	if not exists(dest_fn):
 		d = dirname(dest_fn)
 		if not exists(d): makedirs(dirname(dest_fn))
-		if w > z or h > z or post.rotate > 0:
-			img = Image.open(src_fn)
+		if w > z or h > z or post.rotate > 0 or post.ext in raw_exts:
+			img = Image.open(raw_wrapper(open(src_fn, "rb")))
 			if w > z or h > z:
 				img.thumbnail((z, z), Image.ANTIALIAS)
 			img = rotate_image(img, post.rotate)
-			if post.ext == "jpeg":
+			ext = post.ext
+			if ext in raw_exts: ext = "jpeg"
+			if ext == "jpeg":
 				opts = dict(quality=90)
 			else:
 				opts = {}
-			img.save(dest_fn, format=post.ext.upper(), **opts)
-			if post.ext == "jpeg":
+			img.save(dest_fn, format=ext.upper(), **opts)
+			if ext == "jpeg":
 				copyexif(src_fn, dest_fn)
 		else:
 			copyfile(src_fn, dest_fn)
@@ -229,6 +233,7 @@ for post in posts:
 		h = z
 	data.width, data.height = w, h
 	data.rotate = 0
+	if data.ext in raw_exts: data.ext = "jpeg"
 	dest_client.add_post(**data)
 	full = [g for g in tags if g[0] != "~"]
 	weak = [g[1:] for g in tags if g[0] == "~"]
