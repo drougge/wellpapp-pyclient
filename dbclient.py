@@ -25,6 +25,7 @@ def _enc(str):
 	while len(str) % 3: str += "\x00"
 	return base64.b64encode(str, "_-")
 def _dec(enc):
+	if not enc: return u""
 	enc = _utf(enc)
 	str = base64.b64decode(enc, "_-")
 	while str[-1] == "\x00": str = str[:-1]
@@ -114,6 +115,7 @@ class Tag(DotDict):
 		        u"W": ("weak_posts", hexint),
 		        u"F": ("flags", flaglist.append),
 		        u"G": ("guid", str),
+		        u"V": ("valuetype", str),
 		       }
 		for data in res:
 			if data[0] in incl:
@@ -124,6 +126,27 @@ class Tag(DotDict):
 			del self.flags
 			for flag in flaglist:
 				self[flag] = True
+		vt = (self.valuetype or "").split("=", 1)
+		if len(vt) == 2:
+			self.valuetype = vt[0]
+			self.value = vtparser[vt[0]](vt[1])
+
+def _vt_num(v, vp, fp):
+	a = v.split("+-", 1)
+	val = vp(a[0])
+	if len(a) == 2:
+		fuzz = fp(a[1])
+	else:
+		fuzz = 0
+	return (val, fuzz)
+
+vtparser = {"string": _dec,
+            "int"   : lambda v: _vt_num(v, lambda v: int(v, 10), lambda v: int(v, 16)),
+            "uint"  : lambda v: _vt_num(v, lambda v: int(v, 16), lambda v: int(v, 16)),
+            "float" : lambda v: _vt_num(v, float, float),
+            "f-stop": lambda v: _vt_num(v, float, float),
+            "iso"   : lambda v: _vt_num(v, lambda v: int(v, 10), float),
+}
 
 class dbcfg(DotDict):
 	def __init__(self, RC_NAME=".wellpapprc", EXTRA_RCs=[]):
