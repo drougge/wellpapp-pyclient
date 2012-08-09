@@ -136,19 +136,19 @@ class TagWindow:
 		self.tags_other = gtk.ListStore(*taglisttypes)
 		self.tags_allview = FixedTreeView(self.tags_all)
 		celltext = gtk.CellRendererText()
-		tvc = gtk.TreeViewColumn("ALL", celltext, text=0)
+		tvc = gtk.TreeViewColumn("ALL", celltext, markup=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_allview.append_column(tvc)
 		self.tags_allcurrentview = FixedTreeView(self.tags_allcurrent)
 		celltext = gtk.CellRendererText()
-		tvc = gtk.TreeViewColumn("All Current", celltext, text=0)
+		tvc = gtk.TreeViewColumn("All Current", celltext, markup=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_allcurrentview.append_column(tvc)
 		self.tags_currentotherview = FixedTreeView(self.tags_currentother)
 		celltext = gtk.CellRendererText()
-		tvc = gtk.TreeViewColumn("Some Current", celltext, text=0)
+		tvc = gtk.TreeViewColumn("Some Current", celltext, markup=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_currentotherview.append_column(tvc)
@@ -159,7 +159,7 @@ class TagWindow:
 			sel.set_mode(gtk.SELECTION_MULTIPLE)
 			tv.connect("row-activated", self.modify_tag)
 		celltext = gtk.CellRendererText()
-		tvc = gtk.TreeViewColumn("Some", celltext, text=0)
+		tvc = gtk.TreeViewColumn("Some", celltext, markup=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_otherview.append_column(tvc)
@@ -328,10 +328,31 @@ class TagWindow:
 	def tag_colour_guid(self, guid):
 		return self.tag_colour(client.get_tag(guid).type)
 
+	def fmt_value(self, valuetype, value):
+		if type(value) is tuple:
+			v = str(value[0])
+			if value[1]:
+				v += "+-" + str(value[1])
+		else:
+			v = value.encode("utf-8")
+		return markup_escape_text(v)
+
+	def fmt_tag(self, g):
+		t = self.ids[clean(g)]
+		name = markup_escape_text(prefix(g) + t.name.encode("utf-8"))
+		if t.valuetype in (None, "none"): return name
+		name = " <span color=\"#ff0000\">\xE2\x98\x85 </span>" + name + " <span color=\"#ff0000\">" + t.valuetype
+		if "valuelist" not in t: return name + "</span>"
+		if t.localcount == len(t.valuelist) and len(set(t.valuelist)) == 1: # all have the same value
+			name += "=" + self.fmt_value(t.valuetype, t.valuelist[0])
+		else:
+			name += " ..."
+		return name + "</span>"
+
 	def put_in_list(self, lo, li):
 		data = []
 		for pre, bg in ("", "#ffffff"), ("impl", "#ffd8ee"):
-			data += [(prefix(t) + self.ids[clean(t)], t, bg, self.tag_colours[clean(t)]) for t in self.taglist[pre + li]]
+			data += [(self.fmt_tag(t), t, bg, self.tag_colours[clean(t)]) for t in self.taglist[pre + li]]
 		lo.clear()
 		map(lambda d: lo.append(d), sorted(data))
 
@@ -343,8 +364,14 @@ class TagWindow:
 		if not posts:
 			self.error(u"No posts found")
 			return
-		self.ids = dict(zip(chain(*[map(clean, p["tagguid"] + p["impltagguid"]) for p in posts]),
-		                    chain(*[map(clean, p["tagname"] + p["impltagname"]) for p in posts])))
+		ids = {}
+		for t in chain(*[p.tags + p.impltags + p.weaktags + p.implweaktags for p in posts]):
+			ids.setdefault(t.guid, t)
+			tt = ids[t.guid]
+			tt.localcount = tt.get("localcount", 0) + 1
+			if "value" in t:
+				tt.setdefault("valuelist", []).append(t.value)
+		self.ids = ids
 		self.posts = dict([(p["md5"], p) for p in posts])
 		agl = self.ids.keys()
 		self.tag_colours = dict(zip(agl, [self.tag_colour_guid(clean(tg)) for tg in agl]))
