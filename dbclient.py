@@ -146,7 +146,19 @@ vtparser = {"string": _dec,
             "float" : lambda v: _vt_num(v, float, float),
             "f-stop": lambda v: _vt_num(v, float, float),
             "iso"   : lambda v: _vt_num(v, lambda v: int(v, 10), float),
-}
+           }
+
+def vtformat(v):
+	if type(v) in (str, unicode):
+		return _enc(v)
+	if type(v) in (tuple, list):
+		val, fuzz = v
+		if fuzz:
+			return str(val) + "+-" + str(fuzz)
+		else:
+			return str(val)
+	else:
+		return str(v)
 
 class dbcfg(DotDict):
 	def __init__(self, RC_NAME=".wellpapprc", EXTRA_RCs=[]):
@@ -476,24 +488,32 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	def _tag2spec(self, t):
+		if type(t) in (tuple, list):
+			assert len(t) == 2
+			g = str(t[0])
+			if t[1] is None: return g
+			return g + "=" + vtformat(t[1])
+		else:
+			return str(t)
 	def tag_post(self, md5, full_tags=None, weak_tags=None, remove_tags=None):
-		tags = map(str, full_tags or []) + map(lambda t: "~" + str(t), weak_tags or [])
+		tags = map(self._tag2spec, full_tags or []) + map(lambda t: "~" + self._tag2spec(t), weak_tags or [])
 		remove_tags = map(str, remove_tags or [])
 		init = "TP" + str(md5)
 		cmd = init
 		for tag in map(lambda t: " T" + t, tags) + map(lambda t: " t" + t, remove_tags):
 			assert " " not in tag[1:]
-			cmd += tag
-			if len(cmd) + 64 > self._prot_max_len:
+			if len(cmd) + len(tag) > self._prot_max_len:
 				self._writeline(cmd)
 				res = self._readline()
 				if res != u"OK\n": raise EResponse(res)
 				cmd = init
+			cmd += tag
 		if cmd != init:
 			self._writeline(cmd)
 			res = self._readline()
 			if res != u"OK\n": raise EResponse(res)
-	def _parse_tag(self, resdata = None):
+	def _parse_tagres(self, resdata = None):
 		res = self._readline()
 		if res == u"OK\n": return
 		if res[0] != u"R": raise EResponse(res)
@@ -523,8 +543,26 @@ class dbclient:
 			cmd += " R%x:%x" % range
 		self._writeline(cmd + filter)
 		tags = []
-		while self._parse_tag(tags): pass
+		while self._parse_tagres(tags): pass
 		return tags
+	def parse_tag(self, spec):
+		spec = _utf(spec)
+		if spec[0] in "~-!":
+			prefix = spec[0]
+			spec = spec[1:]
+		else:
+			prefix = ""
+		tag = self.find_tag(spec)
+		if tag: return (prefix + tag, None)
+		a = spec.split("=", 1)
+		if len(a) == 2:
+			tag = self.find_tag(a[0])
+			if not tag: return None
+			tag = self.get_tag(tag)
+			if not tag or tag.valuetype in (None, "none"): return None
+			p = vtparser[tag.valuetype]
+			if p is _dec: p = _utf
+			return (prefix + tag.guid, p(a[1]))
 	def find_tag(self, name, resdata=None, with_prefix=False):
 		name = _utf(name)
 		if with_prefix and name[0] in "~-!":

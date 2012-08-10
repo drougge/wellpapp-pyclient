@@ -500,12 +500,12 @@ class TagWindow:
 		good = []
 		failed = []
 		for t in orgtext.split():
-			tag = client.find_tag(clean(t))
+			tag = client.parse_tag(t)
 			if not tag:
 				self.create_tag(clean(t))
-				tag = client.find_tag(clean(t))
+				tag = client.parse_tag(t)
 			if tag:
-				good.append((prefix(t) + tag, t))
+				good.append((tag, t))
 			else:
 				failed.append(t)
 		if self.apply(good, failed, False):
@@ -526,16 +526,24 @@ class TagWindow:
 			try:
 				for m in posts:
 					if m not in todo: todo[m] = ([], [], [])
-					p = prefix(tag)
-					ctag = clean(tag)
-					if p == "-" and (ctag in self.posts[m]["tagguid"] or "~" + ctag in self.posts[m]["tagguid"]):
+					p = prefix(tag[0])
+					ctag = clean(tag[0])
+					post = self.posts[m]
+					if p == "-" and (ctag in post.tagguid or "~" + ctag in post.tagguid):
 						todo[m][2].append(ctag)
-					if p != "-" and tag not in self.posts[m]["tagguid"]:
+					do_set = False
+					if p != "-" and tag[0] not in post.tagguid:
+						do_set = True
+					elif tag[1]:
+						for pt in post.tags:
+							if pt.guid == tag[0] and tag[1] != pt.value:
+								do_set = True
+					if do_set:
 						if p == "~":
-							todo[m][1].append(ctag)
+							todo[m][1].append((ctag, tag[1]))
 						else:
 							assert not p
-							todo[m][0].append(ctag)
+							todo[m][0].append(tag)
 			except Exception:
 				failed.append(t)
 		bad = False
