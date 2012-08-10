@@ -560,9 +560,13 @@ class dbclient:
 			if not tag: return None
 			tag = self.get_tag(tag)
 			if not tag or tag.valuetype in (None, "none"): return None
-			p = vtparser[tag.valuetype]
-			if p is _dec: p = _utf
-			return (prefix + tag.guid, p(a[1]))
+			if a[1]:
+				p = vtparser[tag.valuetype]
+				if p is _dec: p = _utf
+				val = p(a[1])
+			else:
+				val = None
+			return (prefix + tag.guid, val)
 	def find_tag(self, name, resdata=None, with_prefix=False):
 		name = _utf(name)
 		if with_prefix and name[0] in "~-!":
