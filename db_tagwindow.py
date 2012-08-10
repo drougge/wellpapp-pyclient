@@ -129,7 +129,7 @@ class TagWindow:
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.thumbview.connect("item-activated", self.thumb_activated)
 		self.tagbox = gtk.VBox(False, 0)
-		taglisttypes = [TYPE_STRING] * 4
+		taglisttypes = [TYPE_STRING] * 5
 		self.tags_all = gtk.ListStore(*taglisttypes)
 		self.tags_allcurrent = gtk.ListStore(*taglisttypes)
 		self.tags_currentother = gtk.ListStore(*taglisttypes)
@@ -167,7 +167,7 @@ class TagWindow:
 		nametype = ("text/x-wellpapp-tagname", 0, 0)
 		posttype = ("text/x-wellpapp-post-id", 0, 0)
 		texttypes = [("STRING", 0, 0), ("text/plain", 0, 0)]
-		srctypes = texttypes + [guidtype, nametype]
+		srctypes = [(t, n, 4) for t, n, i in texttypes + [nametype]] + [guidtype]
 		for widget in self.tags_allview, self.tags_allcurrentview, self.tags_currentotherview, self.tags_otherview:
 			widget.drag_source_set(gtk.gdk.BUTTON1_MASK, srctypes, gtk.gdk.ACTION_COPY)
 			widget.connect("drag_data_get", self.drag_get_list)
@@ -349,10 +349,18 @@ class TagWindow:
 			name += " ..."
 		return name + "</span>"
 
+	def txt_tag(self, g):
+		t = self.ids[clean(g)]
+		v = prefix(g) + t.name
+		if t.valuetype in (None, "none") or "valuelist" not in t: return v
+		if t.localcount == len(t.valuelist) and len(set(t.valuelist)) == 1: # all have the same value
+			return v + "=" + self.fmt_value(t.valuetype, t.valuelist[0])
+		return v
+
 	def put_in_list(self, lo, li):
 		data = []
 		for pre, bg in ("", "#ffffff"), ("impl", "#ffd8ee"):
-			data += [(self.fmt_tag(t), t, bg, self.tag_colours[clean(t)]) for t in self.taglist[pre + li]]
+			data += [(self.fmt_tag(t), t, bg, self.tag_colours[clean(t)], self.txt_tag(t)) for t in self.taglist[pre + li]]
 		lo.clear()
 		map(lambda d: lo.append(d), sorted(data))
 
