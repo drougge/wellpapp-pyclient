@@ -41,35 +41,42 @@ def exif2tags(exif, tags):
 					v = " ".join([str(e) for e in v])
 				lt = "lens:" + lt + ":" + v
 				if lt in cfg:
-					tags.add(cfg[lt])
+					tags.add_spec(cfg[lt])
 	try:
 		make = exif["Exif.Image.Make"].strip()
 		model = exif["Exif.Image.Model"].strip()
 		cam = "camera:" + make + ":" + model
 		if cam in cfg:
-			tags.add(cfg[cam])
+			tags.add_spec(cfg[cam])
 	except Exception:
 		pass
 
 class tagset(set):
 	def add(self, t):
-		base_t = t
+		guid, val = t
 		prefix = ""
-		if t[0] in "~-":
-			base_t = t[1:]
-			prefix = t[0]
-		guid = client.find_tag(base_t)
-		if not guid:
-			print "Unknown tag " + base_t
-			return
-		for check_prefix in "", "~":
-			check_t = check_prefix + guid
-			if check_t in self:
-				self.remove(check_t)
-		if prefix != "-": set.add(self, prefix + guid)
+		if guid[0] in "~-":
+			prefix = guid[0]
+			guid = guid[1:]
+		chk = (guid, "~" + guid)
+		rem = None
+		for v in self:
+			if v[0] in chk: rem = v
+		if rem: self.remove(rem)
+		if prefix != "-": set.add(self, (prefix + guid, val))
+	
+	def add_spec(self, s):
+		t = client.parse_tag(s)
+		if t:
+			self.add(t)
+		else:
+			print "Unknown tag " + s
 	
 	def update(self, l):
-		map(self.add, l)
+		[self.add_spec(s) for s in l]
+	
+	def update_tags(self, l, prefix=""):
+		[self.add((prefix + t.guid, t.value)) for t in l]
 
 def find_tags(fn):
 	path = "/"
@@ -103,6 +110,14 @@ def generate_cache(m, fn):
 		l = "0 %s %d %d %s\n" % (m, z, mt, fn)
 		fh.write(l)
 		fh.close()
+
+def fmt_tagvalue(v):
+	if type(v) in (str, unicode):
+		return "=" + repr(v)
+	elif v:
+		from dbclient import vtformat
+		return "=" + vtformat(v)
+	return ""
 
 def add_image(fn):
 	if verbose: print fn
@@ -153,22 +168,24 @@ def add_image(fn):
 		else:
 			rot = exif2rotation(exif)
 			client.save_thumbs(m, img, ft, rot, force_thumbs)
-	full = set()
-	weak = set()
+	full = tagset()
+	weak = tagset()
 	post = client.get_post(m, True)
 	posttags = tagset()
-	if post: posttags.update(post["tagname"])
+	if post:
+		posttags.update_tags(post["tags"])
+		posttags.update_tags(post["weaktags"], "~")
 	filetags = find_tags(fn)
 	exif2tags(exif, filetags)
-	for guid in filetags.difference(posttags):
+	for guid, val in filetags.difference(posttags):
 		if guid[0] == "~":
-			weak.add(guid[1:])
+			weak.add((guid[1:], val))
 		else:
-			full.add(guid)
+			full.add((guid, val))
 	if full or weak:
 		if no_tagging or dummy:
-			full = [client.get_tag(g).name for g in full]
-			weak = ["~" + client.get_tag(g).name for g in weak]
+			full = [client.get_tag(g).name + fmt_tagvalue(v) for g, v in full]
+			weak = ["~" + client.get_tag(g).name + fmt_tagvalue(v) for g, v in weak]
 			print "Would have tagged " + m + " " + " ".join(full + weak)
 		else:
 			client.tag_post(m, full, weak)
