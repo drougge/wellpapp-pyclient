@@ -1,16 +1,21 @@
 # -*- coding: iso-8859-1 -*-
 
 import socket, base64, codecs, os, hashlib, re
+from fractions import Fraction
+from abc import ABCMeta, abstractmethod, abstractproperty
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
 
-def _utf(s, allow_space=False):
+def _uni(s):
 	if type(s) is not unicode:
 		try:
 			s = s.decode("utf-8")
 		except Exception:
 			s = s.decode("iso-8859-1")
+	return s
+def _utf(s, allow_space=False):
+	s = _uni(s)
 	if not allow_space: assert u" " not in s
 	return s.encode("utf-8")
 
@@ -129,36 +134,114 @@ class Tag(DotDict):
 		vt = (self.valuetype or "").split("=", 1)
 		if len(vt) == 2:
 			self.valuetype = vt[0]
-			self.value = vtparser[vt[0]](vt[1])
+			self.value = _vtparse(_dec, *vt)
 
-def _vt_num(v, vp, fp):
-	a = v.split("+-", 1)
-	val = vp(a[0])
-	if len(a) == 2:
-		fuzz = fp(a[1])
-	else:
-		fuzz = 0
-	return (val, fuzz)
+class ValueType(object):
+	"""Represents the value of a tag.
+	v.value is the value as an apropriate type (str, float, int).
+	v.exact is an exact representation of the value (str, int, Fraction).
+	v.fuzz is how inexact the value is.
+	v.exact_fuzz is like .exact but for the fuzz.
+	v.str (or str(v)) is a string representation of exact value+-fuzz.
+	v.format() is this value formated for sending to server."""
+	
+	__metaclass__ = ABCMeta
+	
+	@abstractmethod
+	def __init__(self): pass
+	
+	@abstractproperty
+	def type(self): pass
+	
+	str = ""
+	value = 0
+	exact = 0
+	fuzz = None
+	exact_fuzz = None
+	
+	def __str__(self):
+		return self.str
+	def __repr__(self):
+		c = self.__class__
+		return c.__module__ + "." + c.__name__ + "(" + repr(self.str) + ")"
+	def format(self):
+		return self.str
 
-vtparser = {"string": _dec,
-            "int"   : lambda v: _vt_num(v, lambda v: int(v, 10), lambda v: int(v, 16)),
-            "uint"  : lambda v: _vt_num(v, lambda v: int(v, 16), lambda v: int(v, 16)),
-            "float" : lambda v: _vt_num(v, float, float),
-            "f-stop": lambda v: _vt_num(v, float, float),
-            "iso"   : lambda v: _vt_num(v, lambda v: int(v, 10), float),
-           }
+class VTstring(ValueType):
+	"""Represents the value of a tag with valuetype string.
+	v.value, v.exact and v.str are all the same string.
+	There is no fuzz for strings."""
+	
+	type = "string"
+	def __init__(self, val):
+		self.str = self.value = self.exact = val
+	def format(self):
+		return _enc(self.str)
 
-def vtformat(v):
-	if type(v) in (str, unicode):
-		return _enc(v)
-	if type(v) in (tuple, list):
-		val, fuzz = v
-		if fuzz:
-			return str(val) + "+-" + str(fuzz)
+class VTnumber(ValueType):
+	def _parse(self, v, vp, vp2, fp):
+		self.str = v
+		a = v.split("+-", 1)
+		self.exact = vp(a[0])
+		self.value = vp2(self.exact)
+		if len(a) == 2:
+			self.exact_fuzz = fp(a[1])
+			self.fuzz = vp2(self.exact_fuzz)
 		else:
-			return str(val)
-	else:
-		return str(v)
+			self.fuzz = self.exact_fuzz = 0
+
+class VTint(VTnumber):
+	__doc__ = ValueType.__doc__
+	type = "int"
+	
+	def __init__(self, val):
+		self._parse(val, int, int, _p_hex)
+
+class VTuint(VTnumber):
+	__doc__ = ValueType.__doc__
+	type = "uint"
+	
+	def __init__(self, val):
+		self._parse(val, _p_hex, int, _p_hex)
+
+class VTfloat(VTnumber):
+	__doc__ = ValueType.__doc__
+	type = "float"
+	
+	def __init__(self, val):
+		def intfrac(v):
+			try:
+				return int(v)
+			except ValueError:
+				return Fraction(v)
+		self._parse(val, intfrac, float, intfrac)
+
+class VTf_stop(VTfloat):
+	__doc__ = ValueType.__doc__
+	type = "f-stop"
+
+class VTstop(VTfloat):
+	__doc__ = ValueType.__doc__
+	type = "stop"
+	
+	def __init__(self, val):
+		VTfloat.__init__(self, val)
+		if isinstance(self.exact, (int, long)):
+			self.value = self.exact
+		if isinstance(self.exact_fuzz, (int, long)):
+			self.fuzz = self.exact_fuzz
+
+valuetypes = {"string" : VTstring,
+              "int"    : VTint,
+              "uint"   : VTuint,
+              "float"  : VTfloat,
+              "f-stop" : VTf_stop,
+              "stop"   : VTstop,
+             }
+
+def _vtparse(strparse, vtype, val):
+	if vtype == "string": val = strparse(val)
+	return valuetypes[vtype](val)
 
 class dbcfg(DotDict):
 	def __init__(self, RC_NAME=".wellpapprc", EXTRA_RCs=[]):
@@ -493,7 +576,7 @@ class dbclient:
 			assert len(t) == 2
 			g = str(t[0])
 			if t[1] is None: return g
-			return g + "=" + vtformat(t[1])
+			return g + "=" + t[1].format()
 		else:
 			return str(t)
 	def tag_post(self, md5, full_tags=None, weak_tags=None, remove_tags=None):
@@ -561,9 +644,7 @@ class dbclient:
 			tag = self.get_tag(tag)
 			if not tag or tag.valuetype in (None, "none"): return None
 			if a[1]:
-				p = vtparser[tag.valuetype]
-				if p is _dec: p = _utf
-				val = p(a[1])
+				val = _vtparse(_uni, tag.valuetype, a[1])
 			else:
 				val = None
 			return (prefix + tag.guid, val)
