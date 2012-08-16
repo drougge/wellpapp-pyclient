@@ -253,7 +253,8 @@ class TagWindow:
 			self.drag_put_thumb_post(selection)
 
 	def drag_put(self, widget, context, x, y, selection, targetType, eventTime, all):
-		self.apply([(t, None) for t in selection.data.split()], [], all)
+		# @@ tag values?
+		self.apply([((t, None), None) for t in selection.data.split()], [], all)
 
 	def _drag_get_each(self, model, path, iter, data):
 		targetType, l = data
