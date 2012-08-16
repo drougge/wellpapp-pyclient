@@ -153,17 +153,50 @@ class ValueType(object):
 	@abstractproperty
 	def type(self): pass
 	
+	@abstractproperty
+	def _cmp_t(self): pass
+	
 	str = ""
 	value = 0
 	exact = 0
 	fuzz = None
 	exact_fuzz = None
 	
+	def __setattr__(self, name, value):
+		raise AttributeError("ValueTypes are immutable")
+	def __delattr__(self, name):
+		raise AttributeError("ValueTypes are immutable")
 	def __str__(self):
 		return self.str
 	def __repr__(self):
 		c = self.__class__
 		return c.__module__ + "." + c.__name__ + "(" + repr(self.str) + ")"
+	def __hash__(self):
+		return hash(self.exact) ^ hash(self.exact_fuzz) ^ hash(self.type)
+	def __cmp(self, other):
+		if not isinstance(other, ValueType) or self._cmp_t != other._cmp_t:
+			raise TypeError("Can only compare to a " + self._cmp_t)
+	def __eq__(self, other):
+		return type(self) == type(other) and \
+		       self.exact == other.exact and \
+		       self.exact_fuzz == other.exact_fuzz
+	def __ne__(self, other):
+		if not isinstance(other, ValueType): return False
+		return type(self) != type(other) or \
+		       self.exact != other.exact or \
+		       self.exact_fuzz != other.exact_fuzz
+	def __lt__(self, other):
+		self.__cmp(other)
+		return self.exact - self.exact_fuzz < other.exact + other.exact_fuzz
+	def __le__(self, other):
+		self.__cmp(other)
+		return self.exact - self.exact_fuzz <= other.exact + other.exact_fuzz
+	def __gt__(self, other):
+		self.__cmp(other)
+		return self.exact + self.exact_fuzz > other.exact - other.exact_fuzz
+	def __ge__(self, other):
+		self.__cmp(other)
+		return self.exact + self.exact_fuzz >= other.exact - other.exact_fuzz
 	def format(self):
 		return self.str
 
@@ -173,22 +206,42 @@ class VTstring(ValueType):
 	There is no fuzz for strings."""
 	
 	type = "string"
+	_cmp_t = "VTstring"
 	def __init__(self, val):
-		self.str = self.value = self.exact = val
+		for name in ("str", "value", "exact"):
+			self.__dict__[name] = val
+	def __lt__(self, other):
+		self._ValueType__cmp(other)
+		return self.exact < other.exact
+	def __le__(self, other):
+		self._ValueType__cmp(other)
+		return self.exact <= other.exact
+	def __gt__(self, other):
+		self._ValueType__cmp(other)
+		return self.exact > other.exact
+	def __ge__(self, other):
+		self._ValueType__cmp(other)
+		return self.exact >= other.exact
+	def __str__(self):
+		return self.str.encode("utf-8")
+	def __unicode__(self):
+		return self.str
 	def format(self):
 		return _enc(self.str)
 
 class VTnumber(ValueType):
+	_cmp_t = "VTnumber"
 	def _parse(self, v, vp, vp2, fp):
-		self.str = v
+		v = str(v)
+		self.__dict__["str"] = v
 		a = v.split("+-", 1)
-		self.exact = vp(a[0])
-		self.value = vp2(self.exact)
+		self.__dict__["exact"] = vp(a[0])
+		self.__dict__["value"] = vp2(self.exact)
 		if len(a) == 2:
-			self.exact_fuzz = fp(a[1])
-			self.fuzz = vp2(self.exact_fuzz)
+			self.__dict__["exact_fuzz"] = fp(a[1])
+			self.__dict__["fuzz"] = vp2(self.exact_fuzz)
 		else:
-			self.fuzz = self.exact_fuzz = 0
+			self.__dict__["fuzz"] = self.__dict__["exact_fuzz"] = 0
 
 class VTint(VTnumber):
 	__doc__ = ValueType.__doc__
@@ -227,9 +280,9 @@ class VTstop(VTfloat):
 	def __init__(self, val):
 		VTfloat.__init__(self, val)
 		if isinstance(self.exact, (int, long)):
-			self.value = self.exact
+			self.__dict__["value"] = self.exact
 		if isinstance(self.exact_fuzz, (int, long)):
-			self.fuzz = self.exact_fuzz
+			self.__dict__["fuzz"] = self.exact_fuzz
 
 valuetypes = {"string" : VTstring,
               "int"    : VTint,
