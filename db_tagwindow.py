@@ -328,15 +328,6 @@ class TagWindow:
 	def tag_colour_guid(self, guid):
 		return self.tag_colour(client.get_tag(guid).type)
 
-	def fmt_value(self, valuetype, value):
-		if type(value) is tuple:
-			v = str(value[0])
-			if value[1]:
-				v += "+-" + str(value[1])
-		else:
-			v = value.encode("utf-8")
-		return markup_escape_text(v)
-
 	def fmt_tag(self, g):
 		t = self.ids[clean(g)]
 		name = markup_escape_text(prefix(g) + t.name.encode("utf-8"))
@@ -344,7 +335,7 @@ class TagWindow:
 		name = " <span color=\"#ff0000\">\xE2\x98\x85 </span>" + name + " <span color=\"#ff0000\">" + t.valuetype
 		if "valuelist" not in t: return name + "</span>"
 		if t.localcount == len(t.valuelist) and len(set(t.valuelist)) == 1: # all have the same value
-			name += "=" + self.fmt_value(t.valuetype, t.valuelist[0])
+			name += "=" + markup_escape_text(str(t.valuelist[0]))
 		else:
 			name += " ..."
 		return name + "</span>"
@@ -354,7 +345,7 @@ class TagWindow:
 		v = prefix(g) + t.name
 		if t.valuetype in (None, "none") or "valuelist" not in t: return v
 		if t.localcount == len(t.valuelist) and len(set(t.valuelist)) == 1: # all have the same value
-			return v + "=" + self.fmt_value(t.valuetype, t.valuelist[0])
+			return v + "=" + markup_escape_text(str(t.valuelist[0]))
 		return v
 
 	def put_in_list(self, lo, li):
