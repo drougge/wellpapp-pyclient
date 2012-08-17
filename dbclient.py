@@ -681,6 +681,19 @@ class dbclient:
 		tags = []
 		while self._parse_tagres(tags): pass
 		return tags
+	def _parse_tag(self, prefix, spec, pos):
+		if pos == -1: return None
+		tag = self.find_tag(spec[:pos])
+		ppos = spec.rfind("=", 0, pos)
+		if not tag: return self._parse_tag(prefix, spec, ppos)
+		tag = self.get_tag(tag)
+		if not tag or tag.valuetype in (None, "none"): return self._parse_tag(prefix, spec, ppos)
+		val = spec[pos + 1:]
+		if val:
+			val = _vtparse(_uni, tag.valuetype, val)
+		else:
+			val = None
+		return (prefix + tag.guid, val)
 	def parse_tag(self, spec):
 		spec = _utf(spec)
 		if spec[0] in "~-!":
@@ -690,17 +703,7 @@ class dbclient:
 			prefix = ""
 		tag = self.find_tag(spec)
 		if tag: return (prefix + tag, None)
-		a = spec.split("=", 1)
-		if len(a) == 2:
-			tag = self.find_tag(a[0])
-			if not tag: return None
-			tag = self.get_tag(tag)
-			if not tag or tag.valuetype in (None, "none"): return None
-			if a[1]:
-				val = _vtparse(_uni, tag.valuetype, a[1])
-			else:
-				val = None
-			return (prefix + tag.guid, val)
+		return self._parse_tag(prefix, spec, spec.rfind("="))
 	def find_tag(self, name, resdata=None, with_prefix=False):
 		name = _utf(name)
 		if with_prefix and name[0] in "~-!":
