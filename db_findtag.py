@@ -12,14 +12,16 @@ def usage():
 	exit(1)
 
 def short(tag):
-	print tag["name"]
+	print tag.name
 
 def long(tag):
-	names = [tag["name"]] + (tag["alias"] if "alias" in tag else [])
-	print " ".join(names), tag["type"], tag["posts"], tag["weak_posts"]
+	names = [tag.name] + (tag.alias if "alias" in tag else [])
+	props = [str(p) for p in tag.type, tag.posts, tag.weak_posts]
+	if tag.valuetype: props.insert(0, "valuetype:" + tag.valuetype)
+	print " ".join(names + props)
 
 def tagsort(a, b):
-	return cmp(a["name"], b["name"])
+	return cmp(a.name, b.name)
 
 opts = ""
 known_opts = "fas"
