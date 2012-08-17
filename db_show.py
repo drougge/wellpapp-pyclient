@@ -19,7 +19,7 @@ def implfmt(impl):
 
 def show_implies(guid, heading, reverse):
 	impl = client.tag_implies(guid, reverse)
-	if impl: print heading + "".join(map(implfmt, impl))
+	if impl: print heading + "".join(sorted(map(implfmt, impl)))
 
 def fmt_tag(prefix, tag):
 	if tag.value:
