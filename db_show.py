@@ -63,9 +63,12 @@ def show_tag(name, short=False):
 		print "Tag not found"
 		return 1
 	print "Tag:", _tagenc(data["name"])
-	if "alias" in data: print "Aliases:", " ".join(map(_tagenc, data["alias"]))
+	if "alias" in data and data["alias"]:
+		print "Aliases:", " ".join(map(_tagenc, data["alias"]))
 	print "GUID:", guid
 	print "Type:", _tagenc(data["type"])
+	if "valuetype" in data and data["valuetype"]:
+		print "Valuetype:", _tagenc(data["valuetype"])
 	if short: return 0
 	print data["posts"], "posts"
 	print data["weak_posts"], "weak posts"
