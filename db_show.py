@@ -21,8 +21,15 @@ def show_implies(guid, heading, reverse):
 	impl = client.tag_implies(guid, reverse)
 	if impl: print heading + "".join(map(implfmt, impl))
 
+def fmt_tag(prefix, tag):
+	if tag.value:
+		val = " = " + str(tag.value)
+	else:
+		val = ""
+	return prefix + tag.name + val
+
 def show_post(m, short=False):
-	post = client.get_post(m, True, ["tagname", "ext", "created", "width", "height", "source", "title"])
+	post = client.get_post(m, True, ["tagname", "tagdata", "ext", "created", "width", "height", "source", "title"])
 	if not post:
 		print "Post not found"
 		return 1
@@ -42,10 +49,12 @@ def show_post(m, short=False):
 	print "Original file: " + path
 	if short: return 0
 	print "Tags:\n\t",
-	print "\n\t".join(map(_tagenc, sorted(post["tagname"])))
-	if post["impltagname"]:
+	tags = [fmt_tag("", t) for t in post["tags"]] + [fmt_tag("~", t) for t in post["weaktags"]]
+	print "\n\t".join(map(_tagenc, sorted(tags)))
+	tags = [fmt_tag("", t) for t in post["impltags"]] + [fmt_tag("~", t) for t in post["implweaktags"]]
+	if tags:
 		print "Implied:\n\t",
-		print "\n\t".join(map(_tagenc, sorted(post["impltagname"])))
+		print "\n\t".join(map(_tagenc, sorted(tags)))
 	rels = client.post_rels(m)
 	if rels:
 		print "Related posts:\n\t" + "\n\t".join(rels)
