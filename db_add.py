@@ -6,6 +6,7 @@ import Image
 from cStringIO import StringIO
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, getcwd, stat
+from dbclient import dbclient, VTstring
 from dbutil import make_pdirs, raw_wrapper, identify_raw, exif_wrapper
 
 def determine_filetype(data):
@@ -50,6 +51,12 @@ def exif2tags(exif, tags):
 			tags.add_spec(cfg[cam])
 	except Exception:
 		pass
+	if "set_tags" in cfg:
+		for st in cfg.set_tags.split():
+			tn, et = st.split("=", 1)
+			if et in exif:
+				v = exif[et]
+				tags.add_spec(tn + "=" + str(exif[et]))
 
 class tagset(set):
 	def add(self, t):
@@ -112,12 +119,11 @@ def generate_cache(m, fn):
 		fh.close()
 
 def fmt_tagvalue(v):
-	if type(v) in (str, unicode):
-		return "=" + repr(v)
-	elif v:
-		from dbclient import vtformat
-		return "=" + vtformat(v)
-	return ""
+	if not v: return ""
+	if isinstance(v, VTstring):
+		return "=" + repr(v.str)
+	else:
+		return "=" + v.str
 
 def add_image(fn):
 	if verbose: print fn
@@ -201,7 +207,6 @@ def usage():
 
 if __name__ == '__main__':
 	from sys import argv, exit
-	from dbclient import dbclient
 	if len(argv) < 2: usage()
 	a = 1
 	switches = ("-v", "-q", "-f", "-h", "-n", "-d")
