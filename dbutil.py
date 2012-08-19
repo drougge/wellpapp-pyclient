@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-class _tiff:
+class TIFF:
 	"""Pretty minimal TIFF container parser"""
 	
 	types = {1: (1, "B"),  # BYTE
@@ -97,9 +97,54 @@ class exif_wrapper:
 	def _contains(self, name): # usually overridden from pyexiv2
 		return False
 	
-	def __getitem__(self, name):
+	def __getitem(self, name):
 		if name in self._d: return self._d[name]
 		return self._getitem(name)
+	def _fmtrational(self, n, d, intasint=True):
+		if n == d == 0: return "0"
+		if d == 0: return None # not valid
+		if d < 0:
+			n = -n
+			d = -d
+		if d == 1: return str(n)
+		if intasint and not n % d: return str(n // d)
+		def dec(n, d):
+			pos = 0
+			while d > 1:
+				d //= 10
+				pos -= 1
+			v = str(n)
+			return v[:pos] + "." + v[pos:]
+		def rat():
+			return "%d/%d" % (n, d)
+		def isdec():
+			return str(d).rstrip("0") == "1" # A nice decimal number
+		if d > n: # < 1, probably a shutter speed, leave it.
+			return rat()
+		if isdec():
+			return dec(n, d)
+		if not n % d: return str(n // d) + ".0"
+		gcd, tmp = n, d
+		while tmp:
+			gcd, tmp = tmp, gcd % tmp
+		n //= gcd
+		d //= gcd
+		if isdec():
+			return dec(n, d)
+		fix = {2: 5, 4: 25, 5: 2, 8: 125, 16: 625, 20: 5, 25: 4, 32: 3125,
+		       40: 25, 50: 2, 80: 125, 125: 8, 160: 625, 200: 5, 250: 4,
+		       400: 25, 500: 2, 625: 16, 800: 125, 1250: 8, 2000: 5,
+		       2500: 4, 3125: 32, 4000: 25, 5000: 2, 6250: 16, 12500: 8,
+		       20000: 5, 25000: 4, 50000: 2}
+		if d not in fix: return rat()
+		return dec(n * fix[d], d * fix[d]).rstrip("0.")
+	def __getitem__(self, name):
+		v = self.__getitem(name)
+		if isinstance(v, tuple):
+			return self._fmtrational(*v)
+		if hasattr(v, "numerator"):
+			return self._fmtrational(v.numerator, v.denominator)
+		return v
 	
 	def __contains__(self, name):
 		return name in self._d or self._contains(name)
@@ -143,20 +188,23 @@ class exif_wrapper:
 				fh = StringIO(data)
 			# hopefully mostly TIFF (now)
 			fh.seek(0)
-			tiff = _tiff(fh) # This is the outer TIFF
+			tiff = TIFF(fh) # This is the outer TIFF
 			ifd0 = tiff.ifd[0]
 			exif = tiff.ifdget(ifd0, 0x8769)[0]
 			tiff.reinit_from(exif) # replace with Exif IFD(s)
 			ifd0.update(tiff.ifd[0]) # merge back into original ifd0
 			self._tiff = tiff
 			self._ifd = ifd0
-			for tag, name in ((0x010f, "Exif.Image.Make"),
-					  (0x0110, "Exif.Image.Model"),
-					  (0x0112, "Exif.Image.Orientation"),
-					  (0x9003, "Exif.Photo.DateTimeOriginal"),
-					  (0x9004, "Exif.Photo.CreateDate"),
-					 ):
-				val = self._get(tag)
+			for tag, name, t in ((0x010f, "Exif.Image.Make", False),
+			                     (0x0110, "Exif.Image.Model", False),
+			                     (0x0112, "Exif.Image.Orientation", False),
+			                     (0x829a, "Exif.Photo.ExposureTime", True),
+			                     (0x829d, "Exif.Photo.FNumber", True),
+			                     (0x8827, "Exif.Photo.ISOSpeedRatings", True),
+			                     (0x9003, "Exif.Photo.DateTimeOriginal", False),
+			                     (0x9004, "Exif.Photo.CreateDate", False),
+			                    ):
+				val = self._get(tag, t)
 				if val is not None: self._d[name] = val
 			try:
 				self._parse_makernotes()
@@ -197,7 +245,7 @@ class exif_wrapper:
 			fh = StringIO(data[8:])
 		else:
 			return
-		t = _tiff(fh, short_header=2)
+		t = TIFF(fh, short_header=2)
 		lens = " ".join(map(str, t.ifdget(t.ifd[0], 0x3f)))
 		self._d["Exif.Pentax.LensType"] = lens
 	
@@ -235,7 +283,7 @@ def _identify_raw(fh, tiff):
 				return "nef"
 def identify_raw(fh):
 	"""A lower case file extension (e.g. "dng") or None."""
-	return _identify_raw(fh, _tiff(fh))
+	return _identify_raw(fh, TIFF(fh))
 
 class raw_wrapper:
 	"""Wraps (read only) IO to an image, so that RAW images look like JPEGs.
@@ -245,7 +293,7 @@ class raw_wrapper:
 	def __init__(self, fh):
 		self._set_fh(fh)
 		try:
-			tiff = _tiff(self)
+			tiff = TIFF(self)
 			fmt = _identify_raw(self, tiff)
 			if fmt == "dng" and len(tiff.subifd) > 1:
 				jpeg = tiff.ifdget(tiff.subifd[1], 0x111)
