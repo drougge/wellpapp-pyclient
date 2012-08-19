@@ -203,6 +203,8 @@ class exif_wrapper:
 			                     (0x8827, "Exif.Photo.ISOSpeedRatings", True),
 			                     (0x9003, "Exif.Photo.DateTimeOriginal", False),
 			                     (0x9004, "Exif.Photo.CreateDate", False),
+			                     (0x920a, "Exif.Photo.FocalLength", True),
+			                     (0xa405, "Exif.Photo.FocalLengthIn35mmFilm", False),
 			                    ):
 				val = self._get(tag, t)
 				if val is not None: self._d[name] = val
