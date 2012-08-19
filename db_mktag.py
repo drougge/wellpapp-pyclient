@@ -3,10 +3,15 @@
 
 from sys import argv, exit
 from dbclient import dbclient
+from optparse import OptionParser
 
-if len(argv) not in (2, 3):
-	print "Usage:", argv[0], "tagname [tagtype]"
+p = OptionParser(usage="Usage: %prog [options] tagname [tagtype]")
+p.add_option("-v", "--valuetype", help="Valuetype of tag")
+opts, args = p.parse_args()
+
+if len(args) not in (1, 2):
+	p.print_help()
 	exit(1)
 
 client = dbclient()
-client.add_tag(*argv[1:])
+client.add_tag(*args, **opts.__dict__)
