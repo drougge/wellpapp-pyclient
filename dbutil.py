@@ -71,6 +71,47 @@ class TIFF:
 			ifd[tag] = (type, vc, off)
 		return ifd
 
+class FileWindow:
+	"""A read only view of a range of an fh. You should not continue to use fh."""
+	def __init__(self, fh, start=None, length=None):
+		if start is None:
+			start = fh.tell()
+		if length is None or length < 0:
+			fh.seek(0, 2)
+			stop = fh.tell()
+		else:
+			stop = start + length
+		self.fh = fh
+		self.start = start
+		self.stop = stop
+		self.closed = False
+		fh.seek(start)
+		assert fh.tell() == start
+		self.isatty = fh.isatty
+	
+	def read(self, size=-1):
+		if size < 0: size = self.stop - self.fh.tell()
+		if size <= 0: return ""
+		return self.fh.read(size)
+	
+	def tell(self):
+		return self.fh.tell() - self.start
+	
+	def seek(self, pos, whence=0):
+		if whence == 0:
+			pos += self.start
+		elif whence == 1:
+			pos += self.fh.tell()
+		else:
+			pos += self.stop
+		pos = max(min(pos, self.stop), self.start)
+		self.fh.seek(pos)
+	
+	def close(self):
+		if not self.closed:
+			self.fh.close()
+			self.closed = True
+
 class exif_wrapper:
 	"""Wrapper for several EXIF libraries.
 	Starts out with an internal parser, falls back to two incompatible
@@ -174,7 +215,6 @@ class exif_wrapper:
 			data = fh.read(12)
 			if data[:3] == "\xff\xd8\xff": # JPEG
 				from struct import unpack
-				from cStringIO import StringIO
 				data = data[3:]
 				while data and data[3:7] != "Exif":
 					l = unpack(">H", data[1:3])[0]
@@ -183,9 +223,7 @@ class exif_wrapper:
 				if not data: return
 				# Now comes a complete TIFF, with offsets relative to its' start
 				l = unpack(">H", data[1:3])[0]
-				data = fh.read(l)
-				fh.close()
-				fh = StringIO(data)
+				fh = FileWindow(fh, length=l)
 			# hopefully mostly TIFF (now)
 			fh.seek(0)
 			tiff = TIFF(fh) # This is the outer TIFF
@@ -309,18 +347,19 @@ class raw_wrapper:
 		except Exception:
 			pass
 		self.seek(0)
+		self.closed = False
 	
 	def _set_fh(self, fh):
 		self._fh = fh
-		self.close = fh.close
-		self.flush = fh.flush
 		self.isatty = fh.isatty
-		self.next = fh.next
 		self.read = fh.read
-		self.readline = fh.readline
-		self.readlines = fh.readlines
 		self.seek = fh.seek
 		self.tell = fh.tell
+	
+	def close(self):
+		if not self.closed:
+			self._fh.close()
+			self.closed = True
 	
 	def _test_pef(self, tiff):
 		for ifd in tiff.ifd[1:]:
@@ -336,10 +375,7 @@ class raw_wrapper:
 		jpeg, jpeglen = jpeg[-1], jpeglen[-1]
 		self.seek(jpeg)
 		if self.read(3) == "\xff\xd8\xff":
-			from cStringIO import StringIO
-			self.seek(jpeg)
-			data = self.read(jpeglen)
-			self._set_fh(StringIO(data))
+			self._set_fh(FileWindow(self._fh, jpeg, jpeglen))
 			return True
 
 def make_pdirs(fn):
