@@ -183,7 +183,7 @@ class exif_wrapper:
 		v = self.__getitem(name)
 		if isinstance(v, tuple):
 			return self._fmtrational(*v)
-		if hasattr(v, "numerator"):
+		if hasattr(v, "numerator") and not isinstance(v, (int, long)):
 			return self._fmtrational(v.numerator, v.denominator)
 		return v
 	
