@@ -284,12 +284,21 @@ class VTstop(VTfloat):
 		if isinstance(self.exact_fuzz, (int, long)):
 			self.__dict__["fuzz"] = self.exact_fuzz
 
-valuetypes = {"string" : VTstring,
-              "int"    : VTint,
-              "uint"   : VTuint,
-              "float"  : VTfloat,
-              "f-stop" : VTf_stop,
-              "stop"   : VTstop,
+# @@ TODO: Handle fuzz/reasonable comparisons.
+class VTdatetime(VTstring):
+	type = "datetime"
+	_cmp_t = "VTdatetime"
+	
+	def format(self):
+		return self.str
+
+valuetypes = {"string"  : VTstring,
+              "int"     : VTint,
+              "uint"    : VTuint,
+              "float"   : VTfloat,
+              "f-stop"  : VTf_stop,
+              "stop"    : VTstop,
+              "datetime": VTdatetime,
              }
 
 def _vtparse(strparse, vtype, val):
