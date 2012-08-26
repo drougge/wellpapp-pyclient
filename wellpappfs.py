@@ -274,6 +274,8 @@ class Wellpapp(fuse.Fuse):
 		order = search[2]
 		range = search[3]
 		if not range: range = default_range
+		assert None not in search[0]
+		assert None not in search[1]
 		with self._client_lock:
 			s = self._client.search_post(guids=search[0],
 			                             excl_guids=search[1],
@@ -302,14 +304,14 @@ class Wellpapp(fuse.Fuse):
 		range = None
 		for e in filter(None, sre.split(path[1:])):
 			if e[0] == "-":
-				e = self._client.parse_tag(e[1:])
+				e = self._client.parse_tag(e[1:], True)
 				dontwant.add(e)
 			elif e[:2] == "O:":
 				order.append(e[2:])
 			elif e[:2] == "R:":
 				range = tuple(map(int, e[2:].split(":")))
 			else:
-				e = self._client.parse_tag(e)
+				e = self._client.parse_tag(e, True)
 				want.add(e)
 				if not first: first = e
 		if "group" in order:
