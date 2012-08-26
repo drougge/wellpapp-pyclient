@@ -456,6 +456,8 @@ class dbclient:
 	                  excl_guids=None , wanted=None, order=None, range=None):
 		search = ""
 		tags, excl_tags = self._shuffle_minus(tags, excl_tags, _utf)
+		guids = map(self._tag2spec, guids or [])
+		excl_guids = map(self._tag2spec, excl_guids or [])
 		guids, excl_guids = self._shuffle_minus(guids, excl_guids, str)
 		for want in self._list(wanted, str):
 			search += "F" + want + " "
