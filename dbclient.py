@@ -262,6 +262,16 @@ class VTuint(VTnumber):
 	
 	def __init__(self, val):
 		self._parse(val, _p_hex, int, _p_hex)
+		if self.fuzz:
+			s = "%d+-%d" % (self.value, self.fuzz)
+		else:
+			s = str(self.value)
+		self.__dict__["str"] = s
+	def format(self):
+		if self.fuzz:
+			return "%x+-%x" % (self.value, self.fuzz)
+		else:
+			return "%x" % (self.value,)
 
 class VTfloat(VTnumber):
 	__doc__ = ValueType.__doc__
