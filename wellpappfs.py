@@ -14,6 +14,7 @@ from zlib import crc32
 from xml.sax.saxutils import escape as xmlescape
 from os.path import exists
 from threading import Thread, RLock, Lock
+from collections import namedtuple
 
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
@@ -25,6 +26,8 @@ metamd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)\.gq\.xmp$")
 sre = re.compile(r"[ /]+")
 orient = {0: 1, 90: 6, 180: 3, 270: 8}
 default_range = (0, 10000)
+
+_stat_t = namedtuple("stat_t", ["version", "size", "mtime", "dest", "jpegsize"])
 
 class WpStat(fuse.Stat):
 	def __init__(self, mode, nlink, size, time):
@@ -87,7 +90,7 @@ class Wellpapp(fuse.Fuse):
 			try:
 				v, m, size, mtime, dest = line.rstrip("\n").split(" ", 4)
 				assert v == "0"
-				self._stat_cache[m] = [int(size), int(mtime), dest]
+				self._stat_cache[m] = _stat_t(int(v), int(size), int(mtime), dest, 0)
 			except Exception:
 				print "Bad line in cache:", line
 
@@ -123,7 +126,7 @@ class Wellpapp(fuse.Fuse):
 			p = self._client.image_path(m)
 			dest = os.readlink(p)
 			st = os.stat(dest)
-			self._stat_cache[m] = [st.st_size, st.st_mtime, dest]
+			self._stat_cache[m] = _stat_t(0, st.st_size, st.st_mtime, dest, 0)
 		return self._stat_cache[m]
 
 	def getattr(self, path):
@@ -153,10 +156,11 @@ class Wellpapp(fuse.Fuse):
 		elif m:
 			if self._use_cache:
 				mode = stat.S_IFREG | 0444
-				size, time, dest = self._stat(m.group(1))
+				version, size, time, dest, jpeg = self._stat(m.group(1))
 				if self._raw2jpeg and spath[-1][-3:] in _rawext_r: # wrapped RAW
 					from dbutil import raw_wrapper
-					fh = raw_wrapper(open(dest, "rb"))
+					# @@ check version and jpeg
+					fh = raw_wrapper(open(dest, "rb"), True)
 					fh.seek(0, 2)
 					size = fh.tell()
 					fh.close()
@@ -350,13 +354,14 @@ class Wellpapp(fuse.Fuse):
 					fh = self._open(m)
 					if fh:
 						if wp._raw2jpeg and fn[-1] in _rawext_r:
-							self._fh = raw_wrapper(fh)
+							# @@ Check wp._stat(m).version
+							self._fh = raw_wrapper(fh, True)
 						else:
 							self._fh = fh
 					self._lock = Lock()
 			def _open(self, m):
 				try:
-					dest = wp._stat(m)[2]
+					dest = wp._stat(m).dest
 					return open(dest, "rb")
 				except Exception:
 					pass
@@ -364,7 +369,7 @@ class Wellpapp(fuse.Fuse):
 					p = wp._client.image_path(m)
 					dest = os.readlink(p)
 					fh = open(dest, "rb")
-					wp._stat(m)[2] = dest
+					wp._stat_cache[m] = wp._stat(m)._replace(dest=dest)
 					return fh
 				except Exception:
 					pass
