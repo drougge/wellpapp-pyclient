@@ -87,7 +87,6 @@ class FileWindow:
 		self.closed = False
 		fh.seek(start)
 		assert fh.tell() == start
-		self.isatty = fh.isatty
 	
 	def read(self, size=-1):
 		if size < 0: size = self.stop - self.fh.tell()
@@ -325,12 +324,189 @@ def identify_raw(fh):
 	"""A lower case file extension (e.g. "dng") or None."""
 	return _identify_raw(fh, TIFF(fh))
 
+class FileMerge:
+	"""Merge ranges of several files"""
+	def __init__(self):
+		self.contents = []
+		self.pos = 0
+		self.size = 0
+		self.closed = False
+
+	def add(self, fh, pos=0, z=-1):
+		"""Add a file, from pos to pos + z"""
+		assert pos >= 0
+		if z < 0:
+			fh.seek(0, 2)
+			z = fh.tell() - pos
+		assert z > 0
+		self.contents.append((fh, pos, z))
+		self.size += z
+
+	def close(self):
+		if self.closed: return
+		done = set()
+		for c in self.contents:
+			if id(c[0]) not in done:
+				done.add(id(c[0]))
+				try:
+					close(c[0])
+				except Exception:
+					pass
+		self.closed = True
+
+	def read(self, size=-1):
+		if self.closed: raise ValueError("I/O operation on closed file")
+		max_size = self.size - self.pos
+		if size < 0 or size > max_size: size = max_size
+		data = ""
+		skip = self.pos
+		for fh, pos, z in self.contents:
+			if skip > z:
+				skip -= z
+			else:
+				fh.seek(pos + skip)
+				rsize = min(size, z - skip)
+				r = fh.read(rsize)
+				assert len(r) == rsize
+				data += r
+				size -= rsize
+				skip = 0
+			if not size: break
+		self.pos += len(data)
+		return data
+
+	def seek(self, offset, whence=0):
+		if self.closed: raise ValueError("I/O operation on closed file")
+		if not 0 <= whence <= 2: raise IOError("bad whence: " + str(whence))
+		if whence == 0:
+			pos = offset
+		elif whence == 1:
+			pos = self.pos + offset
+		elif whence == 2:
+			pos = self.size + offset
+		if pos > self.size: pos = self.size
+		if pos < 0: pos = 0
+		self.pos = pos
+
+	def tell(self):
+		return self.pos
+
+class _ThinExif(TIFF):
+	"""Pretty minimal TIFF container parser
+	Even more minimal now - just for partial Exif parsing"""
+	
+	def reinit_from(self, next_ifd, short_header=False):
+		self.ifd = self._ifdread(next_ifd)
+	
+	def ifdget(self, tag):
+		if tag in self.ifd:
+			type, vc, off = self.ifd[tag]
+			if type not in self.types: return None
+			if isinstance(off, int): # offset
+				self._fh.seek(off)
+				tl, fmt = self.types[type]
+				off = self._fh.read(tl * vc)
+				if fmt: off = self._up(fmt * vc, off)
+			return type, off
+
+class MakeTIFF:
+	types = {1: "B", # BYTE
+	         3: "H", # SHORT
+	         4: "I", # LONG
+	         5: "I", # RATIONAL
+	        }
+
+	def __init__(self):
+		self.entries = {}
+
+	def add(self, tag, values):
+		self.entries[tag] = values
+
+	def _one(self, tag, data):
+		from struct import pack
+		type, values = data
+		if isinstance(values, str):
+			d = pack(">HHI", tag, 2, len(values))
+		else:
+			f = self.types[type]
+			z = len(values)
+			if type == 5: z /= 2
+			values = pack(">" + (f * len(values)), *values)
+			d = pack(">HHI", tag, type, z)
+			if len(values) <= 4:
+				d += (values + "\x00\x00\x00")[:4]
+				values = None
+		if values:
+			d += pack(">I", self._datapos)
+			values = (values + "\x00\x00\x00")[:((len(values) + 3) // 4) * 4]
+			self._data += values
+			self._datapos += len(values)
+		return d
+
+	def serialize(self, offset=0):
+		from struct import pack
+		data = pack(">ccHIH", "M", "M", 42, 8, len(self.entries))
+		self._datapos = 10 + 12 * len(self.entries) + 4 + offset
+		self._data = ""
+		for tag in sorted(self.entries):
+			data += self._one(tag, self.entries[tag])
+		data += pack(">I", 0)
+		data += self._data
+		return data
+
+def _rawexif(raw, fh):
+	from struct import pack, unpack
+	from cStringIO import StringIO
+	fm = FileMerge()
+	def read_marker():
+		while 42:
+			d = fh.read(1)
+			if d != "\xFF": return d
+	fh.seek(0)
+	assert read_marker() == "\xD8"
+	first = fh.tell()
+	marker = read_marker()
+	while marker == "\xE0": # APP0, most likely JFIF
+		first = fh.tell() + unpack(">H", fh.read(2))[0] - 2
+		fh.seek(first)
+		marker = read_marker()
+	fm.add(fh, 0, first)
+	if marker == "\xE1": # APP1, most likely Exif
+		candidate = fh.tell() + unpack(">H", fh.read(2))[0] - 2
+		if fh.read(5) == "Exif\x00":
+			# Already has EXIF, leave as is.
+			fh.seek(0)
+			return fh
+		first = candidate
+		fh.seek(first)
+		marker = read_marker()
+	raw.seek(0)
+	exif0 = MakeTIFF()
+	exif1 = MakeTIFF()
+	raw_exif = _ThinExif(raw)
+	for k in 0x010f, 0x0110, 0x0112, 0x0131, 0x0132, 0x013b, 0x8298, 0xc614:
+		d = raw_exif.ifdget(k)
+		if d: exif0.add(k, d)
+	offset = len(exif0.serialize()) + 12
+	exif0.add(0x8769, (4, (offset,)))
+	exif_ifd = raw_exif.ifd[0x8769][2][0]
+	raw_exif.reinit_from(exif_ifd)
+	for k in raw_exif.ifd:
+		d = raw_exif.ifdget(k)
+		if d: exif1.add(k, d)
+	exif = "Exif\x00\x00"
+	exif += exif0.serialize() + exif1.serialize(offset - 8)[8:]
+	exif = "\xFF\xE1" + pack(">H", len(exif) + 2) + exif
+	fm.add(StringIO(exif))
+	fm.add(fh, first)
+	return fm
+
 class raw_wrapper:
 	"""Wraps (read only) IO to an image, so that RAW images look like JPEGs.
 	Handles DNG, NEF and PEF.
 	Wraps fh as is if no reasonable embedded JPEG is found."""
 	
-	def __init__(self, fh):
+	def __init__(self, fh, make_exif=False):
 		self._set_fh(fh)
 		try:
 			tiff = TIFF(self)
@@ -347,11 +523,12 @@ class raw_wrapper:
 		except Exception:
 			pass
 		self.seek(0)
+		if make_exif and self._fh != fh:
+			self._set_fh(_rawexif(fh, self._fh))
 		self.closed = False
 	
 	def _set_fh(self, fh):
 		self._fh = fh
-		self.isatty = fh.isatty
 		self.read = fh.read
 		self.seek = fh.seek
 		self.tell = fh.tell
