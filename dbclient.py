@@ -19,6 +19,12 @@ def _utf(s, allow_space=False):
 	if not allow_space: assert u" " not in s
 	return s.encode("utf-8")
 
+def _rfindany(s, chars, pos=-1):
+	if pos < 0: pos = len(s)
+	for i in range(pos - 1, -1, -1):
+		if s[i] in chars: return i
+	return -1
+
 def _tagspec(type, value):
 	if value[0] in "~!":
 		type = value[0] + type
@@ -639,10 +645,13 @@ class dbclient:
 		if res != u"OK\n": raise EResponse(res)
 	def _tag2spec(self, t):
 		if type(t) in (tuple, list):
-			assert len(t) == 2
+			assert len(t) in (2, 3)
 			g = str(t[0])
-			if t[1] is None: return g
-			return g + "=" + t[1].format()
+			if t[-1] is None: return g
+			if len(t) == 2:
+				return g + "=" + t[1].format()
+			else:
+				return g + t[1] + t[2].format()
 		else:
 			return str(t)
 	def tag_post(self, md5, full_tags=None, weak_tags=None, remove_tags=None):
@@ -694,20 +703,35 @@ class dbclient:
 		tags = []
 		while self._parse_tagres(tags): pass
 		return tags
-	def _parse_tag(self, prefix, spec, pos):
+	def _parse_tag(self, prefix, spec, pos, comparison):
 		if pos == -1: return None
 		tag = self.find_tag(spec[:pos])
-		ppos = spec.rfind("=", 0, pos)
-		if not tag: return self._parse_tag(prefix, spec, ppos)
-		tag = self.get_tag(tag)
-		if not tag or tag.valuetype in (None, "none"): return self._parse_tag(prefix, spec, ppos)
-		val = spec[pos + 1:]
-		if val:
-			val = _vtparse(_uni, tag.valuetype, val)
+		if comparison:
+			ppos = _rfindany(spec, "=<>", pos)
 		else:
-			val = None
-		return (prefix + tag.guid, val)
-	def parse_tag(self, spec):
+			ppos = spec.rfind("=", 0, pos)
+		if not tag: return self._parse_tag(prefix, spec, ppos, comparison)
+		tag = self.get_tag(tag)
+		if not tag or tag.valuetype in (None, "none"):
+			return self._parse_tag(prefix, spec, ppos, comparison)
+		if comparison:
+			if spec[pos + 1] in "=~":
+				comp = spec[pos:pos + 2]
+				val = spec[pos + 2:]
+			else:
+				comp = spec[pos]
+				val = spec[pos + 1:]
+			if comp not in ("=", "<", ">", "<=", ">=", "=~"):
+				return None
+			return (prefix + tag.guid, comp, val)
+		else:
+			val = spec[pos + 1:]
+			if val:
+				val = _vtparse(_uni, tag.valuetype, val)
+			else:
+				val = None
+			return (prefix + tag.guid, val)
+	def parse_tag(self, spec, comparison=False):
 		spec = _utf(spec)
 		if spec[0] in "~-!":
 			prefix = spec[0]
@@ -715,8 +739,16 @@ class dbclient:
 		else:
 			prefix = ""
 		tag = self.find_tag(spec)
-		if tag: return (prefix + tag, None)
-		return self._parse_tag(prefix, spec, spec.rfind("="))
+		if tag:
+			if comparison:
+				return (prefix + tag, None, None)
+			else:
+				return (prefix + tag, None)
+		if comparison:
+			ppos = _rfindany(spec, "=<>")
+		else:
+			ppos = spec.rfind("=")
+		return self._parse_tag(prefix, spec, ppos, comparison)
 	def find_tag(self, name, resdata=None, with_prefix=False):
 		name = _utf(name)
 		if with_prefix and name[0] in "~-!":
