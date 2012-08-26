@@ -4,7 +4,6 @@
 from sys import argv, exit, stdout
 from dbclient import dbclient
 from re import match
-from time import strftime, localtime
 from os.path import exists
 from hashlib import md5
 from os import readlink
@@ -29,17 +28,13 @@ def fmt_tag(prefix, tag):
 	return prefix + tag.name + val
 
 def show_post(m, short=False):
-	post = client.get_post(m, True, ["tagname", "tagdata", "datatags", "ext", "created", "width", "height", "source", "title"])
+	post = client.get_post(m, True, ["tagname", "tagdata", "datatags", "ext", "created", "width", "height"])
 	if not post:
 		print "Post not found"
 		return 1
-	t = localtime(post["created"])
-	print m + " created " + strftime("%F %T", t)
+	print m + " created " + post.created.localtimestr()
 	if not short:
 		print post["width"], "x", post["height"], post["ext"]
-		for field in ("title", "source"):
-			if field in post:
-				print field.title() + ": " + _tagenc(post[field])
 	try:
 		path = readlink(client.image_path(m))
 		if not exists(path):

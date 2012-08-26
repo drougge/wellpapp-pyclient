@@ -8,6 +8,7 @@ from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, getcwd, stat
 from dbclient import dbclient, VTstring
 from dbutil import make_pdirs, raw_wrapper, identify_raw, exif_wrapper
+from time import gmtime, strftime
 
 def determine_filetype(data):
 	if data[:3] == "\xff\xd8\xff": return "jpeg"
@@ -163,7 +164,9 @@ def add_image(fn):
 		args = {"md5": m, "width": w, "height": h, "ext": ft}
 		if rot >= 0: args["rotate"] = rot
 		date = exif.date()
-		if date: args["imgdate"] = date
+		if date:
+			date = strftime("%Y-%m-%dT%H:%M:%SZ", gmtime(date))
+			args["imgdate"] = date
 		if dummy:
 			print "Would have created post " + m
 		else:

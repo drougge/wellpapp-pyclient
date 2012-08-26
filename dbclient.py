@@ -3,6 +3,8 @@
 import socket, base64, codecs, os, hashlib, re
 from fractions import Fraction
 from abc import ABCMeta, abstractmethod, abstractproperty
+from time import strptime, strftime, localtime
+from calendar import timegm
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
@@ -41,42 +43,6 @@ def _dec(enc):
 	str = base64.b64decode(enc, "_-")
 	while str[-1] == "\x00": str = str[:-1]
 	return str.decode("utf-8")
-_p_hex = lambda x: int(x, 16)
-_field_sparser = {
-	"created"        : _p_hex,
-	"imgdate"        : _p_hex,
-	"imgdate_fuzz"   : int,
-	"width"          : _p_hex,
-	"height"         : _p_hex,
-	"score"          : int,
-	"rotate"         : int,
-	"source"         : _dec,
-	"title"          : _dec,
-}
-_p_int = lambda i: str(int(i))
-_p_hexint = lambda i: "%x" % (int(i),)
-def _p_str(val):
-	val = _utf(val)
-	assert " " not in val
-	return val
-def _p_date(val):
-	if isinstance(val, basestring) and not val.isdigit():
-		from time import strptime, mktime
-		date = mktime(strptime(date, "%Y:%m:%d %H:%M:%S"))
-	return _p_hexint(val)
-_field_cparser = {
-	"width"          : _p_hexint,
-	"height"         : _p_hexint,
-	"score"          : _p_int,
-	"rotate"         : _p_int,
-	"rating"         : _p_str,
-	"created"        : _p_date,
-	"imgdate"        : _p_date,
-	"imgdate_fuzz"   : _p_int,
-	"ext"            : _p_str,
-	"source"         : _enc,
-	"title"          : _enc,
-}
 
 class CommentWrapper:
 	"""Wrap a file so readline/iteration skips comments
@@ -307,6 +273,11 @@ class VTdatetime(VTstring):
 	
 	def format(self):
 		return self.str
+	def localtimestr(self):
+		# @@ This needs to handle the same formats as the server
+		t = strptime(self.str, "%Y-%m-%dT%H:%M:%SZ")
+		t = localtime(timegm(t))
+		return strftime("%Y-%m-%d %H:%M:%S", t)
 
 valuetypes = {"string"  : VTstring,
               "int"     : VTint,
@@ -320,6 +291,28 @@ valuetypes = {"string"  : VTstring,
 def _vtparse(strparse, vtype, val):
 	if vtype == "string": val = strparse(val)
 	return valuetypes[vtype](val)
+
+_p_hex = lambda x: int(x, 16)
+_field_sparser = {
+	"created"        : VTdatetime,
+	"imgdate"        : VTdatetime,
+	"width"          : VTuint,
+	"height"         : VTuint,
+	"rotate"         : VTint,
+}
+_p_int = lambda i: str(int(i))
+_p_hexint = lambda i: "%x" % (int(i),)
+def _p_date(val):
+	if isinstance(val, basestring): return _utf(val)
+	return val.format()
+_field_cparser = {
+	"width"          : _p_hexint,
+	"height"         : _p_hexint,
+	"rotate"         : _p_int,
+	"created"        : _p_date,
+	"imgdate"        : _p_date,
+	"ext"            : _utf,
+}
 
 class dbcfg(DotDict):
 	def __init__(self, RC_NAME=".wellpapprc", EXTRA_RCs=[]):
