@@ -395,14 +395,17 @@ class dbclient:
 		f.weaktags = []
 		f.impltags = []
 		f.implweaktags = []
+		f.datatags = []
 		for piece in pieces[1:-1]:
 			flags, data = piece.split(" ", 1)
-			if flags == "I~" or flags == "~I":
+			if "I" in flags and "~" in flags:
 				ta = f.implweaktags
-			elif flags == "I":
+			elif "I" in flags:
 				ta = f.impltags
-			elif flags == "~":
+			elif "~" in flags:
 				ta = f.weaktags
+			elif "D" in flags:
+				ta = f.datatags
 			else:
 				ta = f.tags
 			t = Tag()
@@ -424,6 +427,8 @@ class dbclient:
 		else:
 			del f.impltags
 			del f.implweaktags
+		if not wanted or "datatags" not in wanted:
+			del f.datatags
 		posts.append(f)
 	def _search_post(self, search, wanted = None, props = None):
 		self._writeline(search)
@@ -435,7 +440,7 @@ class dbclient:
 		if not wanted:
 			wanted = ["tagname", "tagguid", "tagdata", "ext", "created", "width", "height"]
 		if separate_implied and "implied" not in wanted: wanted.append("implied")
-		search = "SPM" + md5 + " F".join([""] + wanted)
+		search = "SPM" + md5 + " F".join([""] + self._filter_wanted(wanted))
 		posts = self._search_post(search, wanted)
 		if not posts or posts[0]["md5"] != md5: return None
 		return posts[0]
@@ -458,14 +463,16 @@ class dbclient:
 		pos2 = [t[1:] for t in neg if t[0] == "-"]
 		neg2 = [t for t in neg if t[0] != "-"]
 		return pos1 + pos2, neg1 + neg2
+	def _filter_wanted(self, wanted):
+		return [w for w in self._list(wanted, str) if w != "datatags"]
 	def _build_search(self, tags=None, guids=None, excl_tags=None,
-	                  excl_guids=None , wanted=None, order=None, range=None):
+	                  excl_guids=None, wanted=None, order=None, range=None):
 		search = ""
 		tags, excl_tags = self._shuffle_minus(tags, excl_tags, _utf)
 		guids = map(self._tag2spec, guids or [])
 		excl_guids = map(self._tag2spec, excl_guids or [])
 		guids, excl_guids = self._shuffle_minus(guids, excl_guids, str)
-		for want in self._list(wanted, str):
+		for want in self._filter_wanted(wanted):
 			search += "F" + want + " "
 		for tag in tags:
 			search += "T" + _tagspec("N", tag) + " "

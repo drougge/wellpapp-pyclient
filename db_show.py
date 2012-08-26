@@ -29,7 +29,7 @@ def fmt_tag(prefix, tag):
 	return prefix + tag.name + val
 
 def show_post(m, short=False):
-	post = client.get_post(m, True, ["tagname", "tagdata", "ext", "created", "width", "height", "source", "title"])
+	post = client.get_post(m, True, ["tagname", "tagdata", "datatags", "ext", "created", "width", "height", "source", "title"])
 	if not post:
 		print "Post not found"
 		return 1
@@ -48,6 +48,10 @@ def show_post(m, short=False):
 		path = "MISSING"
 	print "Original file: " + path
 	if short: return 0
+	tags = [fmt_tag("", t) for t in post["datatags"]]
+	if tags:
+		print "Data:\n\t",
+		print "\n\t".join(map(_tagenc, sorted(tags)))
 	print "Tags:\n\t",
 	tags = [fmt_tag("", t) for t in post["tags"]] + [fmt_tag("~", t) for t in post["weaktags"]]
 	print "\n\t".join(map(_tagenc, sorted(tags)))
