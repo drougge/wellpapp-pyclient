@@ -266,18 +266,78 @@ class VTstop(VTfloat):
 		if isinstance(self.exact_fuzz, (int, long)):
 			self.__dict__["fuzz"] = self.exact_fuzz
 
-# @@ TODO: Handle fuzz/reasonable comparisons.
-class VTdatetime(VTstring):
+class VTdatetime(ValueType):
 	type = "datetime"
 	_cmp_t = "VTdatetime"
 	
-	def format(self):
-		return self.str
-	def localtimestr(self):
-		# @@ This needs to handle the same formats as the server
-		t = strptime(self.str, "%Y-%m-%dT%H:%M:%SZ")
-		t = localtime(timegm(t))
-		return strftime("%Y-%m-%d %H:%M:%S", t)
+	def __init__(self, val):
+		val = str(val)
+		a = val.split("+-")
+		if len(a) == 2:
+			f = a[1] or "0"
+			mult = 1
+			units = ["Y", "m", "d", "H", "M", "S"]
+			if f[-1] in units:
+				unit = f[-1]
+				mults = [12.0, 30.5, 24, 60, 60]
+				while unit != units.pop(): mult *= mults.pop()
+				f = f[:-1] or "1"
+			exact_fuzz = VTfloat(f).exact * mult
+			fuzz = int(exact_fuzz)
+			if fuzz != exact_fuzz:
+				fuzz = float(exact_fuzz)
+		else:
+			if len(a) != 1: raise ValueError(val)
+			exact_fuzz = fuzz = 0
+		ts, zone = a[0][:19], a[0][19:]
+		if " " in ts:
+			ts = ts[:10] + "T" + ts[11:]
+		if " " in ts + zone: raise ValueError(val)
+		fmt = "%Y-%m-%dT%H:%M:%S"
+		parsed = None
+		while fmt and not parsed:
+			try:
+				parsed = strptime(ts, fmt)
+			except Exception:
+				fmt = fmt[:-3]
+		if not parsed: raise ValueError(val)
+		if zone == "Z":
+			offset = 0
+		elif zone:
+			if len(zone) != 5: raise ValueError(val)
+			if zone[0] not in "+-": raise ValueError(val)
+			hour, minute = int(zone[1:3]), int(zone[3:])
+			if not 0 <= hour <= 12 or not 0 <= minute < 60:
+				raise ValueError(val)
+			offset = (hour * 60 + minute) * 60
+			if zone[0] == "+": offset = -offset
+		else:
+			parsed = localtime(timegm(parsed))
+			offset = 0
+		value = timegm(parsed) + offset
+		# Stupid leap years.
+		y = parsed.tm_year
+		if y % 4 == 0 and (y % 400 == 0 or y % 100):
+			ylen = 366
+		else:
+			ylen = 365
+		implfuzz = [30 * 60 * 24 * ylen,   int(30 * 60 * 24 * 30.4375),
+		            30 * 60 * 24,   30 * 60,   30,   0][len(fmt) // 3]
+		fuzz += implfuzz
+		value += implfuzz
+		if implfuzz and not exact_fuzz:
+			exact_fuzz = implfuzz
+		self.__dict__["_fmt"] = fmt.replace("T", " ")
+		self.__dict__["str"] = val.replace(" ", "T")
+		self.__dict__["value"] = value
+		self.__dict__["exact"] = value
+		self.__dict__["fuzz"] = fuzz
+		self.__dict__["exact_fuzz"] = exact_fuzz
+		self.__dict__["utcoffset"] = offset
+	def localtimestr(self, include_fuzz=True):
+		t = strftime(self._fmt, localtime(self.value))
+		if include_fuzz and self.exact_fuzz: t += "+-" + self.exact_fuzz
+		return t
 
 valuetypes = {"string"  : VTstring,
               "int"     : VTint,
