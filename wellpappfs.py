@@ -219,8 +219,8 @@ class Wellpapp(fuse.Fuse):
 		data = """<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 4.1.1-Exiv2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:tiff="http://ns.adobe.com/tiff/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" """
 		with self._client_lock:
 			post = self._client.get_post(m, wanted=["tagname", "rotate"])
-		if "rotate" in post and post["rotate"] in orient:
-			data += "tiff:Orientation=\"" + str(orient[post["rotate"]]) + "\""
+		if "rotate" in post and post["rotate"].value in orient:
+			data += "tiff:Orientation=\"" + str(orient[post["rotate"].value]) + "\""
 		data += "><dc:subject><rdf:Bag>"
 		data += "".join(["<rdf:li>" + xmlescape(tn).encode("utf-8") + "</rdf:li>" \
 		                 for tn in sorted(post["tagname"])])
