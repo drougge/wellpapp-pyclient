@@ -106,7 +106,7 @@ class Tag(DotDict):
 		vt = (self.valuetype or "").split("=", 1)
 		if len(vt) == 2:
 			self.valuetype = vt[0]
-			self.value = _vtparse(_dec, *vt)
+			self.value = _vtparse(*vt)
 
 class ValueType(object):
 	"""Represents the value of a tag.
@@ -179,7 +179,11 @@ class VTstring(ValueType):
 	
 	type = "string"
 	_cmp_t = "VTstring"
-	def __init__(self, val):
+	def __init__(self, val, human=False):
+		if human:
+			val = _uni(val)
+		else:
+			val = _dec(val)
 		for name in ("str", "value", "exact"):
 			self.__dict__[name] = val
 	def __lt__(self, other):
@@ -219,15 +223,17 @@ class VTint(VTnumber):
 	__doc__ = ValueType.__doc__
 	type = "int"
 	
-	def __init__(self, val):
-		self._parse(val, int, int, _p_hex)
+	def __init__(self, val, human=False):
+		p = int if human else _p_hex
+		self._parse(val, int, int, p)
 
 class VTuint(VTnumber):
 	__doc__ = ValueType.__doc__
 	type = "uint"
 	
-	def __init__(self, val):
-		self._parse(val, _p_hex, int, _p_hex)
+	def __init__(self, val, human=False):
+		p = int if human else _p_hex
+		self._parse(val, p, int, p)
 		if self.fuzz:
 			s = "%d+-%d" % (self.value, self.fuzz)
 		else:
@@ -243,7 +249,7 @@ class VTfloat(VTnumber):
 	__doc__ = ValueType.__doc__
 	type = "float"
 	
-	def __init__(self, val):
+	def __init__(self, val, human=False):
 		def intfrac(v):
 			try:
 				return int(v)
@@ -259,7 +265,7 @@ class VTstop(VTfloat):
 	__doc__ = ValueType.__doc__
 	type = "stop"
 	
-	def __init__(self, val):
+	def __init__(self, val, human=False):
 		VTfloat.__init__(self, val)
 		if isinstance(self.exact, (int, long)):
 			self.__dict__["value"] = self.exact
@@ -270,7 +276,7 @@ class VTdatetime(ValueType):
 	type = "datetime"
 	_cmp_t = "VTdatetime"
 	
-	def __init__(self, val):
+	def __init__(self, val, human=False):
 		val = str(val)
 		a = val.split("+-")
 		if len(a) == 2:
@@ -290,7 +296,7 @@ class VTdatetime(ValueType):
 			if len(a) != 1: raise ValueError(val)
 			exact_fuzz = fuzz = 0
 		ts, zone = a[0][:19], a[0][19:]
-		if " " in ts:
+		if human and " " in ts:
 			ts = ts[:10] + "T" + ts[11:]
 		if " " in ts + zone: raise ValueError(val)
 		fmt = "%Y-%m-%dT%H:%M:%S"
@@ -348,9 +354,8 @@ valuetypes = {"string"  : VTstring,
               "datetime": VTdatetime,
              }
 
-def _vtparse(strparse, vtype, val):
-	if vtype == "string": val = strparse(val)
-	return valuetypes[vtype](val)
+def _vtparse(vtype, val, human=False):
+	return valuetypes[vtype](val, human)
 
 _p_hex = lambda x: int(x, 16)
 _field_sparser = {
@@ -793,11 +798,12 @@ class dbclient:
 				val = spec[pos + 1:]
 			if comp not in ("=", "<", ">", "<=", ">=", "=~"):
 				return None
+			val = _vtparse(tag.valuetype, val, True)
 			return (prefix + tag.guid, comp, val)
 		else:
 			val = spec[pos + 1:]
 			if val:
-				val = _vtparse(_uni, tag.valuetype, val)
+				val = _vtparse(tag.valuetype, val, True)
 			else:
 				val = None
 			return (prefix + tag.guid, val)
