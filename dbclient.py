@@ -279,6 +279,7 @@ class VTdatetime(ValueType):
 	def __init__(self, val, human=False):
 		val = str(val)
 		a = val.split("+-")
+		unit = None
 		if len(a) == 2:
 			f = a[1] or "0"
 			mult = 1
@@ -327,8 +328,9 @@ class VTdatetime(ValueType):
 			ylen = 366
 		else:
 			ylen = 365
-		implfuzz = [30 * 60 * 24 * ylen,   int(30 * 60 * 24 * 30.4375),
+		implfuzz = [30 * 60 * 24 * ylen,   int(30 * 60 * 24 * 30.5),
 		            30 * 60 * 24,   30 * 60,   30,   0][len(fmt) // 3]
+		if not unit and implfuzz: fuzz *= implfuzz * 2;
 		fuzz += implfuzz
 		value += implfuzz
 		if implfuzz and not exact_fuzz:
