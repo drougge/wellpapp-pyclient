@@ -230,6 +230,7 @@ class TagWindow:
 		if not item: return
 		iter = self.thumbs.get_iter(item[0])
 		m = self.thumbs.get_value(iter, 0)
+		# @@ check for changing tag values?
 		self._apply([(t, None) for t in selection.data.split()], [], [m])
 
 	def drag_put_thumb_post(self, selection):
@@ -253,7 +254,7 @@ class TagWindow:
 			self.drag_put_thumb_post(selection)
 
 	def drag_put(self, widget, context, x, y, selection, targetType, eventTime, all):
-		# @@ tag values?
+		# @@ check for changing tag values?
 		self.apply([((t, None), None) for t in selection.data.split()], [], all)
 
 	def _drag_get_each(self, model, path, iter, data):
@@ -341,18 +342,29 @@ class TagWindow:
 			name += " ..."
 		return name + "</span>"
 
+	def _tag_val(self, t):
+		if t.valuetype in (None, "none") or "valuelist" not in t: return None
+		if t.localcount == len(t.valuelist) and len(set(t.valuelist)) == 1: # all have the same value
+			return t.valuelist[0]
+
 	def txt_tag(self, g):
 		t = self.ids[clean(g)]
 		v = prefix(g) + t.name
-		if t.valuetype in (None, "none") or "valuelist" not in t: return v
-		if t.localcount == len(t.valuelist) and len(set(t.valuelist)) == 1: # all have the same value
-			return v + "=" + markup_escape_text(str(t.valuelist[0]))
-		return v
+		val = self._tag_val(t)
+		if not val: return v
+		return v + "=" + markup_escape_text(str(val))
+
+	# @@ And what do I do in the case where there are several?
+	def _guid_with_val(self, g):
+		t = self.ids[clean(g)]
+		val = self._tag_val(t)
+		if not val: return g
+		return g + "=" + val.format()
 
 	def put_in_list(self, lo, li):
 		data = []
 		for pre, bg in ("", "#ffffff"), ("impl", "#ffd8ee"):
-			data += [(self.fmt_tag(t), t, bg, self.tag_colours[clean(t)], self.txt_tag(t)) for t in self.taglist[pre + li]]
+			data += [(self.fmt_tag(t), self._guid_with_val(t), bg, self.tag_colours[clean(t)], self.txt_tag(t)) for t in self.taglist[pre + li]]
 		lo.clear()
 		map(lambda d: lo.append(d), sorted(data))
 
