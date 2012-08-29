@@ -153,7 +153,7 @@ class ValueType(object):
 		       self.exact == other.exact and \
 		       self.exact_fuzz == other.exact_fuzz
 	def __ne__(self, other):
-		if not isinstance(other, ValueType): return False
+		if not isinstance(other, ValueType): return True
 		return type(self) != type(other) or \
 		       self.exact != other.exact or \
 		       self.exact_fuzz != other.exact_fuzz
@@ -204,6 +204,18 @@ class VTstring(ValueType):
 		return self.str
 	def format(self):
 		return _enc(self.str)
+
+class VTword(VTstring):
+	"""Represents the value of a tag with valuetype word.
+	v.value, v.exact and v.str are all the same string.
+	There is no fuzz for words."""
+	
+	type = "word"
+	def __init__(self, val, human=False):
+		if " " in val: raise ValueError(val)
+		val = _uni(val)
+		for name in ("str", "value", "exact"):
+			self.__dict__[name] = val
 
 class VTnumber(ValueType):
 	_cmp_t = "VTnumber"
@@ -348,6 +360,7 @@ class VTdatetime(ValueType):
 		return t
 
 valuetypes = {"string"  : VTstring,
+              "word"    : VTword,
               "int"     : VTint,
               "uint"    : VTuint,
               "float"   : VTfloat,
