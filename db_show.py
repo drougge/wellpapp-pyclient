@@ -22,7 +22,7 @@ def show_implies(guid, heading, reverse):
 
 def fmt_tag(prefix, tag):
 	if tag.value:
-		val = " = " + str(tag.value)
+		val = u" = " + unicode(tag.value)
 	else:
 		val = ""
 	return prefix + tag.name + val
