@@ -43,7 +43,7 @@ def show_post(m, short=False):
 		path = "MISSING"
 	print "Original file: " + path
 	if short: return 0
-	tags = [fmt_tag("", t) for t in post["datatags"]]
+	tags = [fmt_tag("", t) for n, t in sorted(post.datatags.items())]
 	if tags:
 		print "Data:\n\t",
 		print "\n\t".join(map(_tagenc, sorted(tags)))

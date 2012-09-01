@@ -512,6 +512,8 @@ class dbclient:
 			del f.implweaktags
 		if not wanted or "datatags" not in wanted:
 			del f.datatags
+		else:
+			f.datatags = dict((t.name, t) for t in f.datatags)
 		posts.append(f)
 	def _search_post(self, search, wanted = None, props = None):
 		self._writeline(search)
@@ -521,7 +523,7 @@ class dbclient:
 	def get_post(self, md5, separate_implied = False, wanted = None):
 		md5 = str(md5)
 		if not wanted:
-			wanted = ["tagname", "tagguid", "tagdata", "ext", "created", "width", "height"]
+			wanted = ["tagname", "tagguid", "tagdata", "datatags", "ext", "created", "width", "height"]
 		if separate_implied and "implied" not in wanted: wanted.append("implied")
 		search = "SPM" + md5 + " F".join([""] + self._filter_wanted(wanted))
 		posts = self._search_post(search, wanted)

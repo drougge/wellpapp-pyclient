@@ -120,10 +120,10 @@ class TagWindow:
 		self.msg.set_ellipsize(ELLIPSIZE_END)
 		self.msgbox = gtk.EventBox()
 		self.msgbox.add(self.msg)
-		self.thumbs = gtk.ListStore(TYPE_STRING, gtk.gdk.Pixbuf)
+		self.thumbs = gtk.ListStore(TYPE_STRING, gtk.gdk.Pixbuf, TYPE_STRING)
 		self.thumbview = gtk.IconView(self.thumbs)
 		self.thumbview.set_pixbuf_column(1)
-		self.thumbview.set_tooltip_column(0)
+		self.thumbview.set_tooltip_column(2)
 		self.thumbview.set_reorderable(True)
 		self.thumbview.set_selection_mode(gtk.SELECTION_MULTIPLE)
 		self.thumbview.connect("selection-changed", self.thumb_selected)
@@ -384,6 +384,16 @@ class TagWindow:
 		self._tagcompute(posts, "impl")
 		self.put_in_list(self.tags_all, "all")
 		self.update_from_selection()
+		self.update_thumb_tooltips()
+
+	def update_thumb_tooltips(self):
+		for thumb in self.thumbs:
+			if thumb[0] in self.posts:
+				post = self.posts[thumb[0]]
+				tip = [post.md5]
+				tags = sorted(post.datatags.items())
+				tip += [name + u": " + unicode(tag.value) for name, tag in tags]
+				thumb[2] = u"\n".join(tip).encode("utf-8")
 
 	def _tagcompute(self, posts, pre):
 		self.taglist[pre + "all"] = set(posts[0][pre + "tagguid"])
@@ -876,11 +886,13 @@ class FileLoader(Thread):
 			try:
 				fn = client.thumb_path(m, z)
 				thumb = gtk.gdk.pixbuf_new_from_file(fn)
-				thumbs.append((m, thumb,))
+				thumbs.append((m, thumb, m,))
 			except Exception:
 				good = False
 		idle_add(self._tw.add_thumbs, thumbs)
-		if good: idle_add(self._tw.set_msg, u"")
+		if good:
+			idle_add(self._tw.set_msg, u"")
+			idle_add(self._tw.update_thumb_tooltips)
 
 if __name__ == "__main__":
 	if len(argv) < 2:
