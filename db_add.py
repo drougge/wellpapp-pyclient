@@ -7,7 +7,7 @@ from cStringIO import StringIO
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, getcwd, stat
 from dbclient import dbclient, VTstring
-from dbutil import make_pdirs, raw_wrapper, identify_raw, exif_wrapper
+from dbutil import make_pdirs, raw_wrapper, identify_raw, exif_wrapper, raw_exts
 from time import gmtime, strftime
 
 def determine_filetype(data):
@@ -108,14 +108,17 @@ def record_filename(m, fn):
 	if m not in known or fn not in known[m]:
 		open(rec_fn, "a").write(m + " " + fn + "\n")
 
-def generate_cache(m, fn):
+def generate_cache(m, fn, jz):
 	cache_fn = client.cfg.image_base + "/cache"
 	if exists(cache_fn):
 		fh = open(cache_fn, "a")
 		s = stat(fn)
 		z = s.st_size
 		mt = int(s.st_mtime)
-		l = "0 %s %d %d %s\n" % (m, z, mt, fn)
+		if jz:
+			l = "1 %s %d %d %d %s\n" % (m, z, mt, jz, fn)
+		else:
+			l = "0 %s %d %d %s\n" % (m, z, mt, fn)
 		fh.write(l)
 		fh.close()
 
@@ -152,7 +155,14 @@ def add_image(fn):
 	if not lexists(p) and not dummy:
 		make_pdirs(p)
 		symlink(fn, p)
-		generate_cache(m, fn)
+		if ft i raw_exts:
+			jfh = raw_wrapper(StringIO(data), True)
+			jfh.seek(0, 2)
+			jz = jfh.tell()
+			jfh.close()
+		else:
+			jz = None
+		generate_cache(m, fn, jz)
 	if not post or needs_thumbs(m, ft):
 		datafh = raw_wrapper(StringIO(data))
 		img = Image.open(datafh)

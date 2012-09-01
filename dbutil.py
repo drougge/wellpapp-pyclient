@@ -308,6 +308,8 @@ class exif_wrapper:
 			except Exception:
 				pass
 
+raw_exts = ("dng", "pef", "nef")
+
 def _identify_raw(fh, tiff):
 	ifd0 = tiff.ifd[0]
 	if 0xc612 in ifd0: return "dng"
