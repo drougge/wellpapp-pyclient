@@ -207,11 +207,10 @@ class Wellpapp(fuse.Fuse):
 			if count < 1: count = 1
 		want, dontwant = self._path2search("/" + "/".join(spath))[:2]
 		with self._client_lock:
-			want = [self._client.find_tag(n, with_prefix=True) for n in want]
 			range = (0, count - 1 + len(want))
 			tags = self._client.find_tags("EI", "", range=range, guids=want,
 						      excl_tags=dontwant, order="-post")
-		want = [g[-27:] for g in want]
+		want = [w[0][-27:] for w in want]
 		names = [t.name.encode("utf-8") for t in tags if t.guid not in want]
 		return "\n".join(names) + "\n"
 
