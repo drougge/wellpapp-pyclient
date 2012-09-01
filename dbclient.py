@@ -3,7 +3,7 @@
 import socket, base64, codecs, os, hashlib, re
 from fractions import Fraction
 from abc import ABCMeta, abstractmethod, abstractproperty
-from time import strptime, strftime, localtime
+from time import strftime, localtime, struct_time
 from calendar import timegm
 
 class EResponse(Exception): pass
@@ -284,18 +284,60 @@ class VTstop(VTfloat):
 		if isinstance(self.exact_fuzz, (int, long)):
 			self.__dict__["fuzz"] = self.exact_fuzz
 
+# @@ comparisons ignore steps
 class VTdatetime(ValueType):
 	type = "datetime"
 	_cmp_t = "VTdatetime"
+	fres = r"(\+-?(?:\d+(?:\.\d+|/\d+)?))?"
+	_re = re.compile(r"(\d{4})" + fres + (r"(?:-(\d\d)" + fres) * 2 + r"(?:([T ])" + \
+	#                   YYYY                   mm + dd                      T
+	                 r"(\d\d)" + fres + r"(?::(\d\d)" + fres + r"(?::(\d\d)" + \
+	#                    HH                     MM                     SS
+	                 r")?" * 5 + r"(\+-(?:\d+(?:\.\d+|/\d+)?[YmdHMS]?))?" + \
+	#                                fuzz with unit
+	                 r"([+-]\d{4}|Z)?$")
+	#                   time zone
+	del fres
 	
 	def __init__(self, val, human=False):
 		val = str(val)
-		a = val.split("+-")
+		m = self._re.match(val)
+		if not m: raise ValueError(val)
+		allval = m.groups()
+		if allval[6] == " " and not human: raise ValueError(val)
+		values = allval[:6] + allval[7:12]
+		datev = values[::2]
+		date = [int(v) if v else 1 for v in datev[:3]] + [int(v) if v else 0 for v in datev[3:]]
+		if 0 in date[:3]: raise ValueError(val)
+		for iv, mv in zip(date, (9999, 12, 31, 23, 59, 59)):
+			if iv > mv: raise ValueError(val)
+		fuzz = list(values[1::2])
+		last_fuzz = allval[12]
+		pos = len(fuzz)
+		while not last_fuzz and pos > 0:
+			pos -= 1
+			f = fuzz[pos]
+			if f and f[:2] != "+-": break
+			last_fuzz = f
+			fuzz[pos] = None
+		steps = []
+		lt = localtime(timegm(struct_time(date + [0, 0, 0])))
+		lts = "%04d-%02d-%02dT%02d:%02d:%02d" % lt[:6]
+		for pos, v in enumerate(fuzz):
+			if v:
+				if v[:2] == "+-":
+					v = int(v[2:])
+					date[pos] -= v
+					v = v * 2 + 1
+				else:
+					v = int(v[1:])
+			steps.append(v)
+		parsed = struct_time(date + [0, 0, 0])
 		unit = None
-		if len(a) == 2:
-			f = a[1] or "0"
+		if last_fuzz:
 			mult = 1
 			units = ["Y", "m", "d", "H", "M", "S"]
+			f = last_fuzz[2:]
 			if f[-1] in units:
 				unit = f[-1]
 				mults = [12.0, 30.5, 24, 60, 60]
@@ -306,21 +348,10 @@ class VTdatetime(ValueType):
 			if fuzz != exact_fuzz:
 				fuzz = float(exact_fuzz)
 		else:
-			if len(a) != 1: raise ValueError(val)
 			exact_fuzz = fuzz = 0
-		ts, zone = a[0][:19], a[0][19:]
-		if human and " " in ts:
-			ts = ts[:10] + "T" + ts[11:]
-		if " " in ts + zone: raise ValueError(val)
-		fmt = "%Y-%m-%dT%H:%M:%S"
-		parsed = None
-		while fmt and not parsed:
-			try:
-				parsed = strptime(ts, fmt)
-			except Exception:
-				fmt = fmt[:-3]
-		if not parsed: raise ValueError(val)
-		if zone == "Z":
+		zone = allval[13]
+		if zone in ("Z", "+0000"):
+			zone = "Z"
 			offset = 0
 		elif zone:
 			if len(zone) != 5: raise ValueError(val)
@@ -340,24 +371,29 @@ class VTdatetime(ValueType):
 			ylen = 366
 		else:
 			ylen = 365
-		implfuzz = [30 * 60 * 24 * ylen,   int(30 * 60 * 24 * 30.5),
-		            30 * 60 * 24,   30 * 60,   30,   0][len(fmt) // 3]
+		if None in datev:
+			miss = datev.index(None)
+			lts = lts[:miss * 5 - 1]
+			implfuzz = [30 * 60 * 24 * ylen,   int(30 * 60 * 24 * 30.5),
+			            30 * 60 * 24,   30 * 60,   30][miss - 1]
+		else:
+			implfuzz = 0
 		if not unit and implfuzz: fuzz *= implfuzz * 2;
 		fuzz += implfuzz
 		value += implfuzz
 		if implfuzz and not exact_fuzz:
 			exact_fuzz = implfuzz
-		self.__dict__["_fmt"] = fmt.replace("T", " ")
+		self.__dict__["_lts"] = lts + (last_fuzz or "")
 		self.__dict__["str"] = val.replace(" ", "T")
 		self.__dict__["value"] = value
 		self.__dict__["exact"] = value
 		self.__dict__["fuzz"] = fuzz
 		self.__dict__["exact_fuzz"] = exact_fuzz
 		self.__dict__["utcoffset"] = offset
+		self.__dict__["steps"] = tuple(steps)
 	def localtimestr(self, include_fuzz=True):
-		t = strftime(self._fmt, localtime(self.value))
-		if include_fuzz and self.exact_fuzz: t += "+-" + self.exact_fuzz
-		return t
+		if not include_fuzz: return self._lts.split("+-")[0]
+		return self._lts
 
 valuetypes = {"string"  : VTstring,
               "word"    : VTword,
