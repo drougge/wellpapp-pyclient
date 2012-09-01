@@ -342,24 +342,16 @@ class TagWindow:
 			name += " ..."
 		return name + "</span>"
 
-	def _tag_val(self, t):
-		if t.valuetype in (None, "none") or "valuelist" not in t: return None
-		if t.localcount == len(t.valuelist) and len(set(t.valuelist)) == 1: # all have the same value
-			return t.valuelist[0]
-
 	def txt_tag(self, g):
 		t = self.ids[clean(g)]
 		v = prefix(g) + t.name
-		val = self._tag_val(t)
-		if not val: return v
-		return v + "=" + markup_escape_text(str(val))
+		if not t.valuelist: return v
+		return " ".join([v + "=" + val.format() for val in set(t.valuelist)])
 
-	# @@ And what do I do in the case where there are several?
 	def _guid_with_val(self, g):
 		t = self.ids[clean(g)]
-		val = self._tag_val(t)
-		if not val: return g
-		return g + "=" + val.format()
+		if not t.valuelist: return g
+		return " ".join([g + "=" + val.format() for val in set(t.valuelist)])
 
 	def put_in_list(self, lo, li):
 		data = []
