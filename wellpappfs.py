@@ -89,8 +89,12 @@ class Wellpapp(fuse.Fuse):
 		for line in self._cache_fh:
 			try:
 				v, m, size, mtime, dest = line.rstrip("\n").split(" ", 4)
-				assert v == "0"
-				self._stat_cache[m] = _stat_t(int(v), int(size), int(mtime), dest, 0)
+				if v == "1":
+					jz, dest = dest.split(" ", 1)
+				else:
+					jz = 0
+					assert v == "0"
+				self._stat_cache[m] = _stat_t(int(v), int(size), int(mtime), dest, int(jz))
 			except Exception:
 				print "Bad line in cache:", line
 
@@ -158,12 +162,7 @@ class Wellpapp(fuse.Fuse):
 				mode = stat.S_IFREG | 0444
 				version, size, time, dest, jpeg = self._stat(m.group(1))
 				if self._raw2jpeg and spath[-1][-3:] in _rawext_r: # wrapped RAW
-					from dbutil import raw_wrapper
-					# @@ check version and jpeg
-					fh = raw_wrapper(open(dest, "rb"), True)
-					fh.seek(0, 2)
-					size = fh.tell()
-					fh.close()
+					size = jpeg
 			else:
 				mode = stat.S_IFLNK | 0444
 			nlink = 1
@@ -288,10 +287,11 @@ class Wellpapp(fuse.Fuse):
 			if order:
 				prefix = "%06d." % (idx,)
 				idx += 1
-			ext = p["ext"]
-			if self._raw2jpeg and ext in _rawext:
-				r.append(prefix + p["md5"] + "." + _rawext[ext])
-			r.append(prefix + p["md5"] + "." + ext)
+			m = p.md5
+			ext = p.ext
+			if self._raw2jpeg and ext in _rawext and self._stat(m).jpegsize:
+				r.append(prefix + m + "." + _rawext[ext])
+			r.append(prefix + m + "." + ext)
 		return map(str, r), {}
 
 	def _path2search(self, path):
