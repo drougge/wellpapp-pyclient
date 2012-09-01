@@ -200,6 +200,10 @@ class TagWindow:
 		self.tagfield = gtk.Entry()
 		self.tagfield.connect("activate", self.apply_action, None)
 		self.tagfield.connect("key-press-event", self.tagfield_key)
+		ag = gtk.AccelGroup()
+		self.window.add_accel_group(ag)
+		key, mod = gtk.accelerator_parse('<Alt>s')
+		ag.connect_group(key, mod, 0, self._focus_tagfield)
 		self.tagfield.drag_dest_set(gtk.DEST_DEFAULT_ALL, [nametype] + texttypes, gtk.gdk.ACTION_COPY)
 		self.tagfield.connect("drag_data_received", self.drag_put_tagfield)
 		self.vbox.pack_end(self.tagfield, False, False, 0)
@@ -210,6 +214,10 @@ class TagWindow:
 		self.type2colour = dict([cs.split("=") for cs in client.cfg.tagcolours.split()])
 		self.md5s = []
 		self.fullscreen_open = False
+
+	def _focus_tagfield(self, *a):
+		self.tagfield.grab_focus()
+		self.tagfield.select_region(-1, -1)
 
 	def drag_put_tagfield(self, widget, context, x, y, selection, targetType, eventTime):
 		tag = _uni(selection.data) + u" "
