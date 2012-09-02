@@ -303,14 +303,16 @@ class Wellpapp(fuse.Fuse):
 		range = None
 		for e in filter(None, sre.split(path[1:])):
 			if e[0] == "-":
-				e = self._client.parse_tag(e[1:], True)
+				with self._client_lock:
+					e = self._client.parse_tag(e[1:], True)
 				dontwant.add(e)
 			elif e[:2] == "O:":
 				order.append(e[2:])
 			elif e[:2] == "R:":
 				range = tuple(map(int, e[2:].split(":")))
 			else:
-				e = self._client.parse_tag(e, True)
+				with self._client_lock:
+					e = self._client.parse_tag(e, True)
 				want.add(e)
 				if not first: first = e
 		if "group" in order:
