@@ -155,7 +155,7 @@ def add_image(fn):
 	if not lexists(p) and not dummy:
 		make_pdirs(p)
 		symlink(fn, p)
-		if ft i raw_exts:
+		if ft in raw_exts:
 			jfh = raw_wrapper(StringIO(data), True)
 			jfh.seek(0, 2)
 			jz = jfh.tell()
