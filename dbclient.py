@@ -128,6 +128,8 @@ class ValueType(object):
 	@abstractproperty
 	def _cmp_t(self): pass
 	
+	_repr_extra = ""
+	
 	str = ""
 	value = 0
 	exact = 0
@@ -142,7 +144,7 @@ class ValueType(object):
 		return self.str
 	def __repr__(self):
 		c = self.__class__
-		return c.__module__ + "." + c.__name__ + "(" + repr(self.str) + ")"
+		return c.__module__ + "." + c.__name__ + "(" + repr(self.str) + self._repr_extra + ")"
 	def __hash__(self):
 		return hash(self.exact) ^ hash(self.exact_fuzz) ^ hash(self.type)
 	def __cmp(self, other):
@@ -179,6 +181,8 @@ class VTstring(ValueType):
 	
 	type = "string"
 	_cmp_t = "VTstring"
+	_repr_extra = ", True"
+	
 	def __init__(self, val, human=False):
 		if human:
 			val = _uni(val)
@@ -211,6 +215,8 @@ class VTword(VTstring):
 	There is no fuzz for words."""
 	
 	type = "word"
+	_repr_extra = ""
+	
 	def __init__(self, val, human=False):
 		if " " in val: raise ValueError(val)
 		val = _uni(val)
