@@ -129,6 +129,7 @@ class ValueType(object):
 	def _cmp_t(self): pass
 	
 	_repr_extra = ""
+	_repr = None
 	
 	str = ""
 	value = 0
@@ -144,7 +145,8 @@ class ValueType(object):
 		return self.str
 	def __repr__(self):
 		c = self.__class__
-		return c.__module__ + "." + c.__name__ + "(" + repr(self.str) + self._repr_extra + ")"
+		rs = repr(self._repr) if self._repr else repr(self.str)
+		return c.__module__ + "." + c.__name__ + "(" + rs + self._repr_extra + ")"
 	def __hash__(self):
 		return hash(self.exact) ^ hash(self.exact_fuzz) ^ hash(self.type)
 	def __cmp(self, other):
@@ -254,14 +256,14 @@ class VTuint(VTnumber):
 		self._parse(val, p, int, p)
 		if self.fuzz:
 			s = "%d+-%d" % (self.value, self.fuzz)
+			r = "%x+-%x" % (self.value, self.fuzz)
 		else:
 			s = str(self.value)
+			r = "%x" % (self.value,)
 		self.__dict__["str"] = s
+		self.__dict__["_repr"] = r
 	def format(self):
-		if self.fuzz:
-			return "%x+-%x" % (self.value, self.fuzz)
-		else:
-			return "%x" % (self.value,)
+		return self._repr
 
 class VTfloat(VTnumber):
 	__doc__ = ValueType.__doc__
