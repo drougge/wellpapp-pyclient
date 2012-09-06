@@ -238,6 +238,12 @@ class VTnumber(ValueType):
 			self.__dict__["fuzz"] = vp2(self.exact_fuzz)
 		else:
 			self.__dict__["fuzz"] = self.__dict__["exact_fuzz"] = 0
+	def __int__(self):
+		return int(self.exact)
+	def __long__(self):
+		return long(self.exact)
+	def __float__(self):
+		return float(self.exact)
 
 class VTint(VTnumber):
 	__doc__ = ValueType.__doc__
