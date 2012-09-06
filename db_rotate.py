@@ -17,8 +17,7 @@ if not post:
 	print "Post not found"
 	exit(1)
 
-r = post["rotate"]
-if r < 0: r = 0
+r = post.get("rotate", 0)
 new_r = int(new_r)
 good_r = (0, 90, 180, 270)
 if r not in good_r or new_r not in good_r:
