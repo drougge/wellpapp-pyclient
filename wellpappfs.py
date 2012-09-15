@@ -208,7 +208,7 @@ class Wellpapp(fuse.Fuse):
 		with self._client_lock:
 			range = (0, count - 1 + len(want))
 			tags = self._client.find_tags("EI", "", range=range, guids=want,
-						      excl_tags=dontwant, order="-post")
+			                              excl_guids=dontwant, order="-post")
 		want = [w[0][-27:] for w in want]
 		names = [t.name.encode("utf-8") for t in tags if t.guid not in want]
 		return "\n".join(names) + "\n"
