@@ -572,7 +572,7 @@ class dbclient:
 		return posts
 	def get_post(self, md5, separate_implied = False, wanted = None):
 		md5 = str(md5)
-		if not wanted:
+		if wanted is None:
 			wanted = ["tagname", "tagguid", "tagdata", "datatags", "ext", "created", "width", "height"]
 		if separate_implied and "implied" not in wanted: wanted.append("implied")
 		search = "SPM" + md5 + " F".join([""] + self._filter_wanted(wanted))

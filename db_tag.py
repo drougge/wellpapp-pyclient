@@ -10,6 +10,9 @@ if len(argv) < 3:
 	exit(1)
 
 def set_tag(full, weak, remove, tag):
+	tag = client.parse_tag(tag)
+	if not tag: return
+	tag, val = tag
 	s = full
 	if tag[0] == "-":
 		s = remove
@@ -17,10 +20,8 @@ def set_tag(full, weak, remove, tag):
 	elif tag[0] == "~":
 		s = weak
 		tag = tag[1:]
-	guid = client.find_tag(tag)
-	if guid:
-		s.add(guid)
-		return True
+	s.add((tag, val))
+	return True
 
 client = dbclient()
 full = set()
