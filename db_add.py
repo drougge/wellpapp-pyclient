@@ -129,6 +129,31 @@ def fmt_tagvalue(v):
 	else:
 		return "=" + v.str
 
+def flash_dimensions(data):
+	sig = data[:3]
+	assert sig in ("FWS", "CWS")
+	data = data[8:]
+	if sig == "CWS":
+		from zlib import decompress
+		data = decompress(data)
+	pos = [0] # No "nonlocal" in python2
+	def get_bits(n, signed=True):
+		val = 0
+		for i in range(n):
+			sh = 7 - (pos[0] % 8)
+			bit = (ord(data[pos[0] // 8]) & (1 << sh)) >> sh
+			if i == 0 and signed and bit:
+				val = -1
+			val = (val << 1) | bit
+			pos[0] += 1
+		return val
+	bpv = get_bits(5, False)
+	xmin = get_bits(bpv)
+	xmax = get_bits(bpv)
+	ymin = get_bits(bpv)
+	ymax = get_bits(bpv)
+	return [int(round(v / 20.0)) for v in (xmax - xmin, ymax - ymin)]
+
 def add_image(fn):
 	if verbose: print fn
 	fn = realpath(fn)
@@ -164,11 +189,18 @@ def add_image(fn):
 			jz = None
 		generate_cache(m, fn, jz)
 	if not post or needs_thumbs(m, ft):
-		datafh = raw_wrapper(StringIO(data))
-		img = Image.open(datafh)
+		if ft == "swf":
+			if not thumb_source:
+				print "Can't generate flash thumbnails"
+				exit(1)
+			if not post:
+				w, h = flash_dimensions(data)
+		else:
+			datafh = raw_wrapper(StringIO(data))
+			img = Image.open(datafh)
+			w, h = img.size
 	exif = exif_wrapper(fn)
 	if not post:
-		w, h = img.size
 		rot = exif2rotation(exif)
 		if rot in (90, 270): w, h = h, w
 		args = {"md5": m, "width": w, "height": h, "ext": ft}
