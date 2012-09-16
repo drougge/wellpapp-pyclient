@@ -216,12 +216,13 @@ class Wellpapp(fuse.Fuse):
 	def _generate_meta(self, m):
 		data = """<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 4.1.1-Exiv2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:tiff="http://ns.adobe.com/tiff/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" """
 		with self._client_lock:
-			post = self._client.get_post(m, wanted=["tagname", "rotate"])
-		if "rotate" in post and post["rotate"].value in orient:
-			data += "tiff:Orientation=\"" + str(orient[post["rotate"].value]) + "\""
+			post = self._client.get_post(m, wanted=["tagname", "tagdata", "rotate"])
+		if "rotate" in post and post.rotate.value in orient:
+			data += "tiff:Orientation=\"" + str(orient[post.rotate.value]) + "\""
 		data += "><dc:subject><rdf:Bag>"
+		tags = [tag.name + (("=" + str(tag.value)) if tag.value else "") for tag in post.tags]
 		data += "".join(["<rdf:li>" + xmlescape(tn).encode("utf-8") + "</rdf:li>" \
-		                 for tn in sorted(post["tagname"])])
+		                 for tn in sorted(tags)])
 		data += "</rdf:Bag></dc:subject></rdf:Description></rdf:RDF></x:xmpmeta>"
 		return data
 
