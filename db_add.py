@@ -186,6 +186,8 @@ def add_image(fn):
 			print "Would have generated thumbs for " + m
 		else:
 			rot = exif2rotation(exif)
+			if thumb_source:
+				img = Image.open(raw_wrapper(open(thumb_source, "rb")))
 			client.save_thumbs(m, img, ft, rot, force_thumbs)
 	full = tagset()
 	weak = tagset()
@@ -210,24 +212,26 @@ def add_image(fn):
 			client.tag_post(m, full, weak)
 
 def usage():
-	print "Usage:", argv[0], "[-v] [-q] [-f] [-n] [-d] filename [filename [..]]"
+	print "Usage:", argv[0], "[-v] [-q] [-f] [-n] [-d] [-t thumb_source] filename [filename [..]]"
 	print "\t-v Verbose"
 	print "\t-q Quiet"
 	print "\t-f Force thumbnail regeneration"
 	print "\t-n No tagging (prints what would have been tagged)"
 	print "\t-d Dummy, only print what would be done"
+	print "\t-t Post or file to generate thumb from"
 	exit(1)
 
 if __name__ == '__main__':
 	from sys import argv, exit
 	if len(argv) < 2: usage()
 	a = 1
-	switches = ("-v", "-q", "-f", "-h", "-n", "-d")
+	switches = ("-v", "-q", "-f", "-h", "-n", "-d", "-t")
 	quiet = False
 	verbose = False
 	force_thumbs = False
 	no_tagging = False
 	dummy = False
+	thumb_source = None
 	while argv[a] in switches:
 		if argv[a] == "-q":
 			quiet = True
@@ -239,11 +243,26 @@ if __name__ == '__main__':
 			no_tagging = True
 		elif argv[a] == "-d":
 			dummy = True
+		elif argv[a] == "-t":
+			a += 1
+			if len(argv) == a: usage()
+			thumb_source = argv[a]
+			force_thumbs = True
 		else:
 			usage()
 		a += 1
 		if len(argv) == a: usage()
 	client = dbclient()
+	if thumb_source:
+		if len(argv) > a + 1:
+			print "Only add one post with -t"
+			exit(1)
+		if not exists(thumb_source):
+			m = client.postspec2md5(thumb_source)
+			thumb_source = client.image_path(m)
+		if not exists(thumb_source):
+			print "Thumb source not found"
+			exit(1)
 	client.begin_transaction()
 	map(add_image, argv[a:])
 	client.end_transaction()
