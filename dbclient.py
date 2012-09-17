@@ -224,6 +224,8 @@ class VTword(VTstring):
 		val = _uni(val)
 		for name in ("str", "value", "exact"):
 			self.__dict__[name] = val
+	def format(self):
+		return self.str
 
 class VTnumber(ValueType):
 	_cmp_t = "VTnumber"
