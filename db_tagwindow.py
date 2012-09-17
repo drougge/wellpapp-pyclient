@@ -299,9 +299,15 @@ class TagWindow:
 	def modify_tag(self, tv, row, *a):
 		model = tv.get_model()
 		pre = prefix(model[row][0])
-		guid = clean(model[row][1])
+		guid = clean(model[row][1])[:27]
 		tag = client.get_tag(guid)
 		dialog = TagDialog(self.window, u"Modify tag", tag.name, tag.type)
+		if tag.valuetype:
+			vt = markup_escape_text(tag.valuetype.encode("utf-8"))
+			mu = "<span color=\"#ff0000\">" + vt + "</span>"
+			vtlab = gtk.Label()
+			vtlab.set_markup(mu)
+			dialog.vbox.pack_start(vtlab)
 		entry = gtk.Entry()
 		entry.set_text(tag.name)
 		dialog.vbox.pack_start(entry)
