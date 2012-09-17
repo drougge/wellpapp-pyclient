@@ -717,6 +717,9 @@ class ImplicationsDialog(gtk.Dialog):
 
 	def _add(self, *a):
 		name = self._add_name.get_text()
+		if not name:
+			self.emit("close")
+			return
 		try:
 			prio = int(self._add_prio.get_text())
 		except Exception:
@@ -773,7 +776,9 @@ class AliasesDialog(gtk.Dialog):
 
 	def _add(self, *a):
 		name = self._add_name.get_text()
-		if not name: return
+		if not name:
+			self.emit("close")
+			return
 		client.add_alias(name, self.guid)
 		self._add_name.set_text(u"")
 		self._refresh()
