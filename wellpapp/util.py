@@ -1,5 +1,8 @@
 # -*- coding: iso-8859-1 -*-
 
+__all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "exif_wrapper",
+           "identify_raw", "make_pdirs", "raw_exts", "raw_wrapper",)
+
 class TIFF:
 	"""Pretty minimal TIFF container parser"""
 	
