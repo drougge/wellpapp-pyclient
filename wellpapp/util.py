@@ -314,7 +314,7 @@ class ExifWrapper:
 	
 	def rotation(self):
 		if "Exif.Image.Orientation" not in self: return -1
-		o = exif["Exif.Image.Orientation"]
+		o = self["Exif.Image.Orientation"]
 		orient = {1: 0, 3: 180, 6: 90, 8: 270}
 		if o not in orient: return -1
 		return orient[o]
