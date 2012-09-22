@@ -3,25 +3,13 @@
 import socket, base64, codecs, os, hashlib, re
 
 from .vt import *
-from .util import *
+from ._util import *
+from .util import DotDict, CommentWrapper, make_pdirs
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
 
 __all__ = ("Client", "Config", "Post", "Tag", "EResponse", "EDuplicate",)
-
-def _uni(s):
-	if type(s) is not unicode:
-		try:
-			s = s.decode("utf-8")
-		except Exception:
-			s = s.decode("iso-8859-1")
-	return s
-
-def _utf(s, allow_space=False):
-	s = _uni(s)
-	if not allow_space: assert u" " not in s
-	return s.encode("utf-8")
 
 def _rfindany(s, chars, pos=-1):
 	if pos < 0: pos = len(s)
@@ -34,18 +22,6 @@ def _tagspec(type, value):
 		type = value[0] + type
 		value = value[1:]
 	return type + value
-
-def _enc(str):
-	str = _utf(str, True)
-	while len(str) % 3: str += "\x00"
-	return base64.b64encode(str, "_-")
-
-def _dec(enc):
-	if not enc: return u""
-	enc = _utf(enc)
-	str = base64.b64decode(enc, "_-")
-	while str[-1] == "\x00": str = str[:-1]
-	return str.decode("utf-8")
 
 class Post(DotDict): pass
 
@@ -82,7 +58,6 @@ class Tag(DotDict):
 def _vtparse(vtype, val, human=False):
 	return valuetypes[vtype](val, human)
 
-_p_hex = lambda x: int(x, 16)
 _field_sparser = {
 	"created"        : VTdatetime,
 	"imgdate"        : VTdatetime,

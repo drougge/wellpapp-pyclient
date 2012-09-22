@@ -7,6 +7,8 @@ from time import strftime, localtime, struct_time
 from calendar import timegm
 from math import log, log10
 
+from ._util import *
+
 __all__ = ("ValueType", 'VTstring', 'VTword', 'VTnumber', 'VTint', 'VTuint',
            'VTfloat', 'VTf_stop', 'VTstop', 'VTdatetime', 'valuetypes',)
 
@@ -174,7 +176,7 @@ class VTuint(VTnumber):
 	type = "uint"
 	
 	def __init__(self, val, human=False):
-		p = int if human else _p_hex
+		p = int if human else lambda x: int(x, 16)
 		self._parse(val, p, int, int)
 		if self.fuzz:
 			s = "%d+%d" % (self.value, self.fuzz)
