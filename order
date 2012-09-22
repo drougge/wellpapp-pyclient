@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 from re import match
 from time import strftime, localtime
 from os.path import exists
@@ -13,7 +13,7 @@ if len(argv) < 3:
 	print "Usage:", argv[0], "tagname post-spec [post-spec [...]]"
 	exit(1)
 
-client = dbclient()
+client = Client()
 data = {}
 tag = client.find_tag(argv[1], data)
 if not tag:

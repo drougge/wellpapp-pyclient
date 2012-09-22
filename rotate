@@ -2,14 +2,14 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 
 if len(argv) != 3:
 	print "Usage:", argv[0], "post-spec rotation"
 	exit(1)
 
 spec, new_r = argv[1:]
-client = dbclient()
+client = Client()
 md5 = client.postspec2md5(spec)
 post = None
 if md5: post = client.get_post(md5, wanted = ["rotate", "ext", "width", "height"])

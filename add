@@ -6,8 +6,7 @@ import Image
 from cStringIO import StringIO
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, getcwd, stat
-from dbclient import dbclient, VTstring
-from dbutil import make_pdirs, raw_wrapper, identify_raw, exif_wrapper, raw_exts
+from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts
 from time import gmtime, strftime
 
 def determine_filetype(data):
@@ -24,13 +23,6 @@ def needs_thumbs(m, ft):
 	jpeg_fns, png_fns = client.thumb_fns(m, ft)
 	for fn, z in jpeg_fns + png_fns:
 		if not exists(fn): return True
-
-def exif2rotation(exif):
-	if "Exif.Image.Orientation" not in exif: return -1
-	o = exif["Exif.Image.Orientation"]
-	orient = {1: 0, 3: 180, 6: 90, 8: 270}
-	if o not in orient: return -1
-	return orient[o]
 
 def exif2tags(exif, tags):
 	cfg = client.cfg
@@ -181,7 +173,7 @@ def add_image(fn):
 		make_pdirs(p)
 		symlink(fn, p)
 		if ft in raw_exts:
-			jfh = raw_wrapper(StringIO(data), True)
+			jfh = RawWrapper(StringIO(data), True)
 			jfh.seek(0, 2)
 			jz = jfh.tell()
 			jfh.close()
@@ -196,12 +188,12 @@ def add_image(fn):
 			if not post:
 				w, h = flash_dimensions(data)
 		else:
-			datafh = raw_wrapper(StringIO(data))
+			datafh = RawWrapper(StringIO(data))
 			img = Image.open(datafh)
 			w, h = img.size
-	exif = exif_wrapper(fn)
+	exif = ExifWrapper(fn)
 	if not post:
-		rot = exif2rotation(exif)
+		rot = exif.rotation()
 		if rot in (90, 270): w, h = h, w
 		args = {"md5": m, "width": w, "height": h, "ext": ft}
 		if rot >= 0: args["rotate"] = rot
@@ -217,9 +209,9 @@ def add_image(fn):
 		if dummy:
 			print "Would have generated thumbs for " + m
 		else:
-			rot = exif2rotation(exif)
+			rot = exif.rotation()
 			if thumb_source:
-				img = Image.open(raw_wrapper(open(thumb_source, "rb")))
+				img = Image.open(RawWrapper(open(thumb_source, "rb")))
 			client.save_thumbs(m, img, ft, rot, force_thumbs)
 	full = tagset()
 	weak = tagset()
@@ -284,7 +276,7 @@ if __name__ == '__main__':
 			usage()
 		a += 1
 		if len(argv) == a: usage()
-	client = dbclient()
+	client = Client()
 	if thumb_source:
 		if len(argv) > a + 1:
 			print "Only add one post with -t"

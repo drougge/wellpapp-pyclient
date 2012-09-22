@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 from os.path import exists, lexists
 from os import unlink
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
 		print "Usage:", argv[0], "[-f] post-spec [post-spec [..]]"
 		print "\t-f: Force delete, even if post has tags/rels."
 		exit(1)
-	client = dbclient()
+	client = Client()
 	ret = 0
 	force = False
 	for ps in argv[1:]:

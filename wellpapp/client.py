@@ -1,26 +1,15 @@
 # -*- coding: iso-8859-1 -*-
 
 import socket, base64, codecs, os, hashlib, re
-from fractions import Fraction
-from abc import ABCMeta, abstractmethod, abstractproperty
-from time import strftime, localtime, struct_time
-from calendar import timegm
-from math import log, log10
+
+from .vt import *
+from ._util import *
+from .util import DotDict, CommentWrapper, make_pdirs
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
 
-def _uni(s):
-	if type(s) is not unicode:
-		try:
-			s = s.decode("utf-8")
-		except Exception:
-			s = s.decode("iso-8859-1")
-	return s
-def _utf(s, allow_space=False):
-	s = _uni(s)
-	if not allow_space: assert u" " not in s
-	return s.encode("utf-8")
+__all__ = ("Client", "Config", "Post", "Tag", "EResponse", "EDuplicate",)
 
 def _rfindany(s, chars, pos=-1):
 	if pos < 0: pos = len(s)
@@ -34,53 +23,10 @@ def _tagspec(type, value):
 		value = value[1:]
 	return type + value
 
-def _enc(str):
-	str = _utf(str, True)
-	while len(str) % 3: str += "\x00"
-	return base64.b64encode(str, "_-")
-def _dec(enc):
-	if not enc: return u""
-	enc = _utf(enc)
-	str = base64.b64decode(enc, "_-")
-	while str[-1] == "\x00": str = str[:-1]
-	return str.decode("utf-8")
-
-class CommentWrapper:
-	"""Wrap a file so readline/iteration skips comments
-	and optionally empty lines"""
-	def __init__(self, fh, allow_empty=False):
-		self.fh = fh
-		self.allow_empty = allow_empty
-	def __iter__(self):
-		return self
-	def next(self):
-		line = self.readline()
-		if not line: raise StopIteration()
-		return line
-	def readline(self):
-		while 42:
-			line = self.fh.readline()
-			if not line: return line
-			s = line.strip()
-			if s:
-				if s[0] != "#": return line
-			elif self.allow_empty:
-				return line
-
-class DotDict(dict):
-	__setattr__ = dict.__setitem__
-	__delattr__ = dict.__delitem__
-	def __getattr__(self, name):
-		if name[0] == "_":
-			raise AttributeError(name)
-		return self.get(name)
-	def __repr__(self):
-		return repr(type(self)) + dict.__repr__(self)
-
 class Post(DotDict): pass
 
 class Tag(DotDict):
-	def populate(self, res):
+	def _populate(self, res):
 		res = res.split()
 		alias = []
 		flaglist = []
@@ -109,417 +55,9 @@ class Tag(DotDict):
 			self.valuetype = vt[0]
 			self.value = _vtparse(*vt)
 
-class ValueType(object):
-	"""Represents the value of a tag.
-	v.value is the value as an apropriate type (str, float, int).
-	v.exact is an exact representation of the value (str, int, Fraction).
-	v.fuzz is how inexact the value is.
-	v.exact_fuzz is like .exact but for the fuzz.
-	v.str (or str(v)) is a string representation of exact value+-fuzz.
-	v.format() is this value formated for sending to server.
-	
-	Comparisons:
-	== and != compare that both value and fuzz match,
-	other comparisons apply the fuzz.
-	Use value.overlap(other) to check for equality with fuzz."""
-	
-	__metaclass__ = ABCMeta
-	
-	@abstractmethod
-	def __init__(self): pass
-	
-	@abstractproperty
-	def type(self): pass
-	
-	@abstractproperty
-	def _cmp_t(self): pass
-	
-	_repr_extra = ""
-	_repr = None
-	
-	str = ""
-	value = 0
-	exact = 0
-	fuzz = None
-	exact_fuzz = None
-	
-	def __setattr__(self, name, value):
-		raise AttributeError("ValueTypes are immutable")
-	def __delattr__(self, name):
-		raise AttributeError("ValueTypes are immutable")
-	def __str__(self):
-		return self.str
-	def __repr__(self):
-		c = self.__class__
-		rs = repr(self._repr) if self._repr else repr(self.str)
-		return c.__module__ + "." + c.__name__ + "(" + rs + self._repr_extra + ")"
-	def __hash__(self):
-		return hash(self.exact) ^ hash(self.exact_fuzz) ^ hash(self.type)
-	def __cmp(self, other):
-		if not isinstance(other, ValueType) or self._cmp_t != other._cmp_t:
-			raise TypeError("Can only compare to a " + self._cmp_t)
-	def __eq__(self, other):
-		return type(self) == type(other) and \
-		       self.exact == other.exact and \
-		       self.exact_fuzz == other.exact_fuzz
-	def __ne__(self, other):
-		if not isinstance(other, ValueType): return True
-		return type(self) != type(other) or \
-		       self.exact != other.exact or \
-		       self.exact_fuzz != other.exact_fuzz
-	def __lt__(self, other):
-		self.__cmp(other)
-		return self.min < other.max
-	def __le__(self, other):
-		self.__cmp(other)
-		return self.min <= other.max
-	def __gt__(self, other):
-		self.__cmp(other)
-		return self.max > other.min
-	def __ge__(self, other):
-		self.__cmp(other)
-		return self.max >= other.min
-	
-	@property
-	def min(self):
-		f = self.fuzz or 0
-		if f < 0:
-			return self.value + f
-		else:
-			return self.value
-	
-	@property
-	def max(self):
-		if self.fuzz:
-			return self.value + abs(self.fuzz)
-		else:
-			return self.value
-	
-	def overlap(self, other):
-		self.__cmp(other)
-		return self.min() <= other.max() and other.min() <= self.max()
-	
-	def format(self):
-		return self.str
-
-class VTstring(ValueType):
-	"""Represents the value of a tag with valuetype string.
-	v.value, v.exact and v.str are all the same string.
-	There is no fuzz for strings."""
-	
-	type = "string"
-	_cmp_t = "VTstring"
-	_repr_extra = ", True"
-	
-	def __init__(self, val, human=False):
-		if human:
-			val = _uni(val)
-		else:
-			val = _dec(val)
-		for name in ("str", "value", "exact"):
-			self.__dict__[name] = val
-	def __str__(self):
-		return self.str.encode("utf-8")
-	def __unicode__(self):
-		return self.str
-	def format(self):
-		return _enc(self.str)
-
-class VTword(VTstring):
-	"""Represents the value of a tag with valuetype word.
-	v.value, v.exact and v.str are all the same string.
-	There is no fuzz for words."""
-	
-	type = "word"
-	_repr_extra = ""
-	
-	def __init__(self, val, human=False):
-		if " " in val: raise ValueError(val)
-		val = _uni(val)
-		for name in ("str", "value", "exact"):
-			self.__dict__[name] = val
-	def format(self):
-		return self.str
-
-class VTnumber(ValueType):
-	_cmp_t = "VTnumber"
-	def _parse(self, v, vp, vp2, fp):
-		v = str(v)
-		self.__dict__["str"] = v
-		a = v.split("+", 1)
-		self.__dict__["exact"] = vp(a[0])
-		self.__dict__["value"] = vp2(self.exact)
-		if len(a) == 2:
-			self.__dict__["exact_fuzz"] = fp(a[1])
-			self.__dict__["fuzz"] = vp2(self.exact_fuzz)
-		else:
-			self.__dict__["fuzz"] = self.__dict__["exact_fuzz"] = 0
-	def __int__(self):
-		return int(self.exact)
-	def __long__(self):
-		return long(self.exact)
-	def __float__(self):
-		return float(self.exact)
-
-class VTint(VTnumber):
-	__doc__ = ValueType.__doc__
-	type = "int"
-	
-	def __init__(self, val, human=False):
-		self._parse(val, int, int, int)
-
-class VTuint(VTnumber):
-	__doc__ = ValueType.__doc__
-	type = "uint"
-	
-	def __init__(self, val, human=False):
-		p = int if human else _p_hex
-		self._parse(val, p, int, int)
-		if self.fuzz:
-			s = "%d+%d" % (self.value, self.fuzz)
-			r = "%x+%d" % (self.value, self.fuzz)
-		else:
-			s = str(self.value)
-			r = "%x" % (self.value,)
-		self.__dict__["str"] = s
-		self.__dict__["_repr"] = r
-	def format(self):
-		return self._repr
-
-class VTfloat(VTnumber):
-	__doc__ = ValueType.__doc__
-	type = "float"
-	
-	def __init__(self, val, human=False):
-		def intfrac(v):
-			try:
-				return int(v)
-			except ValueError:
-				return Fraction(v)
-		self._parse(val, intfrac, float, intfrac)
-	
-	def _ffix(self, value, fuzzyfuzz):
-		if self.fuzz > 0:
-			value -= fuzzyfuzz
-			self.__dict__["fuzz"] += 2 * fuzzyfuzz
-		else:
-			self.__dict__["fuzz"] -= fuzzyfuzz
-		self.__dict__["value"] = value
-
-class VTf_stop(VTfloat):
-	__doc__ = ValueType.__doc__
-	type = "f-stop"
-	
-	def __init__(self, val, human=False):
-		VTfloat.__init__(self, val, human)
-		self._ffix(2.0 * log(self.value, 2.0), 0.07)
-
-class VTstop(VTfloat):
-	__doc__ = ValueType.__doc__
-	type = "stop"
-	
-	def __init__(self, val, human=False):
-		VTfloat.__init__(self, val, human)
-		self._ffix(10.0 * log10(self.value) / 3.0, 0.01)
-
-class VTdatetime(ValueType):
-	type = "datetime"
-	_cmp_t = "VTdatetime"
-	_ranges = (9999, 12, 31, 23, 59, 59)
-	fres = r"(\+-?(?:\d+(?:\.\d+|/\d+)?))?"
-	_re = re.compile(r"(\d{4})" + fres + (r"(?:-(\d\d)" + fres) * 2 + r"(?:([T ])" + \
-	#                   YYYY                   mm + dd                      T
-	                 r"(\d\d)" + fres + r"(?::(\d\d)" + fres + r"(?::(\d\d)" + \
-	#                    HH                     MM                     SS
-	                 r")?" * 5 + r"(\+-?(?:\d+(?:\.\d+|/\d+)?[YmdHMS]?))?$")
-	#                                fuzz with unit
-	del fres
-	
-	def __init__(self, val, human=False):
-		try:
-			strval = str(val)
-		except Exception:
-			raise ValueError(val)
-		if not strval: raise ValueError(val)
-		if strval[-1] == "Z":
-			zone = "Z"
-			offset = 0
-			strval = strval[:-1]
-		else:
-			zone = strval[-5:]
-			try:
-				assert zone[0] in "+-"
-				assert False not in [c in "0123456789" for c in zone[1:]]
-				hour, minute = int(zone[1:3]), int(zone[3:])
-				assert 0 <= hour <= 12 and 0 <= minute < 60
-				offset = (hour * 60 + minute) * 60
-				if zone[0] == "+": offset = -offset
-				strval = strval[:-5]
-			except Exception:
-				zone = None
-		m = self._re.match(strval)
-		if not m: raise ValueError(val)
-		allval = m.groups()
-		if allval[6] == " " and not human: raise ValueError(val)
-		values = allval[:6] + allval[7:12]
-		datev = values[::2]
-		date = [int(v) if v else 1 for v in datev[:3]] + [int(v) if v else 0 for v in datev[3:]]
-		if 0 in date[:3]: raise ValueError(val)
-		for iv, mv in zip(date, self._ranges):
-			if iv > mv: raise ValueError(val)
-		fuzz = list(values[1::2])
-		steps = []
-		with_steps = False
-		for pos, v in enumerate(fuzz):
-			if v:
-				v = int(v[1:])
-				with_steps = True
-			steps.append(v)
-		parsed = struct_time(date + [0, 0, 0])
-		unit = None
-		last_fuzz = allval[12]
-		if last_fuzz:
-			if last_fuzz == "+": raise ValueError(val)
-			units = ["Y", "m", "d", "H", "M", "S"]
-			if last_fuzz[1] == "-":
-				mult = -1
-				f = last_fuzz[2:]
-			else:
-				mult = 1
-				f = last_fuzz[1:]
-			if f[-1] in units:
-				unit = f[-1]
-				mults = [12.0, 30.5, 24, 60, 60]
-				while unit != units.pop(): mult *= mults.pop()
-				f = f[:-1] or "1"
-			exact_fuzz = VTfloat(f).exact * mult
-			fuzz = int(exact_fuzz)
-			if fuzz != exact_fuzz:
-				fuzz = float(exact_fuzz)
-		else:
-			exact_fuzz = fuzz = 0
-		if not zone:
-			lparsed = localtime(timegm(parsed))
-			offset = timegm(parsed) - timegm(lparsed)
-		value = timegm(parsed)
-		lt = localtime(value + offset)
-		lts = "%04d-%02d-%02dT%02d:%02d:%02d" % lt[:6]
-		if None in datev:
-			valid_steps = datev.index(None)
-			lts = lts[:valid_steps * 3 + 1]
-			self.__dict__["valid_steps"] = valid_steps
-			t2 = self._step_end(parsed)
-			implfuzz = t2 - value
-		else:
-			implfuzz = 0
-			self.__dict__["valid_steps"] = 6
-		if not unit and implfuzz: fuzz *= implfuzz * 2;
-		fuzz += implfuzz
-		value += offset
-		if implfuzz and not exact_fuzz:
-			exact_fuzz = implfuzz
-		self.__dict__["_lts"] = lts
-		self.__dict__["_fuzz"] = (last_fuzz or "")
-		self.__dict__["time"] = parsed
-		self.__dict__["_tz"] = offset if zone else None
-		self.__dict__["str"] = val.replace(" ", "T")
-		self.__dict__["value"] = value
-		self.__dict__["exact"] = value
-		self.__dict__["fuzz"] = fuzz
-		self.__dict__["exact_fuzz"] = exact_fuzz
-		self.__dict__["utcoffset"] = offset
-		self.__dict__["steps"] = tuple(steps)
-		self.__dict__["with_steps"] = with_steps
-	
-	def localtimestr(self, include_fuzz=True):
-		if not include_fuzz: return self._lts
-		return self._lts + self._fuzz
-	
-	@property
-	def min(self):
-		if self.with_steps:
-			min_l = [v + min(s or 0, 0) for v, s in zip(self.time, self.steps + (0,))]
-			parsed = struct_time(min_l + [0, 0, 0])
-			value = timegm(parsed) + self.utcoffset
-		else:
-			value = self.value
-		return value + min(self.fuzz or 0, 0)
-	
-	@property
-	def max(self):
-		if self.with_steps:
-			max_l = [v + abs(s or 0) for v, s in zip(self.time, self.steps + (0,))]
-			parsed = struct_time(max_l + [0, 0, 0])
-			value = timegm(parsed) + self.utcoffset
-		else:
-			value = self.value
-		return value + abs(self.fuzz or 0)
-	
-	def overlap(self, other):
-		if not isinstance(other, VTdatetime):
-			raise TypeError("Can only compare to a VTdatetime")
-		if self.min > other.max or other.min > self.max:
-			return False
-		return self._cmp_step(self, other)
-	
-	def _cmp_step(self, a, b):
-		if a.with_steps:
-			if self.fuzz < 0:
-				nsf = self.fuzz
-				psf = nsf * -2
-			else:
-				psf = self.fuzz
-				nsf = 0
-			for f in range(5):
-				fuzz = a.steps[f] or 0
-				for i in range(min(fuzz, 0), abs(fuzz) + 1):
-					l = list(self.time)
-					l[f] += i
-					unixtime = timegm(l)
-					fuzz = psf
-					if self.valid_steps < 6:
-						t2 = self._step_end(l)
-						fuzz += t2 - unixtime
-					value = unixtime + nsf + self.utcoffset
-					a_min = value + min(fuzz, 0)
-					a_max = value + abs(fuzz)
-					if a is self:
-						if self._cmp_step(b, (a_min, a_max)):
-							return True
-					else:
-						if a_min <= b[1] and b[0] <= a_max:
-							return True
-		else:
-			if a is self:
-				return self._cmp_step(b, (a.min, a.max))
-			else:
-				return a.min <= b[1] and b[0] <= a.max
-		return False
-	
-	def _step_end(self, l):
-		l = list(l)
-		for i in range(self.valid_steps, len(self._ranges)):
-			l[i] = self._ranges[i]
-		if self.valid_steps == 2: # year + month specified
-			# "day 0" of next month
-			l[1] += 1
-			l[2] = 0
-		return timegm(l)
-
-valuetypes = {"string"  : VTstring,
-              "word"    : VTword,
-              "int"     : VTint,
-              "uint"    : VTuint,
-              "float"   : VTfloat,
-              "f-stop"  : VTf_stop,
-              "stop"    : VTstop,
-              "datetime": VTdatetime,
-             }
-
 def _vtparse(vtype, val, human=False):
 	return valuetypes[vtype](val, human)
 
-_p_hex = lambda x: int(x, 16)
 _field_sparser = {
 	"created"        : VTdatetime,
 	"imgdate"        : VTdatetime,
@@ -527,6 +65,7 @@ _field_sparser = {
 	"height"         : VTuint,
 	"rotate"         : VTint,
 }
+
 _p_int = lambda i: str(int(i))
 _p_hexint = lambda i: "%x" % (int(i),)
 def _p_date(val):
@@ -541,31 +80,34 @@ _field_cparser = {
 	"ext"            : _utf,
 }
 
-class dbcfg(DotDict):
-	def __init__(self, RC_NAME=".wellpapprc", EXTRA_RCs=[]):
-		DotDict.__init__(self, dict(tagwindow_width=840, tagwindow_height=600))
-		RCs = []
-		if RC_NAME:
-			path = "/"
-			RCs = [os.path.join(os.environ["HOME"], RC_NAME)]
-			for dir in os.getcwd().split(os.path.sep):
-				path = os.path.join(path, dir)
-				RC = os.path.join(path, RC_NAME)
-				if os.path.exists(RC): RCs.append(RC)
-		for RC in RCs + EXTRA_RCs:
-			self._load(RC)
+class Config(DotDict):
+	def __init__(self, **kw):
+		DotDict.__init__(self, tagwindow_width=840, tagwindow_height=600, **kw)
+		rcs = []
+		rc_name = ".wellpapprc"
+		path = "/"
+		rcs = [os.path.join(os.environ["HOME"], rc_name)]
+		for dir in os.getcwd().split(os.path.sep):
+			path = os.path.join(path, dir)
+			rc = os.path.join(path, rc_name)
+			if os.path.exists(rc): rcs.append(rc)
+		for rc in rcs:
+			self._load(rc)
+	
 	def _load(self, fn):
-		for line in CommentWrapper(file(fn)):
-			line = line.strip()
-			a = line.split("=", 1)
-			assert(len(a) == 2)
-			self[a[0]] = a[1]
+		with CommentWrapper(file(fn)) as fh:
+			for line in fh:
+				line = line.strip()
+				a = line.split("=", 1)
+				assert(len(a) == 2)
+				self[a[0]] = a[1]
 
-class dbclient:
+class Client:
 	_prot_max_len = 4096
-	def __init__(self, cfg = None):
+	
+	def __init__(self, cfg=None):
 		if not cfg:
-			cfg = dbcfg()
+			cfg = Config()
 		self.cfg = cfg
 		self.server = (cfg.server, int(cfg.port))
 		self.userpass = None
@@ -576,6 +118,7 @@ class dbclient:
 		if base[-1] == "/": base = base[:-1]
 		base = re.escape(base)
 		self._destmd5re = re.compile(r"^" + base + r"/[0-9a-f]/[0-9a-f]{2}/([0-9a-f]{32})$")
+	
 	def _reconnect(self):
 		if self.is_connected: return
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -585,6 +128,7 @@ class dbclient:
 		self.is_connected = True
 		self.auth_ok = False
 		if self.userpass: self._send_auth()
+	
 	def _writeline(self, line, retry=True):
 		self._reconnect()
 		line = line + "\n"
@@ -595,8 +139,10 @@ class dbclient:
 			if retry:
 				self._reconnect()
 				self.sock.send(line)
+	
 	def _readline(self):
 		return self.utfdec(self.fh.readline())[0]
+	
 	def _parse_search(self, line, posts, wanted, props):
 		if line == u"OK\n": return True
 		if line[0] != u"R": raise EResponse(line)
@@ -639,7 +185,7 @@ class dbclient:
 			else:
 				ta = f.tags
 			t = Tag()
-			t.populate(data)
+			t._populate(data)
 			ta.append(t)
 		if not f.md5: raise EResponse(line)
 		if f.md5 in seen: raise EDuplicate(f.md5)
@@ -662,11 +208,13 @@ class dbclient:
 		else:
 			f.datatags = dict((t.name, t) for t in f.datatags)
 		posts.append(f)
+	
 	def _search_post(self, search, wanted = None, props = None):
 		self._writeline(search)
 		posts = []
 		while not self._parse_search(self._readline(), posts, wanted, props): pass
 		return posts
+	
 	def get_post(self, md5, separate_implied = False, wanted = None):
 		md5 = str(md5)
 		if wanted is None:
@@ -676,6 +224,7 @@ class dbclient:
 		posts = self._search_post(search, wanted)
 		if not posts or posts[0]["md5"] != md5: return None
 		return posts[0]
+	
 	def delete_post(self, md5):
 		md5 = str(md5)
 		assert " " not in md5
@@ -683,10 +232,12 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	
 	def _list(self, data, converter = _utf):
 		if not data: return []
 		if isinstance(data, basestring): return [converter(data)]
 		return map(converter, data)
+	
 	def _shuffle_minus(self, pos, neg, converter):
 		pos = self._list(pos, converter)
 		neg = self._list(neg, converter)
@@ -695,8 +246,10 @@ class dbclient:
 		pos2 = [t[1:] for t in neg if t[0] == "-"]
 		neg2 = [t for t in neg if t[0] != "-"]
 		return pos1 + pos2, neg1 + neg2
+	
 	def _filter_wanted(self, wanted):
 		return [w for w in self._list(wanted, str) if w != "datatags"]
+	
 	def _build_search(self, tags=None, guids=None, excl_tags=None,
 	                  excl_guids=None, wanted=None, order=None, range=None):
 		search = ""
@@ -720,22 +273,27 @@ class dbclient:
 			assert len(range) == 2
 			search += "R" + ("%x" % range[0]) + ":" + ("%x" % range[1])
 		return search
+	
 	def search_post(self, wanted=None, **kw):
 		search = "SP" + self._build_search(wanted=wanted, **kw)
 		props = DotDict()
 		posts = self._search_post(search, wanted, props)
 		return posts, props
+	
 	def _send_auth(self):
 		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)
 		if self._readline() == "OK\n": self.auth_ok = True
+	
 	def auth(self, user, password):
 		self.userpass = (_utf(user), _utf(password))
 		self._send_auth()
 		return self.auth_ok
+	
 	def _fieldspec(self, **kwargs):
 		f = [_utf(f) + "=" + _field_cparser[_utf(f)](kwargs[f]) for f in kwargs]
 		if not f: return ""
 		return " " + " ".join(f)
+	
 	def modify_post(self, md5, **kwargs):
 		md5 = str(md5)
 		assert " " not in md5
@@ -745,6 +303,7 @@ class dbclient:
 			self._writeline(cmd)
 			res = self._readline()
 			if res != u"OK\n": raise EResponse(res)
+	
 	def add_post(self, md5, **kwargs):
 		cmd  = "AP" + str(md5)
 		assert "width" in kwargs
@@ -754,6 +313,7 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	
 	def _rels(self, c, md5, rels):
 		cmd = "R" + c + str(md5)
 		for rel in self._list(rels, str):
@@ -761,10 +321,13 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	
 	def add_rels(self, md5, rels):
 		self._rels("R", md5, rels)
+	
 	def remove_rels(self, md5, rels):
 		self._rels("r", md5, rels)
+	
 	def _parse_rels(self, line, rels):
 		if line == u"OK\n": return True
 		if line[0] != u"R": raise EResponse(line)
@@ -776,6 +339,7 @@ class dbclient:
 		for rel in a[1:]:
 			l.append(rel)
 		rels[p] = l
+	
 	def post_rels(self, md5):
 		md5 = str(md5)
 		cmd = "RS" + md5
@@ -784,6 +348,7 @@ class dbclient:
 		while not self._parse_rels(self._readline(), rels): pass
 		if not md5 in rels: return None
 		return rels[md5]
+	
 	def add_tag(self, name, type=None, guid=None, valuetype=None):
 		cmd = "ATN" + _utf(name)
 		if type:
@@ -795,16 +360,19 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	
 	def add_alias(self, name, origin_guid):
 		cmd = "AAG" + str(origin_guid) + " N" + _utf(name)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	
 	def remove_alias(self, name):
 		cmd = "DAN" + _utf(name)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	
 	def _addrem_implies(self, addrem, set_tag, implied_tag, priostr):
 		assert " " not in set_tag
 		assert " " not in implied_tag
@@ -817,10 +385,13 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	
 	def add_implies(self, set_tag, implied_tag, priority=0):
 		self._addrem_implies("I", set_tag, implied_tag, ":" + str(priority))
+	
 	def remove_implies(self, set_tag, implied_tag):
 		self._addrem_implies("i", set_tag, implied_tag, "")
+	
 	def _parse_implies(self, data):
 		res = self._readline()
 		if res == u"OK\n": return
@@ -837,6 +408,7 @@ class dbclient:
 			if set_guid not in data: data[set_guid] = []
 			data[set_guid].append((impl_guid, int(prio)))
 		return True
+	
 	def tag_implies(self, tag, reverse=False):
 		tag = str(tag)
 		assert " " not in tag
@@ -860,6 +432,7 @@ class dbclient:
 					rev.append((itag, impl[1]))
 			return rev or None
 		if tag in data: return data[tag]
+	
 	def merge_tags(self, into_t, from_t):
 		assert " " not in into_t
 		assert " " not in from_t
@@ -867,6 +440,7 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	
 	def mod_tag(self, guid, name=None, type=None):
 		guid = _utf(guid)
 		assert " " not in guid
@@ -882,6 +456,7 @@ class dbclient:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK\n": raise EResponse(res)
+	
 	def _tag2spec(self, t):
 		if type(t) in (tuple, list):
 			assert len(t) in (2, 3)
@@ -893,6 +468,7 @@ class dbclient:
 				return g + t[1] + t[2].format()
 		else:
 			return str(t)
+	
 	def tag_post(self, md5, full_tags=None, weak_tags=None, remove_tags=None):
 		tags = map(self._tag2spec, full_tags or []) + map(lambda t: "~" + self._tag2spec(t), weak_tags or [])
 		remove_tags = map(str, remove_tags or [])
@@ -910,6 +486,7 @@ class dbclient:
 			self._writeline(cmd)
 			res = self._readline()
 			if res != u"OK\n": raise EResponse(res)
+	
 	def _parse_tagres(self, resdata = None):
 		res = self._readline()
 		if res == u"OK\n": return
@@ -917,9 +494,10 @@ class dbclient:
 		if res[1] == u"E": raise EResponse(res)
 		if res[1] == u"R": return True # ignore count for now
 		t = Tag()
-		t.populate(res[1:])
+		t._populate(res[1:])
 		if resdata != None: resdata.append(t)
 		return t
+	
 	def find_tags(self, matchtype, name, range=None, order=None, **kw):
 		if kw:
 			filter = self._build_search(**kw)
@@ -942,6 +520,7 @@ class dbclient:
 		tags = []
 		while self._parse_tagres(tags): pass
 		return tags
+	
 	def _parse_tag(self, prefix, spec, pos, comparison):
 		if pos == -1: return None
 		tag = self.find_tag(spec[:pos])
@@ -971,6 +550,7 @@ class dbclient:
 			else:
 				val = None
 			return (prefix + tag.guid, val)
+	
 	def parse_tag(self, spec, comparison=False):
 		spec = _utf(spec)
 		if spec[0] in "~-!":
@@ -989,6 +569,7 @@ class dbclient:
 		else:
 			ppos = spec.rfind("=")
 		return self._parse_tag(prefix, spec, ppos, comparison)
+	
 	def find_tag(self, name, resdata=None, with_prefix=False):
 		name = _utf(name)
 		if with_prefix and name[0] in "~-!":
@@ -1002,6 +583,7 @@ class dbclient:
 		guid = tags[0].guid
 		if resdata != None: resdata.update(tags[0])
 		return prefix + guid
+	
 	def get_tag(self, guid, with_prefix=False):
 		guid = _utf(guid)
 		if with_prefix and guid[0] in u"~-!":
@@ -1016,27 +598,34 @@ class dbclient:
 		assert guid == data.guid
 		data["name"] = prefix + data["name"]
 		return data
+	
 	def begin_transaction(self):
 		self._writeline("tB")
 		res = self._readline()
 		return res == u"OK\n"
+	
 	def end_transaction(self):
 		self._writeline("tE")
 		res = self._readline()
 		return res == u"OK\n"
+	
 	def thumb_path(self, md5, size):
 		md5 = str(md5)
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
+	
 	def pngthumb_path(self, md5, ft, size):
 		fn = str(md5) + "." + str(ft)
 		md5 = hashlib.md5(fn).hexdigest()
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
+	
 	def image_dir(self, md5):
 		md5 = str(md5)
 		return os.path.join(self.cfg.image_base, md5[0], md5[1:3])
+	
 	def image_path(self, md5):
 		md5 = str(md5)
 		return os.path.join(self.image_dir(md5), md5)
+	
 	def postspec2md5(self, spec, default = None):
 		if os.path.lexists(spec) and not os.path.isdir(spec):
 			# some extra magic to avoid reading the files if possible
@@ -1058,6 +647,7 @@ class dbclient:
 			return hashlib.md5(file(spec).read()).hexdigest()
 		if self._md5re.match(spec): return spec
 		return default
+	
 	def order(self, tag, posts):
 		tag = str(tag)
 		assert " " not in tag
@@ -1077,6 +667,7 @@ class dbclient:
 			self._writeline(cmd)
 			res = self._readline()
 			if res != u"OK\n": raise EResponse(res)
+	
 	def metalist(self, name):
 		cmd = "L" + _utf(name)
 		self._writeline(cmd)
@@ -1087,20 +678,20 @@ class dbclient:
 			names.append(res[2:-1])
 			res = self._readline()
 		return names
+	
 	def thumb_fns(self, m, ft):
 		sizes = self.cfg.thumb_sizes.split()
 		jpeg_fns = map(lambda z: (self.thumb_path(m, int(z)), int(z)), sizes)
 		png_fns = map(lambda n, z: (self.pngthumb_path(m, ft, n), z),
 			      ("normal", "large"), (128, 256))
 		return jpeg_fns, png_fns
+	
 	def save_thumbs(self, m, img, ft, rot, force=False):
 		import Image
 		from PIL import PngImagePlugin
-		from dbutil import make_pdirs
 		fn = self.image_path(m)
 		mtime = os.stat(fn).st_mtime
 		if not img:
-			from dbutil import raw_wrapper
 			img = Image.open(raw_wrapper(open(fn, "rb")))
 		img.load()
 		# PIL rotates CCW

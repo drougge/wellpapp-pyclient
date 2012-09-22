@@ -2,14 +2,14 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 
 if len(argv) not in (3, 4):
 	print "Usage:", argv[0], "set_tag implied_tag [priority]"
 	print "use -set_tag to remove an implication"
 	exit(1)
 
-client = dbclient()
+client = Client()
 set_tag = client.find_tag(argv[1], with_prefix=True)
 implied_tag = client.find_tag(argv[2], with_prefix=True)
 priority = 0

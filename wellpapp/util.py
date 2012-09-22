@@ -1,5 +1,9 @@
 # -*- coding: iso-8859-1 -*-
 
+__all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "ExifWrapper",
+           "identify_raw", "make_pdirs", "raw_exts", "RawWrapper",
+           "CommentWrapper", "DotDict")
+
 class TIFF:
 	"""Pretty minimal TIFF container parser"""
 	
@@ -111,7 +115,7 @@ class FileWindow:
 			self.fh.close()
 			self.closed = True
 
-class exif_wrapper:
+class ExifWrapper:
 	"""Wrapper for several EXIF libraries.
 	Starts out with an internal parser, falls back to two incompatible
 	versions of pyexiv2 for fields it doesn't know about.
@@ -307,6 +311,13 @@ class exif_wrapper:
 				return int(date)
 			except Exception:
 				pass
+	
+	def rotation(self):
+		if "Exif.Image.Orientation" not in self: return -1
+		o = exif["Exif.Image.Orientation"]
+		orient = {1: 0, 3: 180, 6: 90, 8: 270}
+		if o not in orient: return -1
+		return orient[o]
 
 raw_exts = ("dng", "pef", "nef")
 
@@ -503,7 +514,7 @@ def _rawexif(raw, fh):
 	fm.add(fh, first)
 	return fm
 
-class raw_wrapper:
+class RawWrapper:
 	"""Wraps (read only) IO to an image, so that RAW images look like JPEGs.
 	Handles DNG, NEF and PEF.
 	Wraps fh as is if no reasonable embedded JPEG is found."""
@@ -562,3 +573,43 @@ def make_pdirs(fn):
 	import os.path
 	dn = os.path.dirname(fn)
 	if not os.path.exists(dn): os.makedirs(dn)
+
+class CommentWrapper:
+	"""Wrap a file so readline/iteration skips comments
+	and optionally empty lines"""
+	def __init__(self, fh, allow_empty=False):
+		self.fh = fh
+		self.allow_empty = allow_empty
+		self.close = fh.close
+	def __iter__(self):
+		return self
+	def next(self):
+		line = self.readline()
+		if not line: raise StopIteration()
+		return line
+	def readline(self):
+		while 42:
+			line = self.fh.readline()
+			if not line: return line
+			s = line.strip()
+			if s:
+				if s[0] != "#": return line
+			elif self.allow_empty:
+				return line
+	def __enter__(self):
+		return self
+	def __exit__(self, *exc):
+		self.close()
+
+class DotDict(dict):
+	"""Like a dict, but with d.foo as well as d["foo"]."""
+	
+	__setattr__ = dict.__setitem__
+	__delattr__ = dict.__delitem__
+	def __getattr__(self, name):
+		if name[0] == "_":
+			raise AttributeError(name)
+		return self.get(name)
+	def __repr__(self):
+		return repr(type(self)) + dict.__repr__(self)
+

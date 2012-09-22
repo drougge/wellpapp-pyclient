@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit, stdout
-from dbclient import dbclient
+from wellpapp import Client
 from re import match
 from os.path import exists
 from hashlib import md5
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 	if len(new_argv) < 1:
 		print "Usage:", argv[0], "post-spec or tagname [...]"
 		exit(1)
-	client = dbclient()
+	client = Client()
 	ret = 0
 	for object in new_argv:
 		object = client.postspec2md5(object, object)

@@ -129,7 +129,7 @@ def check_connectivity():
 
 if __name__ == '__main__':
 	from sys import argv, exit
-	from dbclient import dbclient
+	from wellpapp import Client
 	optchars = "tTiIfs"
 	opts = ""
 	for a in argv[1:]:
@@ -142,7 +142,7 @@ if __name__ == '__main__':
 			else:
 				usage(argv)
 	if not opts: usage(argv)
-	client = dbclient()
+	client = Client()
 	posts = client._search_post("SPFtagguid Fimplied Fext", ["tagguid", "implied", "ext"])
 	print len(posts), "posts"
 	posts = dict(map(lambda f: (f["md5"], f), posts))

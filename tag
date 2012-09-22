@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 
 if len(argv) < 3:
 	print "Usage:", argv[0], "post-spec tag [tag [...]]"
@@ -23,7 +23,7 @@ def set_tag(full, weak, remove, tag):
 	s.add((tag, val))
 	return True
 
-client = dbclient()
+client = Client()
 full = set()
 weak = set()
 remove = set()

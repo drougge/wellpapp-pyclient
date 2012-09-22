@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 
 a = {}
 if len(argv) == 4:
@@ -11,7 +11,7 @@ elif len(argv) != 3:
 	print "Usage:", argv[0], "tag new_name [new_type]"
 	exit(1)
 
-client = dbclient()
+client = Client()
 tag = client.find_tag(argv[1])
 a["name"] = argv[2]
 if not tag:
