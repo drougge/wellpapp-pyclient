@@ -5,6 +5,7 @@ from fractions import Fraction
 from abc import ABCMeta, abstractmethod, abstractproperty
 from time import strftime, localtime, struct_time
 from calendar import timegm
+from math import log, log10
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
@@ -115,7 +116,12 @@ class ValueType(object):
 	v.fuzz is how inexact the value is.
 	v.exact_fuzz is like .exact but for the fuzz.
 	v.str (or str(v)) is a string representation of exact value+-fuzz.
-	v.format() is this value formated for sending to server."""
+	v.format() is this value formated for sending to server.
+	
+	Comparisons:
+	== and != compare that both value and fuzz match,
+	other comparisons apply the fuzz.
+	Use value.overlap(other) to check for equality with fuzz."""
 	
 	__metaclass__ = ABCMeta
 	
@@ -163,16 +169,30 @@ class ValueType(object):
 		       self.exact_fuzz != other.exact_fuzz
 	def __lt__(self, other):
 		self.__cmp(other)
-		return self.exact - self.exact_fuzz < other.exact + other.exact_fuzz
+		return self.min() < other.max()
 	def __le__(self, other):
 		self.__cmp(other)
-		return self.exact - self.exact_fuzz <= other.exact + other.exact_fuzz
+		return self.min() <= other.max()
 	def __gt__(self, other):
 		self.__cmp(other)
-		return self.exact + self.exact_fuzz > other.exact - other.exact_fuzz
+		return self.max() > other.min()
 	def __ge__(self, other):
 		self.__cmp(other)
-		return self.exact + self.exact_fuzz >= other.exact - other.exact_fuzz
+		return self.max() >= other.min()
+	def min(self):
+		f = self.fuzz or 0
+		if f < 0:
+			return self.value + f
+		else:
+			return self.value
+	def max(self):
+		if self.fuzz:
+			return self.value + abs(self.fuzz)
+		else:
+			return self.value
+	def overlap(self, other):
+		self.__cmp(other)
+		return self.min() <= other.max() and other.min() <= self.max()
 	def format(self):
 		return self.str
 
@@ -192,18 +212,6 @@ class VTstring(ValueType):
 			val = _dec(val)
 		for name in ("str", "value", "exact"):
 			self.__dict__[name] = val
-	def __lt__(self, other):
-		self._ValueType__cmp(other)
-		return self.exact < other.exact
-	def __le__(self, other):
-		self._ValueType__cmp(other)
-		return self.exact <= other.exact
-	def __gt__(self, other):
-		self._ValueType__cmp(other)
-		return self.exact > other.exact
-	def __ge__(self, other):
-		self._ValueType__cmp(other)
-		return self.exact >= other.exact
 	def __str__(self):
 		return self.str.encode("utf-8")
 	def __unicode__(self):
@@ -232,7 +240,7 @@ class VTnumber(ValueType):
 	def _parse(self, v, vp, vp2, fp):
 		v = str(v)
 		self.__dict__["str"] = v
-		a = v.split("+-", 1)
+		a = v.split("+", 1)
 		self.__dict__["exact"] = vp(a[0])
 		self.__dict__["value"] = vp2(self.exact)
 		if len(a) == 2:
@@ -252,8 +260,7 @@ class VTint(VTnumber):
 	type = "int"
 	
 	def __init__(self, val, human=False):
-		p = int if human else _p_hex
-		self._parse(val, int, int, p)
+		self._parse(val, int, int, int)
 
 class VTuint(VTnumber):
 	__doc__ = ValueType.__doc__
@@ -261,10 +268,10 @@ class VTuint(VTnumber):
 	
 	def __init__(self, val, human=False):
 		p = int if human else _p_hex
-		self._parse(val, p, int, p)
+		self._parse(val, p, int, int)
 		if self.fuzz:
-			s = "%d+-%d" % (self.value, self.fuzz)
-			r = "%x+-%x" % (self.value, self.fuzz)
+			s = "%d+%d" % (self.value, self.fuzz)
+			r = "%x+%d" % (self.value, self.fuzz)
 		else:
 			s = str(self.value)
 			r = "%x" % (self.value,)
@@ -284,21 +291,30 @@ class VTfloat(VTnumber):
 			except ValueError:
 				return Fraction(v)
 		self._parse(val, intfrac, float, intfrac)
+	
+	def _ffix(self, value, fuzzyfuzz):
+		if self.fuzz > 0:
+			value -= fuzzyfuzz
+			self.__dict__["fuzz"] += 2 * fuzzyfuzz
+		else:
+			self.__dict__["fuzz"] -= fuzzyfuzz
+		self.__dict__["value"] = value
 
 class VTf_stop(VTfloat):
 	__doc__ = ValueType.__doc__
 	type = "f-stop"
+	
+	def __init__(self, val, human=False):
+		VTfloat.__init__(self, val, human)
+		self._ffix(2.0 * log(self.value, 2.0), 0.07)
 
 class VTstop(VTfloat):
 	__doc__ = ValueType.__doc__
 	type = "stop"
 	
 	def __init__(self, val, human=False):
-		VTfloat.__init__(self, val)
-		if isinstance(self.exact, (int, long)):
-			self.__dict__["value"] = self.exact
-		if isinstance(self.exact_fuzz, (int, long)):
-			self.__dict__["fuzz"] = self.exact_fuzz
+		VTfloat.__init__(self, val, human)
+		self._ffix(10.0 * log10(self.value) / 3.0, 0.01)
 
 # @@ comparisons ignore steps
 class VTdatetime(ValueType):
