@@ -121,7 +121,7 @@ class Config(DotDict):
 				assert(len(a) == 2)
 				self[a[0]] = a[1]
 
-class dbclient:
+class Client:
 	_prot_max_len = 4096
 	def __init__(self, cfg=None):
 		if not cfg:
@@ -656,11 +656,9 @@ class dbclient:
 	def save_thumbs(self, m, img, ft, rot, force=False):
 		import Image
 		from PIL import PngImagePlugin
-		from dbutil import make_pdirs
 		fn = self.image_path(m)
 		mtime = os.stat(fn).st_mtime
 		if not img:
-			from dbutil import raw_wrapper
 			img = Image.open(raw_wrapper(open(fn, "rb")))
 		img.load()
 		# PIL rotates CCW
