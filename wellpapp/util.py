@@ -573,6 +573,7 @@ class CommentWrapper:
 	def __init__(self, fh, allow_empty=False):
 		self.fh = fh
 		self.allow_empty = allow_empty
+		self.close = fh.close
 	def __iter__(self):
 		return self
 	def next(self):
@@ -588,6 +589,10 @@ class CommentWrapper:
 				if s[0] != "#": return line
 			elif self.allow_empty:
 				return line
+	def __enter__(self):
+		return self
+	def __exit__(self, *exc):
+		self.close()
 
 class DotDict(dict):
 	__setattr__ = dict.__setitem__

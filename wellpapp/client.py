@@ -100,31 +100,32 @@ _field_cparser = {
 	"ext"            : _utf,
 }
 
-class dbcfg(DotDict):
-	def __init__(self, RC_NAME=".wellpapprc", EXTRA_RCs=[]):
-		DotDict.__init__(self, dict(tagwindow_width=840, tagwindow_height=600))
-		RCs = []
-		if RC_NAME:
-			path = "/"
-			RCs = [os.path.join(os.environ["HOME"], RC_NAME)]
-			for dir in os.getcwd().split(os.path.sep):
-				path = os.path.join(path, dir)
-				RC = os.path.join(path, RC_NAME)
-				if os.path.exists(RC): RCs.append(RC)
-		for RC in RCs + EXTRA_RCs:
-			self._load(RC)
+class Config(DotDict):
+	def __init__(self, **kw):
+		DotDict.__init__(self, tagwindow_width=840, tagwindow_height=600, **kw)
+		rcs = []
+		rc_name = ".wellpapprc"
+		path = "/"
+		rcs = [os.path.join(os.environ["HOME"], rc_name)]
+		for dir in os.getcwd().split(os.path.sep):
+			path = os.path.join(path, dir)
+			rc = os.path.join(path, rc_name)
+			if os.path.exists(rc): rcs.append(rc)
+		for rc in rcs:
+			self._load(rc)
 	def _load(self, fn):
-		for line in CommentWrapper(file(fn)):
-			line = line.strip()
-			a = line.split("=", 1)
-			assert(len(a) == 2)
-			self[a[0]] = a[1]
+		with CommentWrapper(file(fn)) as fh:
+			for line in fh:
+				line = line.strip()
+				a = line.split("=", 1)
+				assert(len(a) == 2)
+				self[a[0]] = a[1]
 
 class dbclient:
 	_prot_max_len = 4096
-	def __init__(self, cfg = None):
+	def __init__(self, cfg=None):
 		if not cfg:
-			cfg = dbcfg()
+			cfg = Config()
 		self.cfg = cfg
 		self.server = (cfg.server, int(cfg.port))
 		self.userpass = None
