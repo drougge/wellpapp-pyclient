@@ -169,30 +169,36 @@ class ValueType(object):
 		       self.exact_fuzz != other.exact_fuzz
 	def __lt__(self, other):
 		self.__cmp(other)
-		return self.min() < other.max()
+		return self.min < other.max
 	def __le__(self, other):
 		self.__cmp(other)
-		return self.min() <= other.max()
+		return self.min <= other.max
 	def __gt__(self, other):
 		self.__cmp(other)
-		return self.max() > other.min()
+		return self.max > other.min
 	def __ge__(self, other):
 		self.__cmp(other)
-		return self.max() >= other.min()
+		return self.max >= other.min
+	
+	@property
 	def min(self):
 		f = self.fuzz or 0
 		if f < 0:
 			return self.value + f
 		else:
 			return self.value
+	
+	@property
 	def max(self):
 		if self.fuzz:
 			return self.value + abs(self.fuzz)
 		else:
 			return self.value
+	
 	def overlap(self, other):
 		self.__cmp(other)
 		return self.min() <= other.max() and other.min() <= self.max()
+	
 	def format(self):
 		return self.str
 
@@ -429,6 +435,7 @@ class VTdatetime(ValueType):
 		if not include_fuzz: return self._lts
 		return self._lts + self._fuzz
 	
+	@property
 	def min(self):
 		if self.with_steps:
 			min_l = [v + min(s or 0, 0) for v, s in zip(self.time, self.steps + (0,))]
@@ -438,6 +445,7 @@ class VTdatetime(ValueType):
 			value = self.value
 		return value + min(self.fuzz or 0, 0)
 	
+	@property
 	def max(self):
 		if self.with_steps:
 			max_l = [v + abs(s or 0) for v, s in zip(self.time, self.steps + (0,))]
@@ -450,7 +458,7 @@ class VTdatetime(ValueType):
 	def overlap(self, other):
 		if not isinstance(other, VTdatetime):
 			raise TypeError("Can only compare to a VTdatetime")
-		if self.min() > other.max() or other.min() > self.max():
+		if self.min > other.max or other.min > self.max:
 			return False
 		return self._cmp_step(self, other)
 	
@@ -483,9 +491,9 @@ class VTdatetime(ValueType):
 							return True
 		else:
 			if a is self:
-				return self._cmp_step(b, (a.min(), a.max()))
+				return self._cmp_step(b, (a.min, a.max))
 			else:
-				return a.min() <= b[1] and b[0] <= a.max()
+				return a.min <= b[1] and b[0] <= a.max
 		return False
 	
 	def _step_end(self, l):
