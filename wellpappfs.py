@@ -5,7 +5,7 @@ import fuse
 import stat
 import errno
 import os
-from dbclient import dbclient
+from wellpapp import Client
 import re
 from time import time, sleep
 from hashlib import md5
@@ -323,7 +323,7 @@ class Wellpapp(fuse.Fuse):
 
 	def main(self, *a, **kw):
 		self._cache = Cache(30)
-		self._client = dbclient()
+		self._client = Client()
 		self._client_lock = RLock()
 		self._cfgfile = self._cfg2file()
 		self._use_cache = False
