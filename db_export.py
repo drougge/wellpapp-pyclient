@@ -3,7 +3,7 @@
 
 from sys import argv, exit
 from dbclient import dbclient, dbcfg, Post, CommentWrapper
-from dbutil import raw_wrapper
+from dbutil import RawWrapper
 import re
 from os.path import exists, dirname
 from os import makedirs, stat
@@ -164,7 +164,7 @@ for post in posts:
 		d = dirname(dest_fn)
 		if not exists(d): makedirs(dirname(dest_fn))
 		if w > z or h > z or post.rotate > 0 or post.ext in raw_exts:
-			img = Image.open(raw_wrapper(open(src_fn, "rb")))
+			img = Image.open(RawWrapper(open(src_fn, "rb")))
 			if w > z or h > z:
 				img.thumbnail((z, z), Image.ANTIALIAS)
 			img = rotate_image(img, post.rotate)

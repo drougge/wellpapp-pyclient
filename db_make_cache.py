@@ -4,7 +4,7 @@
 from os import walk, readlink, stat
 from os.path import join
 from sys import argv, exit
-from dbutil import identify_raw, raw_wrapper
+from dbutil import identify_raw, RawWrapper
 
 def add(m, fn):
 	try:
@@ -15,7 +15,7 @@ def add(m, fn):
 		fh = file(dest, "rb")
 		if identify_raw(fh):
 			fh.seek(0)
-			jfh = raw_wrapper(fh, True)
+			jfh = RawWrapper(fh, True)
 			jfh.seek(0, 2)
 			jz = jfh.tell()
 			jfh.close()

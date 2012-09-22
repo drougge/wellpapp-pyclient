@@ -1,7 +1,7 @@
 # -*- coding: iso-8859-1 -*-
 
-__all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "exif_wrapper",
-           "identify_raw", "make_pdirs", "raw_exts", "raw_wrapper",
+__all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "ExifWrapper",
+           "identify_raw", "make_pdirs", "raw_exts", "RawWrapper",
            "CommentWrapper", "DotDict")
 
 class TIFF:
@@ -115,7 +115,7 @@ class FileWindow:
 			self.fh.close()
 			self.closed = True
 
-class exif_wrapper:
+class ExifWrapper:
 	"""Wrapper for several EXIF libraries.
 	Starts out with an internal parser, falls back to two incompatible
 	versions of pyexiv2 for fields it doesn't know about.
@@ -507,7 +507,7 @@ def _rawexif(raw, fh):
 	fm.add(fh, first)
 	return fm
 
-class raw_wrapper:
+class RawWrapper:
 	"""Wraps (read only) IO to an image, so that RAW images look like JPEGs.
 	Handles DNG, NEF and PEF.
 	Wraps fh as is if no reasonable embedded JPEG is found."""

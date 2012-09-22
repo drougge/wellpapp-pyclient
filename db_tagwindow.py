@@ -3,7 +3,7 @@
 
 from sys import argv, exit
 from dbclient import dbclient
-from dbutil import raw_wrapper
+from dbutil import RawWrapper
 from itertools import chain
 import pygtk
 pygtk.require("2.0")
@@ -802,7 +802,7 @@ class FullscreenWindowThread(Thread):
 	def run(self):
 		loader = None
 		try:
-			fh = raw_wrapper(file(self._fn, "rb"))
+			fh = RawWrapper(file(self._fn, "rb"))
 			loader = gtk.gdk.PixbufLoader()
 			fh.seek(0, 2)
 			l = fh.tell()

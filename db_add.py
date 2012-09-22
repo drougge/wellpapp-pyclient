@@ -7,7 +7,7 @@ from cStringIO import StringIO
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, getcwd, stat
 from dbclient import dbclient, VTstring
-from dbutil import make_pdirs, raw_wrapper, identify_raw, exif_wrapper, raw_exts
+from dbutil import make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts
 from time import gmtime, strftime
 
 def determine_filetype(data):
@@ -181,7 +181,7 @@ def add_image(fn):
 		make_pdirs(p)
 		symlink(fn, p)
 		if ft in raw_exts:
-			jfh = raw_wrapper(StringIO(data), True)
+			jfh = RawWrapper(StringIO(data), True)
 			jfh.seek(0, 2)
 			jz = jfh.tell()
 			jfh.close()
@@ -196,10 +196,10 @@ def add_image(fn):
 			if not post:
 				w, h = flash_dimensions(data)
 		else:
-			datafh = raw_wrapper(StringIO(data))
+			datafh = RawWrapper(StringIO(data))
 			img = Image.open(datafh)
 			w, h = img.size
-	exif = exif_wrapper(fn)
+	exif = ExifWrapper(fn)
 	if not post:
 		rot = exif2rotation(exif)
 		if rot in (90, 270): w, h = h, w
@@ -219,7 +219,7 @@ def add_image(fn):
 		else:
 			rot = exif2rotation(exif)
 			if thumb_source:
-				img = Image.open(raw_wrapper(open(thumb_source, "rb")))
+				img = Image.open(RawWrapper(open(thumb_source, "rb")))
 			client.save_thumbs(m, img, ft, rot, force_thumbs)
 	full = tagset()
 	weak = tagset()
