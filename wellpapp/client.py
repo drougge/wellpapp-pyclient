@@ -2,8 +2,8 @@
 
 import socket, base64, codecs, os, hashlib, re
 
-from vt import *
-from util import *
+from .vt import *
+from .util import *
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
