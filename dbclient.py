@@ -319,6 +319,7 @@ class VTstop(VTfloat):
 class VTdatetime(ValueType):
 	type = "datetime"
 	_cmp_t = "VTdatetime"
+	_ranges = (9999, 12, 31, 23, 59, 59)
 	fres = r"(\+-?(?:\d+(?:\.\d+|/\d+)?))?"
 	_re = re.compile(r"(\d{4})" + fres + (r"(?:-(\d\d)" + fres) * 2 + r"(?:([T ])" + \
 	#                   YYYY                   mm + dd                      T
@@ -358,7 +359,7 @@ class VTdatetime(ValueType):
 		datev = values[::2]
 		date = [int(v) if v else 1 for v in datev[:3]] + [int(v) if v else 0 for v in datev[3:]]
 		if 0 in date[:3]: raise ValueError(val)
-		for iv, mv in zip(date, (9999, 12, 31, 23, 59, 59)):
+		for iv, mv in zip(date, self._ranges):
 			if iv > mv: raise ValueError(val)
 		fuzz = list(values[1::2])
 		steps = []
@@ -394,24 +395,26 @@ class VTdatetime(ValueType):
 		if not zone:
 			lparsed = localtime(timegm(parsed))
 			offset = timegm(parsed) - timegm(lparsed)
-		value = timegm(parsed) + offset
-		lt = localtime(value)
+		value = timegm(parsed)
+		lt = localtime(value + offset)
 		lts = "%04d-%02d-%02dT%02d:%02d:%02d" % lt[:6]
 		if None in datev:
-			miss = datev.index(None)
-			lts = lts[:miss * 3 + 1]
-			implfuzz = [30 * 60 * 24 * 365,   int(30 * 60 * 24 * 30.5),
-			            30 * 60 * 24,   30 * 60,   30][miss - 1]
+			valid_steps = datev.index(None)
+			lts = lts[:valid_steps * 3 + 1]
+			self.__dict__["valid_steps"] = valid_steps
+			t2 = self._step_end(parsed)
+			implfuzz = t2 - value
 		else:
 			implfuzz = 0
+			self.__dict__["valid_steps"] = 6
 		if not unit and implfuzz: fuzz *= implfuzz * 2;
 		fuzz += implfuzz
-		value += implfuzz
+		value += offset
 		if implfuzz and not exact_fuzz:
 			exact_fuzz = implfuzz
 		self.__dict__["_lts"] = lts
 		self.__dict__["_fuzz"] = (last_fuzz or "")
-		self.__dict__["_parsed"] = parsed
+		self.__dict__["time"] = parsed
 		self.__dict__["_tz"] = offset if zone else None
 		self.__dict__["str"] = val.replace(" ", "T")
 		self.__dict__["value"] = value
@@ -428,7 +431,7 @@ class VTdatetime(ValueType):
 	
 	def min(self):
 		if self.with_steps:
-			min_l = [v + min(s or 0, 0) for v, s in zip(self._parsed, self.steps + (0,))]
+			min_l = [v + min(s or 0, 0) for v, s in zip(self.time, self.steps + (0,))]
 			parsed = struct_time(min_l + [0, 0, 0])
 			value = timegm(parsed) + self.utcoffset
 		else:
@@ -437,12 +440,63 @@ class VTdatetime(ValueType):
 	
 	def max(self):
 		if self.with_steps:
-			max_l = [v + abs(s or 0) for v, s in zip(self._parsed, self.steps + (0,))]
+			max_l = [v + abs(s or 0) for v, s in zip(self.time, self.steps + (0,))]
 			parsed = struct_time(max_l + [0, 0, 0])
 			value = timegm(parsed) + self.utcoffset
 		else:
 			value = self.value
 		return value + abs(self.fuzz or 0)
+	
+	def overlap(self, other):
+		if not isinstance(other, VTdatetime):
+			raise TypeError("Can only compare to a VTdatetime")
+		if self.min() > other.max() or other.min() > self.max():
+			return False
+		return self._cmp_step(self, other)
+	
+	def _cmp_step(self, a, b):
+		if a.with_steps:
+			if self.fuzz < 0:
+				nsf = self.fuzz
+				psf = nsf * -2
+			else:
+				psf = self.fuzz
+				nsf = 0
+			for f in range(5):
+				fuzz = a.steps[f] or 0
+				for i in range(min(fuzz, 0), abs(fuzz) + 1):
+					l = list(self.time)
+					l[f] += i
+					unixtime = timegm(l)
+					fuzz = psf
+					if self.valid_steps < 6:
+						t2 = self._step_end(l)
+						fuzz += t2 - unixtime
+					value = unixtime + nsf + self.utcoffset
+					a_min = value + min(fuzz, 0)
+					a_max = value + abs(fuzz)
+					if a is self:
+						if self._cmp_step(b, (a_min, a_max)):
+							return True
+					else:
+						if a_min <= b[1] and b[0] <= a_max:
+							return True
+		else:
+			if a is self:
+				return self._cmp_step(b, (a.min(), a.max()))
+			else:
+				return a.min() <= b[1] and b[0] <= a.max()
+		return False
+	
+	def _step_end(self, l):
+		l = list(l)
+		for i in range(self.valid_steps, len(self._ranges)):
+			l[i] = self._ranges[i]
+		if self.valid_steps == 2: # year + month specified
+			# "day 0" of next month
+			l[1] += 1
+			l[2] = 0
+		return timegm(l)
 
 valuetypes = {"string"  : VTstring,
               "word"    : VTword,
