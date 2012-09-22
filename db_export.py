@@ -2,8 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient, dbcfg, Post, CommentWrapper
-from dbutil import RawWrapper
+from wellpapp import Client, Config, Post, CommentWrapper, RawWrapper
 import re
 from os.path import exists, dirname
 from os import makedirs, stat
@@ -112,15 +111,15 @@ else:
 
 spec = Spec(file(fn))
 
-src_cfg = dbcfg()
+src_cfg = Config()
 src_cfg.server, src_cfg.port = spec.src
-src_client = dbclient(src_cfg)
+src_client = Client(src_cfg)
 
-dest_cfg = dbcfg()
+dest_cfg = Config()
 dest_cfg.server, dest_cfg.port = spec.dest
 dest_cfg.image_base = spec.dest_dir
 dest_cfg.thumb_base = spec.dest_dir
-dest_client = dbclient(dest_cfg)
+dest_client = Client(dest_cfg)
 
 spec.parse()
 

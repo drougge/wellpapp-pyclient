@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 from optparse import OptionParser
 
 p = OptionParser(usage="Usage: %prog [options] tagname [tagtype]")
@@ -13,5 +13,5 @@ if len(args) not in (1, 2):
 	p.print_help()
 	exit(1)
 
-client = dbclient()
+client = Client()
 client.add_tag(*args, **opts.__dict__)

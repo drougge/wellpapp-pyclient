@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 
 if len(argv) < 3:
 	print "Usage:", argv[0], "post-spec property=value [property=value [...]]"
@@ -15,7 +15,7 @@ def set_prop(props, spec):
 	prop, val = spec.split("=", 1)
 	props[prop] = val
 
-client = dbclient()
+client = Client()
 props = {}
 if argv[1] == "-r":
 	set_prop(props, argv[2])

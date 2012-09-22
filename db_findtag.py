@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 
 def usage():
 	print "Usage:", argv[0], " [-opts] partial-tag-name"
@@ -35,7 +35,7 @@ for a in argv[1:]:
 		if part: usage()
 		part = a
 if not part: usage()
-client = dbclient()
+client = Client()
 match = "F" if "f" in opts else "E"
 where = "P" if "a" in opts else "I"
 cmd = match + "A" + where

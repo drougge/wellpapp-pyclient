@@ -41,9 +41,9 @@ if argv[1:] == ["."]:
 		for n in [n for n in fns if len(n) == 32]:
 			add(n, join(dp, n))
 elif argv[1:] == ["raw"]:
-	from dbclient import dbclient
+	from wellpapp import Client
 	from dbutil import raw_exts
-	client = dbclient()
+	client = Client()
 	ms = []
 	for ext in raw_exts:
 		p = client.search_post(guids=[("aaaaaa-aaaacr-faketg-FLekst", ext)])
@@ -51,8 +51,8 @@ elif argv[1:] == ["raw"]:
 	for m in ms:
 		add(m, client.image_path(m))
 else:
-	from dbclient import dbclient
-	client = dbclient()
+	from wellpapp import Client
+	client = Client()
 	for n in argv[1:]:
 		m = client.postspec2md5(n)
 		if m:

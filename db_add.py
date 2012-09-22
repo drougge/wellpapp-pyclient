@@ -6,8 +6,7 @@ import Image
 from cStringIO import StringIO
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, getcwd, stat
-from dbclient import dbclient, VTstring
-from dbutil import make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts
+from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts
 from time import gmtime, strftime
 
 def determine_filetype(data):
@@ -284,7 +283,7 @@ if __name__ == '__main__':
 			usage()
 		a += 1
 		if len(argv) == a: usage()
-	client = dbclient()
+	client = Client()
 	if thumb_source:
 		if len(argv) > a + 1:
 			print "Only add one post with -t"

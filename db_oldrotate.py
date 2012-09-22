@@ -4,12 +4,12 @@
 from pyexiv2 import Image as ExivImage
 import Image
 from db_add import exif2rotation
-from dbclient import dbclient
+from wellpapp import Client
 from sys import argv
 
 opts = argv[1] # z for size (fix for rotation), r for rotate (from exif)
 
-client = dbclient()
+client = Client()
 fields = ["rotate", "width", "height"]
 posts = client._search_post("SPF" + " F".join(fields), fields)
 print len(posts), "posts"

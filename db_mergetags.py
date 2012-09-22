@@ -2,13 +2,13 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
+from wellpapp import Client
 
 if len(argv) != 3:
 	print "Usage:", argv[0], "into-tag from-tag"
 	exit(1)
 
-client = dbclient()
+client = Client()
 into_t, from_t = map(client.find_tag, argv[1:])
 if not into_t or not from_t:
 	print "Tag not found"

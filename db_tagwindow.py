@@ -2,8 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from dbclient import dbclient
-from dbutil import RawWrapper
+from wellpapp import Client, RawWrapper
 from itertools import chain
 import pygtk
 pygtk.require("2.0")
@@ -886,7 +885,7 @@ class FileLoader(Thread):
 		self._argv = argv
 
 	def run(self):
-		client = dbclient()
+		client = Client()
 		md5s = map(client.postspec2md5, self._argv)
 		good = True
 		if None in md5s:
@@ -917,7 +916,7 @@ if __name__ == "__main__":
 	if len(argv) < 2:
 		print "Usage:", argv[0], "post-spec [post-spec [...]]"
 		exit(1)
-	client = dbclient()
+	client = Client()
 	tw = TagWindow()
 	fl = FileLoader(tw, argv[1:])
 	fl.start()
