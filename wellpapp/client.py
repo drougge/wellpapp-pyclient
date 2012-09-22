@@ -8,6 +8,8 @@ from .util import *
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
 
+__all__ = ("Client", "Config", "Post", "Tag", "EResponse", "EDuplicate",)
+
 def _uni(s):
 	if type(s) is not unicode:
 		try:
