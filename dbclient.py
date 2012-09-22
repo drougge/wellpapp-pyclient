@@ -316,7 +316,6 @@ class VTstop(VTfloat):
 		VTfloat.__init__(self, val, human)
 		self._ffix(10.0 * log10(self.value) / 3.0, 0.01)
 
-# @@ comparisons ignore steps
 class VTdatetime(ValueType):
 	type = "datetime"
 	_cmp_t = "VTdatetime"
@@ -426,6 +425,24 @@ class VTdatetime(ValueType):
 	def localtimestr(self, include_fuzz=True):
 		if not include_fuzz: return self._lts
 		return self._lts + self._fuzz
+	
+	def min(self):
+		if self.with_steps:
+			min_l = [v + min(s or 0, 0) for v, s in zip(self._parsed, self.steps + (0,))]
+			parsed = struct_time(min_l + [0, 0, 0])
+			value = timegm(parsed) + self.utcoffset
+		else:
+			value = self.value
+		return value + min(self.fuzz or 0, 0)
+	
+	def max(self):
+		if self.with_steps:
+			max_l = [v + abs(s or 0) for v, s in zip(self._parsed, self.steps + (0,))]
+			parsed = struct_time(max_l + [0, 0, 0])
+			value = timegm(parsed) + self.utcoffset
+		else:
+			value = self.value
+		return value + abs(self.fuzz or 0)
 
 valuetypes = {"string"  : VTstring,
               "word"    : VTword,
