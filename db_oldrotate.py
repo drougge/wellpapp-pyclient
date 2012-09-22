@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-from pyexiv2 import Image as ExivImage
 import Image
-from db_add import exif2rotation
-from wellpapp import Client
+from wellpapp import Client, ExifWrapper
 from sys import argv
 
 opts = argv[1] # z for size (fix for rotation), r for rotate (from exif)
@@ -17,9 +15,8 @@ count = 0
 for post in filter(lambda p: p["rotate"] in (-1, 90, 270), posts):
 	m = post["md5"]
 	fn = client.image_path(m)
-	exif = ExivImage(fn)
-	exif.readMetadata()
-	rot = exif2rotation(exif)
+	exif = ExifWrapper(fn)
+	rot = exif.rotation()
 	did = False
 	if rot in (90, 270) and "z" in opts:
 		img = Image.open(fn)

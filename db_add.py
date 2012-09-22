@@ -24,13 +24,6 @@ def needs_thumbs(m, ft):
 	for fn, z in jpeg_fns + png_fns:
 		if not exists(fn): return True
 
-def exif2rotation(exif):
-	if "Exif.Image.Orientation" not in exif: return -1
-	o = exif["Exif.Image.Orientation"]
-	orient = {1: 0, 3: 180, 6: 90, 8: 270}
-	if o not in orient: return -1
-	return orient[o]
-
 def exif2tags(exif, tags):
 	cfg = client.cfg
 	if "lenstags" in cfg:
@@ -200,7 +193,7 @@ def add_image(fn):
 			w, h = img.size
 	exif = ExifWrapper(fn)
 	if not post:
-		rot = exif2rotation(exif)
+		rot = exif.rotation()
 		if rot in (90, 270): w, h = h, w
 		args = {"md5": m, "width": w, "height": h, "ext": ft}
 		if rot >= 0: args["rotate"] = rot
@@ -216,7 +209,7 @@ def add_image(fn):
 		if dummy:
 			print "Would have generated thumbs for " + m
 		else:
-			rot = exif2rotation(exif)
+			rot = exif.rotation()
 			if thumb_source:
 				img = Image.open(RawWrapper(open(thumb_source, "rb")))
 			client.save_thumbs(m, img, ft, rot, force_thumbs)
