@@ -59,8 +59,11 @@ class ValueType(object):
 	def __hash__(self):
 		return hash(self.exact) ^ hash(self.exact_fuzz) ^ hash(self.type)
 	def __cmp(self, other):
+		if isinstance(self, VTnumber) and isinstance(other, (int, long, float)):
+			return VTnumber(other)
 		if not isinstance(other, ValueType) or self._cmp_t != other._cmp_t:
 			raise TypeError("Can only compare to a " + self._cmp_t)
+		return other
 	def __eq__(self, other):
 		return type(self) == type(other) and \
 		       self.exact == other.exact and \
@@ -71,16 +74,16 @@ class ValueType(object):
 		       self.exact != other.exact or \
 		       self.exact_fuzz != other.exact_fuzz
 	def __lt__(self, other):
-		self.__cmp(other)
+		other = self.__cmp(other)
 		return self.min < other.max
 	def __le__(self, other):
-		self.__cmp(other)
+		other = self.__cmp(other)
 		return self.min <= other.max
 	def __gt__(self, other):
-		self.__cmp(other)
+		other = self.__cmp(other)
 		return self.max > other.min
 	def __ge__(self, other):
-		self.__cmp(other)
+		other = self.__cmp(other)
 		return self.max >= other.min
 	
 	@property
@@ -99,7 +102,7 @@ class ValueType(object):
 			return self.value
 	
 	def overlap(self, other):
-		self.__cmp(other)
+		other = self.__cmp(other)
 		return self.min() <= other.max() and other.min() <= self.max()
 	
 	def format(self):
@@ -145,7 +148,15 @@ class VTword(VTstring):
 		return self.str
 
 class VTnumber(ValueType):
-	_cmp_t = "VTnumber"
+	_cmp_t = "VTnumber or simple number"
+	type = "simple number wrapper"
+	
+	def __init__(self, number):
+		if not isinstance(number, (int, long, float)):
+			raise ValueError(number)
+		self.__dict__["value"] = self.__dict__["exact"] = number
+		self.__dict__["fuzz"] = self.__dict__["exact_fuzz"] = 0
+	
 	def _parse(self, v, vp, vp2, fp):
 		v = str(v)
 		self.__dict__["str"] = v
@@ -157,6 +168,7 @@ class VTnumber(ValueType):
 			self.__dict__["fuzz"] = vp2(self.exact_fuzz)
 		else:
 			self.__dict__["fuzz"] = self.__dict__["exact_fuzz"] = 0
+	
 	def __int__(self):
 		return int(self.exact)
 	def __long__(self):
