@@ -595,6 +595,8 @@ class CommentWrapper:
 		self.close()
 
 class DotDict(dict):
+	"""Like a dict, but with d.foo as well as d["foo"]."""
+	
 	__setattr__ = dict.__setitem__
 	__delattr__ = dict.__delitem__
 	def __getattr__(self, name):
