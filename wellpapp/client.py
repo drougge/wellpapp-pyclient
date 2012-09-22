@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-import socket, base64, codecs, os, hashlib, re
+import socket, codecs, os, hashlib, re
 
 from .vt import *
 from ._util import *
