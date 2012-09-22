@@ -81,16 +81,19 @@ _field_cparser = {
 }
 
 class Config(DotDict):
-	def __init__(self, **kw):
+	def __init__(self, local_rc=False, **kw):
 		DotDict.__init__(self, tagwindow_width=840, tagwindow_height=600, **kw)
 		rcs = []
 		rc_name = ".wellpapprc"
 		path = "/"
-		rcs = [os.path.join(os.environ["HOME"], rc_name)]
-		for dir in os.getcwd().split(os.path.sep):
-			path = os.path.join(path, dir)
-			rc = os.path.join(path, rc_name)
-			if os.path.exists(rc): rcs.append(rc)
+		if local_rc:
+			rcs = [rc_name]
+		else:
+			rcs = [os.path.join(os.environ["HOME"], rc_name)]
+			for dir in os.getcwd().split(os.path.sep):
+				path = os.path.join(path, dir)
+				rc = os.path.join(path, rc_name)
+				if os.path.exists(rc): rcs.append(rc)
 		for rc in rcs:
 			self._load(rc)
 	
