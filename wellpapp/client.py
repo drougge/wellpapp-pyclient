@@ -3,6 +3,7 @@
 import socket, base64, codecs, os, hashlib, re
 
 from vt import *
+from util import *
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
@@ -41,38 +42,6 @@ def _dec(enc):
 	str = base64.b64decode(enc, "_-")
 	while str[-1] == "\x00": str = str[:-1]
 	return str.decode("utf-8")
-
-class CommentWrapper:
-	"""Wrap a file so readline/iteration skips comments
-	and optionally empty lines"""
-	def __init__(self, fh, allow_empty=False):
-		self.fh = fh
-		self.allow_empty = allow_empty
-	def __iter__(self):
-		return self
-	def next(self):
-		line = self.readline()
-		if not line: raise StopIteration()
-		return line
-	def readline(self):
-		while 42:
-			line = self.fh.readline()
-			if not line: return line
-			s = line.strip()
-			if s:
-				if s[0] != "#": return line
-			elif self.allow_empty:
-				return line
-
-class DotDict(dict):
-	__setattr__ = dict.__setitem__
-	__delattr__ = dict.__delitem__
-	def __getattr__(self, name):
-		if name[0] == "_":
-			raise AttributeError(name)
-		return self.get(name)
-	def __repr__(self):
-		return repr(type(self)) + dict.__repr__(self)
 
 class Post(DotDict): pass
 

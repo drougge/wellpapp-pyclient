@@ -1,7 +1,8 @@
 # -*- coding: iso-8859-1 -*-
 
 __all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "exif_wrapper",
-           "identify_raw", "make_pdirs", "raw_exts", "raw_wrapper",)
+           "identify_raw", "make_pdirs", "raw_exts", "raw_wrapper",
+           "CommentWrapper", "DotDict")
 
 class TIFF:
 	"""Pretty minimal TIFF container parser"""
@@ -565,3 +566,36 @@ def make_pdirs(fn):
 	import os.path
 	dn = os.path.dirname(fn)
 	if not os.path.exists(dn): os.makedirs(dn)
+
+class CommentWrapper:
+	"""Wrap a file so readline/iteration skips comments
+	and optionally empty lines"""
+	def __init__(self, fh, allow_empty=False):
+		self.fh = fh
+		self.allow_empty = allow_empty
+	def __iter__(self):
+		return self
+	def next(self):
+		line = self.readline()
+		if not line: raise StopIteration()
+		return line
+	def readline(self):
+		while 42:
+			line = self.fh.readline()
+			if not line: return line
+			s = line.strip()
+			if s:
+				if s[0] != "#": return line
+			elif self.allow_empty:
+				return line
+
+class DotDict(dict):
+	__setattr__ = dict.__setitem__
+	__delattr__ = dict.__delitem__
+	def __getattr__(self, name):
+		if name[0] == "_":
+			raise AttributeError(name)
+		return self.get(name)
+	def __repr__(self):
+		return repr(type(self)) + dict.__repr__(self)
+
