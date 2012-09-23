@@ -3,7 +3,7 @@
 import re
 from fractions import Fraction
 from abc import ABCMeta, abstractmethod, abstractproperty
-from time import strftime, localtime, struct_time
+from time import localtime, struct_time
 from calendar import timegm
 from math import log, log10
 
