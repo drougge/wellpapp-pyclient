@@ -333,7 +333,7 @@ class Wellpapp(fuse.Fuse):
 		if self._raw2jpeg and not self._use_cache:
 			raise Exception("raw2jpeg only works with a stat-cache")
 		if self._raw2jpeg:
-			from dbutil import raw_wrapper
+			from wellpapp import RawWrapper
 		wp = self
 		class FakeFile:
 			keep_cache = False
@@ -363,7 +363,7 @@ class Wellpapp(fuse.Fuse):
 					if fh:
 						if wp._raw2jpeg and fn[-1] in _rawext_r:
 							# @@ Check wp._stat(m).version
-							self._fh = raw_wrapper(fh, True)
+							self._fh = RawWrapper(fh, True)
 						else:
 							self._fh = fh
 					self._lock = Lock()
