@@ -362,7 +362,7 @@ class FileMerge:
 			if id(c[0]) not in done:
 				done.add(id(c[0]))
 				try:
-					close(c[0])
+					c[0].close()
 				except Exception:
 					pass
 		self.closed = True
