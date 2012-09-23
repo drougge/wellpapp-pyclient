@@ -7,7 +7,7 @@ from time import strftime, localtime, struct_time
 from calendar import timegm
 from math import log, log10
 
-from ._util import *
+from wellpapp._util import *
 
 __all__ = ("ValueType", 'VTstring', 'VTword', 'VTnumber', 'VTint', 'VTuint',
            'VTfloat', 'VTf_stop', 'VTstop', 'VTdatetime', 'valuetypes',)

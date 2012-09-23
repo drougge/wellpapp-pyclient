@@ -2,9 +2,9 @@
 
 import socket, codecs, os, hashlib, re
 
-from .vt import *
-from ._util import *
-from .util import DotDict, CommentWrapper, make_pdirs
+from wellpapp.vt import *
+from wellpapp._util import *
+from wellpapp.util import DotDict, CommentWrapper, make_pdirs
 
 class EResponse(Exception): pass
 class EDuplicate(EResponse): pass
