@@ -2,8 +2,8 @@
 
 import socket, codecs, os, hashlib, re
 
-from wellpapp.vt import *
-from wellpapp._util import *
+from wellpapp.vt import VTdatetime, VTuint, VTint, valuetypes
+from wellpapp._util import _utf
 from wellpapp.util import DotDict, CommentWrapper, make_pdirs
 
 class WellpappError(Exception): pass
