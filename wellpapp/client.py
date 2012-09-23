@@ -501,7 +501,7 @@ class Client:
 		if resdata != None: resdata.append(t)
 		return t
 	
-	def find_tags(self, matchtype, name, range=None, order=None, **kw):
+	def find_tags(self, matchtype, name, range=None, order=None, flags=None, **kw):
 		if kw:
 			filter = self._build_search(**kw)
 			if filter:
@@ -516,6 +516,9 @@ class Client:
 		for o in self._list(order, str):
 			assert " " not in o
 			cmd += " O" + o
+		for f in self._list(flags, str):
+			assert " " not in f
+			cmd += " F" + f
 		if range != None:
 			assert len(range) == 2
 			cmd += " R%x:%x" % range
