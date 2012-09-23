@@ -220,7 +220,8 @@ class Wellpapp(fuse.Fuse):
 		if "rotate" in post and post.rotate.value in orient:
 			data += "tiff:Orientation=\"" + str(orient[post.rotate.value]) + "\""
 		data += "><dc:subject><rdf:Bag>"
-		tags = [tag.name + (("=" + str(tag.value)) if tag.value else "") for tag in post.tags]
+		mktags = lambda prefix, tags: [prefix + tag.name + ((u"=" + unicode(tag.value)) if tag.value else u"") for tag in tags]
+		tags = mktags(u"", post.tags) + mktags(u"~", post.weaktags)
 		data += "".join(["<rdf:li>" + xmlescape(tn).encode("utf-8") + "</rdf:li>" \
 		                 for tn in sorted(tags)])
 		data += "</rdf:Bag></dc:subject></rdf:Description></rdf:RDF></x:xmpmeta>"
