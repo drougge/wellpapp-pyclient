@@ -1,0 +1,3 @@
+* diff=python
+[A-Z]* diff=text
+.* diff=text
