@@ -6,10 +6,11 @@ from wellpapp.vt import *
 from wellpapp._util import *
 from wellpapp.util import DotDict, CommentWrapper, make_pdirs
 
-class EResponse(Exception): pass
-class EDuplicate(EResponse): pass
+class WellpappError(Exception): pass
+class ResponseError(WellpappError): pass
+class DuplicateError(WellpappError): pass
 
-__all__ = ("Client", "Config", "Post", "Tag", "EResponse", "EDuplicate",)
+__all__ = ("Client", "Config", "Post", "Tag", "ResponseError", "DuplicateError",)
 
 def _rfindany(s, chars, pos=-1):
 	if pos < 0: pos = len(s)
@@ -148,8 +149,8 @@ class Client:
 	
 	def _parse_search(self, line, posts, wanted, props):
 		if line == u"OK\n": return True
-		if line[0] != u"R": raise EResponse(line)
-		if line[1] == u"E": raise EResponse(line)
+		if line[0] != u"R": raise ResponseError(line)
+		if line[1] == u"E": raise ResponseError(line)
 		if line[1] == u"R":
 			if props != None: props["result_count"] = int(line[2:], 16)
 			return
@@ -169,7 +170,7 @@ class Client:
 				else:
 					f[field] = value
 			else:
-				raise EResponse(line)
+				raise ResponseError(line)
 		f.tags = []
 		f.weaktags = []
 		f.impltags = []
@@ -190,8 +191,8 @@ class Client:
 			t = Tag()
 			t._populate(data)
 			ta.append(t)
-		if not f.md5: raise EResponse(line)
-		if f.md5 in seen: raise EDuplicate(f.md5)
+		if not f.md5: raise ResponseError(line)
+		if f.md5 in seen: raise DuplicateError(f.md5)
 		seen.add(f.md5)
 		old = lambda n, full, weak: [t[n] for t in full] + [u"~" + t[n] for t in weak]
 		if not wanted or "tagname" in wanted:
@@ -234,7 +235,7 @@ class Client:
 		cmd = "DP" + md5
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		if res != u"OK\n": raise ResponseError(res)
 	
 	def _list(self, data, converter = _utf):
 		if not data: return []
@@ -305,7 +306,7 @@ class Client:
 			cmd = "MP" + md5 + fspec
 			self._writeline(cmd)
 			res = self._readline()
-			if res != u"OK\n": raise EResponse(res)
+			if res != u"OK\n": raise ResponseError(res)
 	
 	def add_post(self, md5, **kwargs):
 		cmd  = "AP" + str(md5)
@@ -315,7 +316,7 @@ class Client:
 		cmd += self._fieldspec(**kwargs)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		if res != u"OK\n": raise ResponseError(res)
 	
 	def _rels(self, c, md5, rels):
 		cmd = "R" + c + str(md5)
@@ -323,7 +324,7 @@ class Client:
 			cmd += " " + rel
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		if res != u"OK\n": raise ResponseError(res)
 	
 	def add_rels(self, md5, rels):
 		self._rels("R", md5, rels)
@@ -333,8 +334,8 @@ class Client:
 	
 	def _parse_rels(self, line, rels):
 		if line == u"OK\n": return True
-		if line[0] != u"R": raise EResponse(line)
-		if line[1] == u"E": raise EResponse(line)
+		if line[0] != u"R": raise ResponseError(line)
+		if line[1] == u"E": raise ResponseError(line)
 		a = str(line[1:]).split()
 		p = a[0]
 		l = []
@@ -362,19 +363,19 @@ class Client:
 			cmd += " V" + _utf(valuetype)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		if res != u"OK\n": raise ResponseError(res)
 	
 	def add_alias(self, name, origin_guid):
 		cmd = "AAG" + str(origin_guid) + " N" + _utf(name)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		if res != u"OK\n": raise ResponseError(res)
 	
 	def remove_alias(self, name):
 		cmd = "DAN" + _utf(name)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		if res != u"OK\n": raise ResponseError(res)
 	
 	def _addrem_implies(self, addrem, set_tag, implied_tag, priostr):
 		assert " " not in set_tag
@@ -387,7 +388,7 @@ class Client:
 		cmd = "I" + addrem + str(set_tag) + add + priostr
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		if res != u"OK\n": raise ResponseError(res)
 	
 	def add_implies(self, set_tag, implied_tag, priority=0):
 		self._addrem_implies("I", set_tag, implied_tag, ":" + str(priority))
@@ -442,7 +443,7 @@ class Client:
 		cmd = "MTG" + str(into_t) + " M" + str(from_t)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		if res != u"OK\n": raise ResponseError(res)
 	
 	def mod_tag(self, guid, name=None, type=None):
 		guid = _utf(guid)
@@ -458,7 +459,7 @@ class Client:
 			cmd += " T" + type
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise EResponse(res)
+		if res != u"OK\n": raise ResponseError(res)
 	
 	def _tag2spec(self, t):
 		if type(t) in (tuple, list):
@@ -482,19 +483,19 @@ class Client:
 			if len(cmd) + len(tag) > self._prot_max_len:
 				self._writeline(cmd)
 				res = self._readline()
-				if res != u"OK\n": raise EResponse(res)
+				if res != u"OK\n": raise ResponseError(res)
 				cmd = init
 			cmd += tag
 		if cmd != init:
 			self._writeline(cmd)
 			res = self._readline()
-			if res != u"OK\n": raise EResponse(res)
+			if res != u"OK\n": raise ResponseError(res)
 	
 	def _parse_tagres(self, resdata = None):
 		res = self._readline()
 		if res == u"OK\n": return
-		if res[0] != u"R": raise EResponse(res)
-		if res[1] == u"E": raise EResponse(res)
+		if res[0] != u"R": raise ResponseError(res)
+		if res[1] == u"E": raise ResponseError(res)
 		if res[1] == u"R": return True # ignore count for now
 		t = Tag()
 		t._populate(res[1:])
@@ -667,13 +668,13 @@ class Client:
 			if len(cmd) + 64 > self._prot_max_len:
 				self._writeline(cmd)
 				res = self._readline()
-				if res != u"OK\n": raise EResponse(res)
+				if res != u"OK\n": raise ResponseError(res)
 				cmd = init + " P" + post
 				anything = False
 		if anything:
 			self._writeline(cmd)
 			res = self._readline()
-			if res != u"OK\n": raise EResponse(res)
+			if res != u"OK\n": raise ResponseError(res)
 	
 	def metalist(self, name):
 		cmd = "L" + _utf(name)
@@ -681,7 +682,7 @@ class Client:
 		res = self._readline()
 		names = []
 		while res != u"OK\n":
-			if res[:2] != u"RN": raise EResponse(res)
+			if res[:2] != u"RN": raise ResponseError(res)
 			names.append(res[2:-1])
 			res = self._readline()
 		return names
