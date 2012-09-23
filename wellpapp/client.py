@@ -4,7 +4,7 @@ import socket, codecs, os, hashlib, re
 
 from wellpapp.vt import VTdatetime, VTuint, VTint, valuetypes
 from wellpapp._util import _utf
-from wellpapp.util import DotDict, CommentWrapper, make_pdirs
+from wellpapp.util import DotDict, CommentWrapper, make_pdirs, RawWrapper
 
 class WellpappError(Exception): pass
 class ResponseError(WellpappError): pass
@@ -700,7 +700,7 @@ class Client:
 		fn = self.image_path(m)
 		mtime = os.stat(fn).st_mtime
 		if not img:
-			img = Image.open(raw_wrapper(open(fn, "rb")))
+			img = Image.open(RawWrapper(open(fn, "rb")))
 		img.load()
 		# PIL rotates CCW
 		rotation = {90: Image.ROTATE_270, 180: Image.ROTATE_180, 270: Image.ROTATE_90}
