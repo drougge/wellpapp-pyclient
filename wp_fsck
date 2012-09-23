@@ -5,7 +5,6 @@ from hashlib import md5
 import Image
 from os.path import exists
 from os import stat, walk
-import re
 
 def usage(argv):
 	print "Usage:", argv[0], "-opts"

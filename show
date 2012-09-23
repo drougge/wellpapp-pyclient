@@ -5,7 +5,6 @@ from sys import argv, exit, stdout
 from wellpapp import Client
 from re import match
 from os.path import exists
-from hashlib import md5
 from os import readlink
 
 def _tagenc(t):

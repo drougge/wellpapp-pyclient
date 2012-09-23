@@ -3,11 +3,6 @@
 
 from sys import argv, exit
 from wellpapp import Client
-from re import match
-from time import strftime, localtime
-from os.path import exists
-from hashlib import md5
-from os import readlink
 
 if len(argv) < 3:
 	print "Usage:", argv[0], "tagname post-spec [post-spec [...]]"
