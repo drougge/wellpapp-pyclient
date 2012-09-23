@@ -556,6 +556,7 @@ class Client:
 	
 	def parse_tag(self, spec, comparison=False):
 		spec = _utf(spec)
+		if not spec: return None
 		if spec[0] in "~-!":
 			prefix = spec[0]
 			spec = spec[1:]
