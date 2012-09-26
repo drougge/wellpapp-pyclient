@@ -125,7 +125,7 @@ spec.parse()
 
 posts = {}
 for s in spec.search:
-	ps = src_client.search_post(wanted=["tagguid", "implied", "ext", "width", "height", "rotate", "imgdate", "created"], **s)[0]
+	ps = src_client.search_post(wanted=["tagguid", "implied", "ext", "width", "height", "rotate", "imgdate", "created"], **s)
 	for p in ps:
 		posts[p.md5] = p
 md5s = set(posts.keys())
@@ -133,10 +133,9 @@ posts = posts.values()
 
 bad = set()
 for post in posts:
-	for t in post.tagguid + post.impltagguid:
-		if t[0] in "~-!": t = t[1:]
-		if t not in spec.include and t not in spec.exclude:
-			bad.add(t)
+	for t in post.tags:
+		if t.name not in spec.include and t.name not in spec.exclude:
+			bad.add(t.name)
 
 if bad:
 	print "Unspecified tags:"
@@ -220,9 +219,10 @@ for t in spec.include:
 
 print "Posts.."
 for post in posts:
-	tags = [t for t in post.tagguid if t[-27:] in spec.include]
+	full = [(t.guid, t.value) for t in post.fulltags if t.guid in spec.include]
+	weak = [(t.guid, t.value) for t in post.weaktags if t.guid in spec.include]
 	data = Post(post)
-	for d in "tagguid", "impltagguid", "tags", "weaktags", "impltags", "implweaktags":
+	for d in "tags", "fulltags", "weaktags", "implfulltags", "implweaktags":
 		del data[d]
 	w, h = data.width, data.height
 	if w > z:
@@ -235,8 +235,6 @@ for post in posts:
 	data.rotate = 0
 	if data.ext in raw_exts: data.ext = "jpeg"
 	dest_client.add_post(**data)
-	full = [g for g in tags if g[0] != "~"]
-	weak = [g[1:] for g in tags if g[0] == "~"]
 	dest_client.tag_post(post.md5, full, weak)
 
 rels = set()
@@ -252,7 +250,7 @@ for post in posts:
 
 print "Ordering.."
 for g in ordered:
-	order = [p.md5 for p in src_client.search_post(guids=[g], order=["group"])[0]]
+	order = [p.md5 for p in src_client.search_post(guids=[g], order=["group"])]
 	dest_client.order(g, [m for m in order if m in md5s])
 
 dest_client.end_transaction()
