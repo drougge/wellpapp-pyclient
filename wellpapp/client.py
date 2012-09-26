@@ -71,6 +71,7 @@ class TagDict(dict):
 	A .guid always shadows a .name.
 	Iterates over Tag objects, not names and/or guids.
 	Use .names or .guids if you want dicts with just those keys.
+	(Those are normal dicts, iterating over keys.)
 	"""
 	
 	def __init__(self):
@@ -80,10 +81,10 @@ class TagDict(dict):
 	def _add(self, tag, name, guid):
 		if name:
 			if name not in self:
-				self[name] = tag
+				dict.__setitem__(self, name, tag)
 			self.names[name] = tag
 		if guid:
-			self[guid] = tag
+			dict.__setitem__(self, guid, tag)
 			self.guids[guid] = tag
 	
 	def __len__(self):
@@ -98,6 +99,12 @@ class TagDict(dict):
 	def values(self):
 		if self.guids: return self.guids.values()
 		return self.names.values()
+	
+	def __setitem__(self, key, value):
+		raise AttributeError("TagDicts are immutable-ish")
+	
+	def __delitem__(self, key):
+		raise AttributeError("TagDicts are immutable-ish")
 
 def _vtparse(vtype, val, human=False):
 	return valuetypes[vtype](val, human)
