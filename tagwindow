@@ -382,14 +382,13 @@ class TagWindow:
 			self.error(u"No posts found")
 			return
 		ids = {}
-		for t in chain(*[p.tags + p.impltags + p.weaktags + p.implweaktags for p in posts]):
-			ids.setdefault(t.guid, t)
-			tt = ids[t.guid]
+		for t in chain(*[p.tags for p in posts]):
+			tt = ids.setdefault(t.guid, t)
 			tt.localcount = tt.get("localcount", 0) + 1
 			if "value" in t:
 				tt.setdefault("valuelist", []).append(t.value)
 		self.ids = ids
-		self.posts = dict([(p["md5"], p) for p in posts])
+		self.posts = dict([(p.md5, p) for p in posts])
 		agl = self.ids.keys()
 		self.tag_colours = dict(zip(agl, [self.tag_colour_guid(clean(tg)) for tg in agl]))
 		self.taglist = {}
@@ -409,11 +408,14 @@ class TagWindow:
 				thumb[2] = u"\n".join(tip).encode("utf-8")
 
 	def _tagcompute(self, posts, pre):
-		self.taglist[pre + "all"] = set(posts[0][pre + "tagguid"])
-		self.taglist[pre + "any"] = set(posts[0][pre + "tagguid"])
+		def guids(p):
+			tags = p[pre + "fulltags"].values() + p[pre + "weaktags"].values()
+			return [t.pguid for t in tags]
+		self.taglist[pre + "all"] = set(guids(posts[0]))
+		self.taglist[pre + "any"] = set(guids(posts[0]))
 		for p in posts:
-			self.taglist[pre + "all"].intersection_update(p[pre + "tagguid"])
-			self.taglist[pre + "any"].update(p[pre + "tagguid"])
+			self.taglist[pre + "all"].intersection_update(guids(p))
+			self.taglist[pre + "any"].update(guids(p))
 
 	def add_thumbs(self, thumbs):
 		for thumb in thumbs:
@@ -448,14 +450,17 @@ class TagWindow:
 		common = None
 		all = set()
 		count = 0
+		def guids(p):
+			tags = p[pre + "fulltags"].values() + p[pre + "weaktags"].values()
+			return set(t.pguid for t in tags)
 		for path in self.thumbview.get_selected_items():
 			m = self.thumbs[path][0]
-			post = self.posts[m]
-			if common == None:
-				common = set(post[pre + "tagguid"])
+			g = guids(self.posts[m])
+			if common is None:
+				common = g
 			else:
-				common.intersection_update(post[pre + "tagguid"])
-			all.update(post[pre + "tagguid"])
+				common.intersection_update(g)
+			all.update(g)
 			count += 1
 		if count < 2:
 			self.tags_currentotherview.hide()
@@ -556,15 +561,14 @@ class TagWindow:
 					p = prefix(tag[0])
 					ctag = clean(tag[0])
 					post = self.posts[m]
-					if p == "-" and (ctag in post.tagguid or "~" + ctag in post.tagguid):
+					if p == "-" and (ctag in post.tags.guids or "~" + ctag in post.tags.guids):
 						todo[m][2].append(ctag)
 					do_set = False
-					if p != "-" and tag[0] not in post.tagguid:
+					if p != "-" and tag[0] not in post.tags.guids:
 						do_set = True
 					elif tag[1]:
-						for pt in post.tags:
-							if pt.guid == tag[0] and tag[1] != pt.value:
-								do_set = True
+						if tag[1] != post.tags[tag[0]].value:
+							do_set = True
 					if do_set:
 						if p == "~":
 							todo[m][1].append((ctag, tag[1]))
