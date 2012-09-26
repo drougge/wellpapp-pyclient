@@ -20,10 +20,10 @@ class TIFF:
 		self._fh = fh
 		d = fh.read(4)
 		if short_header:
-			if d[:2] not in ("II", "MM"): raise Exception("Not TIFF")
+			if d[:2] not in (b"II", b"MM"): raise Exception("Not TIFF")
 		else:
-			if d not in ("II*\0", "MM\0*"): raise Exception("Not TIFF")
-		endian = {"M": ">", "I": "<"}[d[0]]
+			if d not in (b"II*\0", b"MM\0*"): raise Exception("Not TIFF")
+		endian = {b"M": ">", b"I": "<"}[d[0]]
 		self._up = lambda fmt, *a: unpack(endian + fmt, *a)
 		self._up1 = lambda *a: self._up(*a)[0]
 		if short_header:
@@ -77,6 +77,7 @@ class TIFF:
 
 class FileWindow:
 	"""A read only view of a range of an fh. You should not continue to use fh."""
+	
 	def __init__(self, fh, start=None, length=None):
 		if start is None:
 			start = fh.tell()
@@ -216,10 +217,10 @@ class ExifWrapper:
 		fh = file(fn, "rb")
 		try:
 			data = fh.read(12)
-			if data[:3] == "\xff\xd8\xff": # JPEG
+			if data[:3] == b"\xff\xd8\xff": # JPEG
 				from struct import unpack
 				data = data[3:]
-				while data and data[3:7] != "Exif":
+				while data and data[3:7] != b"Exif":
 					l = unpack(">H", data[1:3])[0]
 					fh.seek(l - 7, 1)
 					data = fh.read(9)
@@ -281,11 +282,11 @@ class ExifWrapper:
 			self._pentax_makernotes(data)
 	
 	def _pentax_makernotes(self, data):
-		from cStringIO import StringIO
-		if data[:4] == "AOC\0": # JPEG/PEF MakerNotes
-			fh = StringIO(data[4:])
-		elif data[:8] == "PENTAX \0": # DNG MakerNotes
-			fh = StringIO(data[8:])
+		from io import BytesIO
+		if data[:4] == b"AOC\0": # JPEG/PEF MakerNotes
+			fh = BytesIO(data[4:])
+		elif data[:8] == b"PENTAX \0": # DNG MakerNotes
+			fh = BytesIO(data[8:])
 		else:
 			return
 		t = TIFF(fh, short_header=2)
@@ -329,9 +330,9 @@ def _identify_raw(fh, tiff):
 		if type == 2:
 			fh.seek(off)
 			make = fh.read(min(count, 7))
-			if make[:7] == "PENTAX ":
+			if make[:7] == b"PENTAX ":
 				return "pef"
-			if make[:6] == "NIKON ":
+			if make[:6] == b"NIKON ":
 				return "nef"
 def identify_raw(fh):
 	"""A lower case file extension (e.g. "dng") or None."""
@@ -447,18 +448,18 @@ class MakeTIFF:
 			values = pack(">" + (f * len(values)), *values)
 			d = pack(">HHI", tag, type, z)
 			if len(values) <= 4:
-				d += (values + "\x00\x00\x00")[:4]
+				d += (values + b"\x00\x00\x00")[:4]
 				values = None
 		if values:
 			d += pack(">I", self._datapos)
-			values = (values + "\x00\x00\x00")[:((len(values) + 3) // 4) * 4]
+			values = (values + b"\x00\x00\x00")[:((len(values) + 3) // 4) * 4]
 			self._data += values
 			self._datapos += len(values)
 		return d
 
 	def serialize(self, offset=0):
 		from struct import pack
-		data = pack(">ccHIH", "M", "M", 42, 8, len(self.entries))
+		data = pack(">ccHIH", b"M", b"M", 42, 8, len(self.entries))
 		self._datapos = 10 + 12 * len(self.entries) + 4 + offset
 		self._data = ""
 		for tag in sorted(self.entries):
@@ -469,24 +470,24 @@ class MakeTIFF:
 
 def _rawexif(raw, fh):
 	from struct import pack, unpack
-	from cStringIO import StringIO
+	from io import BytesIO
 	fm = FileMerge()
 	def read_marker():
 		while 42:
 			d = fh.read(1)
-			if d != "\xFF": return d
+			if d != b"\xFF": return d
 	fh.seek(0)
-	assert read_marker() == "\xD8"
+	assert read_marker() == b"\xD8"
 	first = fh.tell()
 	marker = read_marker()
-	while marker == "\xE0": # APP0, most likely JFIF
+	while marker == b"\xE0": # APP0, most likely JFIF
 		first = fh.tell() + unpack(">H", fh.read(2))[0] - 2
 		fh.seek(first)
 		marker = read_marker()
 	fm.add(fh, 0, first)
-	if marker == "\xE1": # APP1, most likely Exif
+	if marker == b"\xE1": # APP1, most likely Exif
 		candidate = fh.tell() + unpack(">H", fh.read(2))[0] - 2
-		if fh.read(5) == "Exif\x00":
+		if fh.read(5) == b"Exif\x00":
 			# Already has EXIF, leave as is.
 			fh.seek(0)
 			return fh
@@ -507,10 +508,10 @@ def _rawexif(raw, fh):
 	for k in raw_exif.ifd:
 		d = raw_exif.ifdget(k)
 		if d: exif1.add(k, d)
-	exif = "Exif\x00\x00"
+	exif = b"Exif\x00\x00"
 	exif += exif0.serialize() + exif1.serialize(offset - 8)[8:]
-	exif = "\xFF\xE1" + pack(">H", len(exif) + 2) + exif
-	fm.add(StringIO(exif))
+	exif = b"\xFF\xE1" + pack(">H", len(exif) + 2) + exif
+	fm.add(BytesIO(exif))
 	fm.add(fh, first)
 	return fm
 
@@ -532,7 +533,8 @@ class RawWrapper:
 				jpeg = tiff.ifdget(tiff.subifd[0], 0x201)
 				jpeglen = tiff.ifdget(tiff.subifd[0], 0x202)
 				self._test_jpeg(jpeg, jpeglen)
-			elif fmt == "pef": self._test_pef(tiff)
+			elif fmt == "pef":
+				self._test_pef(tiff)
 		except Exception:
 			pass
 		self.seek(0)
@@ -557,19 +559,21 @@ class RawWrapper:
 			if w and h and max(w[0], h[0]) > 1000: # looks like a real image
 				jpeg = tiff.ifdget(ifd, 0x201)
 				jpeglen = tiff.ifdget(ifd, 0x202)
-				if self._test_jpeg(jpeg, jpeglen): return True
+				if self._test_jpeg(jpeg, jpeglen):
+					return True
 	
 	def _test_jpeg(self, jpeg, jpeglen):
 		if not jpeg or not jpeglen: return
 		if len(jpeg) != len(jpeglen): return
 		jpeg, jpeglen = jpeg[-1], jpeglen[-1]
 		self.seek(jpeg)
-		if self.read(3) == "\xff\xd8\xff":
+		if self.read(3) == b"\xff\xd8\xff":
 			self._set_fh(FileWindow(self._fh, jpeg, jpeglen))
 			return True
 
 def make_pdirs(fn):
 	"""Like mkdir -p `dirname fn`"""
+	
 	import os.path
 	dn = os.path.dirname(fn)
 	if not os.path.exists(dn): os.makedirs(dn)
@@ -577,16 +581,20 @@ def make_pdirs(fn):
 class CommentWrapper:
 	"""Wrap a file so readline/iteration skips comments
 	and optionally empty lines"""
+	
 	def __init__(self, fh, allow_empty=False):
 		self.fh = fh
 		self.allow_empty = allow_empty
 		self.close = fh.close
+	
 	def __iter__(self):
 		return self
+	
 	def next(self):
 		line = self.readline()
 		if not line: raise StopIteration()
 		return line
+	
 	def readline(self):
 		while 42:
 			line = self.fh.readline()
@@ -596,8 +604,10 @@ class CommentWrapper:
 				if s[0] != "#": return line
 			elif self.allow_empty:
 				return line
+	
 	def __enter__(self):
 		return self
+	
 	def __exit__(self, *exc):
 		self.close()
 

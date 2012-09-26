@@ -5,10 +5,10 @@ from base64 import b64encode, b64decode
 __all__ = ("_uni", "_utf", "_enc", "_dec")
 
 def _uni(s):
-	if type(s) is not unicode:
+	if not isinstance(s, unicode):
 		try:
 			s = s.decode("utf-8")
-		except Exception:
+		except UnicodeDecodeError:
 			s = s.decode("iso-8859-1")
 	return s
 
@@ -19,12 +19,12 @@ def _utf(s, allow_space=False):
 
 def _enc(str):
 	str = _utf(str, True)
-	while len(str) % 3: str += "\x00"
-	return b64encode(str, "_-")
+	while len(str) % 3: str += b"\x00"
+	return b64encode(str, b"_-")
 
 def _dec(enc):
 	if not enc: return u""
 	enc = _utf(enc)
-	str = b64decode(enc, "_-")
-	while str[-1] == "\x00": str = str[:-1]
+	str = b64decode(enc, b"_-")
+	while str.endswith(b"\x00"): str = str[:-1]
 	return str.decode("utf-8")
