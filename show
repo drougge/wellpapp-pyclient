@@ -19,12 +19,12 @@ def show_implies(guid, heading, reverse):
 	impl = client.tag_implies(guid, reverse)
 	if impl: print heading + "".join(sorted(map(implfmt, impl)))
 
-def fmt_tag(prefix, tag):
+def fmt_tag(tag):
 	if tag.value:
 		val = u" = " + unicode(tag.value)
 	else:
-		val = ""
-	return prefix + tag.name + val
+		val = u""
+	return tag.pname + val
 
 def show_post(m, short=False):
 	post = client.get_post(m, True, ["tagname", "tagdata", "datatags", "ext", "created", "width", "height"])
@@ -42,14 +42,14 @@ def show_post(m, short=False):
 		path = "MISSING"
 	print "Original file: " + path
 	if short: return 0
-	tags = [fmt_tag("", t) for n, t in sorted(post.datatags.items())]
+	tags = [fmt_tag(t) for n, t in sorted(post.datatags.items())]
 	if tags:
 		print "Data:\n\t",
 		print "\n\t".join(map(_tagenc, sorted(tags)))
 	print "Tags:\n\t",
-	tags = [fmt_tag("", t) for t in post["tags"]] + [fmt_tag("~", t) for t in post["weaktags"]]
+	tags = [fmt_tag(t) for t in post.fulltags] + [fmt_tag(t) for t in post.weaktags]
 	print "\n\t".join(map(_tagenc, sorted(tags)))
-	tags = [fmt_tag("", t) for t in post["impltags"]] + [fmt_tag("~", t) for t in post["implweaktags"]]
+	tags = [fmt_tag(t) for t in post.implfulltags] + [fmt_tag(t) for t in post.implweaktags]
 	if tags:
 		print "Implied:\n\t",
 		print "\n\t".join(map(_tagenc, sorted(tags)))
