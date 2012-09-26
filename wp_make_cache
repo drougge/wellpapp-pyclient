@@ -47,7 +47,7 @@ elif argv[1:] == ["raw"]:
 	ms = []
 	for ext in raw_exts:
 		p = client.search_post(guids=[("aaaaaa-aaaacr-faketg-FLekst", ext)])
-		ms += [p.md5 for p in p[0]]
+		ms += [p.md5 for p in p]
 	for m in ms:
 		add(m, client.image_path(m))
 else:

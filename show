@@ -1,30 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-from sys import argv, exit, stdout
+from sys import argv, exit
 from wellpapp import Client
 from re import match
 from os.path import exists
 from os import readlink
 
-def _tagenc(t):
-	return t.encode(stdout.encoding or "ascii", "replace")
-
 def implfmt(impl):
 	guid, prio = impl
 	data = client.get_tag(guid, with_prefix=True)
-	return "\n\t" + _tagenc(data["name"]) + " " + str(prio)
+	return u"\n\t" + data["name"] + u" " + unicode(prio)
 
 def show_implies(guid, heading, reverse):
 	impl = client.tag_implies(guid, reverse)
-	if impl: print heading + "".join(sorted(map(implfmt, impl)))
+	if impl: print heading + u"".join(sorted(map(implfmt, impl)))
 
-def fmt_tag(prefix, tag):
+def fmt_tag(tag):
 	if tag.value:
 		val = u" = " + unicode(tag.value)
 	else:
-		val = ""
-	return prefix + tag.name + val
+		val = u""
+	return tag.pname + val
 
 def show_post(m, short=False):
 	post = client.get_post(m, True, ["tagname", "tagdata", "datatags", "ext", "created", "width", "height"])
@@ -42,17 +39,17 @@ def show_post(m, short=False):
 		path = "MISSING"
 	print "Original file: " + path
 	if short: return 0
-	tags = [fmt_tag("", t) for n, t in sorted(post.datatags.items())]
+	tags = [fmt_tag(t) for n, t in sorted(post.datatags.items())]
 	if tags:
 		print "Data:\n\t",
-		print "\n\t".join(map(_tagenc, sorted(tags)))
+		print u"\n\t".join(sorted(tags))
 	print "Tags:\n\t",
-	tags = [fmt_tag("", t) for t in post["tags"]] + [fmt_tag("~", t) for t in post["weaktags"]]
-	print "\n\t".join(map(_tagenc, sorted(tags)))
-	tags = [fmt_tag("", t) for t in post["impltags"]] + [fmt_tag("~", t) for t in post["implweaktags"]]
+	tags = [fmt_tag(t) for t in post.fulltags] + [fmt_tag(t) for t in post.weaktags]
+	print u"\n\t".join(sorted(tags))
+	tags = [fmt_tag(t) for t in post.implfulltags] + [fmt_tag(t) for t in post.implweaktags]
 	if tags:
 		print "Implied:\n\t",
-		print "\n\t".join(map(_tagenc, sorted(tags)))
+		print u"\n\t".join(sorted(tags))
 	rels = client.post_rels(m)
 	if rels:
 		print "Related posts:\n\t" + "\n\t".join(rels)
@@ -69,18 +66,18 @@ def show_tag(name, short=False):
 	if not data:
 		print "Tag not found"
 		return 1
-	print "Tag:", _tagenc(data["name"])
+	print "Tag:", data["name"]
 	if "alias" in data and data["alias"]:
-		print "Aliases:", " ".join(map(_tagenc, data["alias"]))
+		print "Aliases:", " ".join(data["alias"])
 	print "GUID:", guid
-	print "Type:", _tagenc(data["type"])
+	print "Type:", data["type"]
 	if "valuetype" in data and data["valuetype"]:
-		print "Valuetype:", _tagenc(data["valuetype"])
+		print "Valuetype:", data["valuetype"]
 	if short: return 0
 	print data["posts"], "posts"
 	print data["weak_posts"], "weak posts"
-	show_implies(guid, "Implies:", False)
-	show_implies(guid, "Implied by:", True)
+	show_implies(guid, u"Implies:", False)
+	show_implies(guid, u"Implied by:", True)
 	flags = [f for f in data if data[f] is True]
 	if flags:
 		print "Flags:\n\t", "\n\t".join(flags)

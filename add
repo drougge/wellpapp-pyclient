@@ -75,8 +75,8 @@ class tagset(set):
 	def update(self, l):
 		[self.add_spec(s) for s in l]
 	
-	def update_tags(self, l, prefix=""):
-		[self.add((prefix + t.guid, t.value)) for t in l]
+	def update_tags(self, l):
+		[self.add((t.pguid, t.value)) for t in l]
 
 def find_tags(fn):
 	path = "/"
@@ -218,8 +218,7 @@ def add_image(fn):
 	post = client.get_post(m, True)
 	posttags = tagset()
 	if post:
-		posttags.update_tags(post["tags"])
-		posttags.update_tags(post["weaktags"], "~")
+		posttags.update_tags(post.tags)
 	filetags = find_tags(fn)
 	exif2tags(exif, filetags)
 	for guid, val in filetags.difference(posttags):
