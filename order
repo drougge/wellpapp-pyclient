@@ -20,15 +20,16 @@ if data["weak_posts"]:
 posts = map(client.postspec2md5, argv[2:])
 wtag = "~" + tag
 for post, spec in zip(posts, argv[2:]):
-	if post == None:
+	if post:
+		post = client.get_post(post, True)
+	if not post:
 		print "Post " + spec + " not found"
 		exit(1)
-	post = client.get_post(post, True)
-	if tag in post["impltagguid"] or wtag in post["impltagguid"]:
+	if tag in post.implfulltags or tag in post.implweaktags:
 		print "Post " + spec + " has tag implied."
 		print "Can't order a tag with implied posts."
 		exit(1)
-	if tag not in post["tagguid"]:
+	if tag not in post.tags.guids:
 		print "Post " + spec + " doesn't have tag."
 		exit(1)
 client.order(tag, posts)
