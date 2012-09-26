@@ -31,7 +31,7 @@ def _tagspec(type, value):
 class Post(DotDict): pass
 
 class Tag(DotDict):
-	def _populate(self, res):
+	def _populate(self, res, flags=""):
 		res = res.split()
 		alias = []
 		flaglist = []
@@ -59,6 +59,45 @@ class Tag(DotDict):
 		if len(vt) == 2:
 			self.valuetype = vt[0]
 			self.value = _vtparse(*vt)
+		if "~" in flags:
+			if self.name: self.pname = u"~" + self.name
+			if self.guid: self.pguid = "~" + self.guid
+		else:
+			self.pname, self.pguid = self.name, self.guid
+
+class TagDict(dict):
+	"""Dictionary-like object that holds the tag lists in Posts.
+	Members are keyed on both .name and .guid (if they exist).
+	A .guid always shadows a .name.
+	Iterates over Tag objects, not names and/or guids.
+	Use .names or .guids if you want dicts with just those keys.
+	"""
+	
+	def __init__(self):
+		self.names = {}
+		self.guids = {}
+	
+	def _add(self, tag, name, guid):
+		if name:
+			if name not in self:
+				self[name] = tag
+			self.names[name] = tag
+		if guid:
+			self[guid] = tag
+			self.guids[guid] = tag
+	
+	def __len__(self):
+		return max(len(self.names), len(self.guids))
+	
+	def __iter__(self):
+		if self.guids: return self.guids.itervalues()
+		return self.names.itervalues()
+	
+	itervalues = __iter__
+	
+	def values(self):
+		if self.guids: return self.guids.values()
+		return self.names.values()
 
 def _vtparse(vtype, val, human=False):
 	return valuetypes[vtype](val, human)
@@ -175,62 +214,61 @@ class Client:
 					f[field] = value
 			else:
 				raise ResponseError(line)
-		f.tags = []
-		f.weaktags = []
-		f.impltags = []
-		f.implweaktags = []
-		f.datatags = []
+		f.fulltags = TagDict()
+		f.weaktags = TagDict()
+		f.implfulltags = TagDict()
+		f.implweaktags = TagDict()
+		f.datatags = TagDict()
 		for piece in pieces[1:-1]:
 			flags, data = piece.split(" ", 1)
 			if "I" in flags and "~" in flags:
 				ta = f.implweaktags
 			elif "I" in flags:
-				ta = f.impltags
+				ta = f.implfulltags
 			elif "~" in flags:
 				ta = f.weaktags
 			elif "D" in flags:
 				ta = f.datatags
 			else:
-				ta = f.tags
+				ta = f.fulltags
 			t = Tag()
-			t._populate(data)
-			ta.append(t)
+			t._populate(data, flags)
+			ta._add(t, t.name, t.guid)
 		if not f.md5: raise ResponseError(line)
 		if f.md5 in seen: raise DuplicateError(f.md5)
 		seen.add(f.md5)
-		old = lambda n, full, weak: [t[n] for t in full] + [u"~" + t[n] for t in weak]
-		if not wanted or "tagname" in wanted:
-			f.tagname = old("name", f.tags, f.weaktags)
-		if not wanted or "tagguid" in wanted:
-			f.tagguid = old("guid", f.tags, f.weaktags)
+		tagdicts = [f.fulltags, f.weaktags]
 		if wanted and "implied" in wanted:
-			if "tagname" in wanted:
-				f.impltagname = old("name", f.impltags, f.implweaktags)
-			if "tagguid" in wanted:
-				f.impltagguid = old("guid", f.impltags, f.implweaktags)
+			tagdicts += [f.implfulltags, f.implweaktags]
 		else:
-			del f.impltags
+			del f.implfulltags
 			del f.implweaktags
 		if not wanted or "datatags" not in wanted:
 			del f.datatags
 		else:
-			f.datatags = dict((t.name, t) for t in f.datatags)
+			tagdicts.append(f.datatags)
+		alltags = TagDict()
+		for td in tagdicts:
+			for tag in td:
+				alltags._add(tag, tag.pname, tag.pguid)
+		f.tags = alltags
 		posts.append(f)
 	
-	def _search_post(self, search, wanted = None, props = None):
+	def _search_post(self, search, wanted=None, props=None):
 		self._writeline(search)
 		posts = []
 		while not self._parse_search(self._readline(), posts, wanted, props): pass
 		return posts
 	
-	def get_post(self, md5, separate_implied = False, wanted = None):
+	def get_post(self, md5, separate_implied=False, wanted=None):
 		md5 = str(md5)
 		if wanted is None:
 			wanted = ["tagname", "tagguid", "tagdata", "datatags", "ext", "created", "width", "height"]
-		if separate_implied and "implied" not in wanted: wanted.append("implied")
+		if separate_implied and "implied" not in wanted:
+			wanted = ["implied"] + wanted
 		search = "SPM" + md5 + " F".join([""] + self._filter_wanted(wanted))
 		posts = self._search_post(search, wanted)
-		if not posts or posts[0]["md5"] != md5: return None
+		if not posts or posts[0].md5 != md5: return None
 		return posts[0]
 	
 	def delete_post(self, md5):
@@ -282,11 +320,10 @@ class Client:
 			search += "R" + ("%x" % range[0]) + ":" + ("%x" % range[1])
 		return search
 	
-	def search_post(self, wanted=None, **kw):
+	def search_post(self, wanted=None, props=None, **kw):
 		search = "SP" + self._build_search(wanted=wanted, **kw)
-		props = DotDict()
 		posts = self._search_post(search, wanted, props)
-		return posts, props
+		return posts
 	
 	def _send_auth(self):
 		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)
