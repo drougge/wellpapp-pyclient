@@ -106,22 +106,22 @@ def check_imagestore():
 def check_connectivity():
 	print "Checking tags"
 	for t in tags:
-		strong = client.search_post(guids=["!" + t.guid])[0]
-		weak = client.search_post(guids=["~" + t.guid])[0]
+		strong = client.search_post(guids=["!" + t.guid])
+		weak = client.search_post(guids=["~" + t.guid])
 		if len(strong) != t.posts or len(weak) != t.weak_posts:
 			print "Post count mismatch on", t.guid
 			print "\tclaims", t.posts, "+", t.weak_posts
 			print "\tfinds", len(strong), "+", len(weak)
 		for res, prefix in ((strong, ""), (weak, "~")):
 			for p in res:
-				p = posts[p["md5"]]
-				if prefix + t.guid not in p.tagguid + p.impltagguid:
+				p = posts[p.md5]
+				if prefix + t.guid not in p.tags.guids:
 					print p["md5"], "reachable with", t.guid, "but not tagged"
 	print "Checking posts"
-	for m in posts:
-		guids = map(lambda g: g if g[0] == "~" else "!" + g, posts[m]["tagguid"])
+	for m, p in posts.iteritems():
+		guids = ["!" + t.guid for t in p.fulltags] + ["~" + t.guid for t in p.weaktags]
 		while guids:
-			p = client.search_post(guids=guids[:16])[0]
+			p = client.search_post(guids=guids[:16])
 			if m not in map(lambda f: f["md5"], p):
 				print "Post", m, "not findable with all tags"
 			guids = guids[16:]
@@ -142,7 +142,7 @@ if __name__ == '__main__':
 				usage(argv)
 	if not opts: usage(argv)
 	client = Client()
-	posts = client._search_post("SPFtagguid Fimplied Fext", ["tagguid", "implied", "ext"])
+	posts = client._search_post("SPFtagguid Fimplied Fext", ["tagguid", "datatags", "implied", "ext"])
 	print len(posts), "posts"
 	posts = dict(map(lambda f: (f["md5"], f), posts))
 	tags = client.find_tags("EAI", "")
