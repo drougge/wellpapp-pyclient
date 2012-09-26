@@ -1,6 +1,10 @@
 # -*- coding: iso-8859-1 -*-
 
-import socket, codecs, os, hashlib, re
+import socket
+import codecs
+import os
+import hashlib
+import re
 
 from wellpapp.vt import VTdatetime, VTuint, VTint, valuetypes
 from wellpapp._util import _utf
