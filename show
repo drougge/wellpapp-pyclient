@@ -10,7 +10,7 @@ from os import readlink
 def implfmt(impl):
 	guid, prio = impl
 	data = client.get_tag(guid, with_prefix=True)
-	return u"\n\t" + data["name"] + u" " + unicode(prio)
+	return u"\n\t" + data.pname + u" " + unicode(prio)
 
 def show_implies(guid, heading, reverse):
 	impl = client.tag_implies(guid, reverse)

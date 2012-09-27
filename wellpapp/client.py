@@ -613,34 +613,31 @@ class Client:
 			ppos = spec.rfind(u"=")
 		return self._parse_tag(prefix, spec, ppos, comparison)
 	
-	def find_tag(self, name, resdata=None, with_prefix=False):
+	def _find_tag(self, matchtype, name, with_prefix):
 		name = _uniw(name)
 		if with_prefix and name[0] in u"~-!":
 			prefix = name[0]
 			name = name[1:]
 		else:
 			prefix = u""
-		tags = self.find_tags(u"EAN", name)
-		if not tags: return None
+		tags = self.find_tags(matchtype, name)
+		if not tags: return None, None
 		assert len(tags) == 1
-		guid = tags[0].guid
-		if resdata != None: resdata.update(tags[0])
-		return prefix + guid
+		return tags[0], prefix
+	
+	def find_tag(self, name, resdata=None, with_prefix=False):
+		tag, prefix = self._find_tag(u"EAN", name, with_prefix)
+		if not tag: return None
+		if resdata != None: resdata.update(tag)
+		return prefix + tag.guid
 	
 	def get_tag(self, guid, with_prefix=False):
-		guid = _uniw(guid)
-		if with_prefix and guid[0] in u"~-!":
-			prefix = guid[0]
-			guid = guid[1:]
-		else:
-			prefix = u""
-		tags = self.find_tags(u"EAG", guid)
-		if not tags: return None
-		assert len(tags) == 1
-		data = tags[0]
-		assert guid == data.guid
-		data["name"] = prefix + data["name"]
-		return data
+		tag, prefix = self._find_tag(u"EAG", guid, with_prefix)
+		if not tag: return None
+		assert guid[-27:] == tag.guid
+		tag.pname = prefix + tag.name
+		tag.pguid = prefix + tag.guid
+		return tag
 	
 	def begin_transaction(self):
 		self._writeline(u"tB")

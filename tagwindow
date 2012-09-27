@@ -656,7 +656,7 @@ class ImplicationsDialog(gtk.Dialog):
 			lab = gtk.Label(u"Implied by")
 			self.vbox.pack_start(lab)
 			rev_impl = gtk.ListStore(TYPE_STRING, TYPE_INT)
-			lines = [(client.get_tag(guid, with_prefix=True).name, prio) for guid, prio in impl]
+			lines = [(client.get_tag(guid, with_prefix=True).pname, prio) for guid, prio in impl]
 			for d in sorted(lines):
 				rev_impl.append(d)
 			rev_impl = gtk.TreeView(rev_impl)
@@ -704,7 +704,7 @@ class ImplicationsDialog(gtk.Dialog):
 		self._add_name.grab_focus()
 
 	def _impl_wids(self, guid, prio):
-		name = client.get_tag(guid, with_prefix=True).name
+		name = client.get_tag(guid, with_prefix=True).pname
 		lab = gtk.Label(name)
 		entry = gtk.Entry()
 		entry.set_width_chars(5)
