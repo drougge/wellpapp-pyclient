@@ -561,10 +561,10 @@ class TagWindow:
 					p = prefix(tag[0])
 					ctag = clean(tag[0])
 					post = self.posts[m]
-					if p == "-" and (ctag in post.tags.guids or "~" + ctag in post.tags.guids):
+					if p == "-" and (ctag in post.settags.guids or "~" + ctag in post.settags.guids):
 						todo[m][2].append(ctag)
 					do_set = False
-					if p != "-" and tag[0] not in post.tags.guids:
+					if p != "-" and tag[0] not in post.settags.guids:
 						do_set = True
 					elif tag[1]:
 						if tag[1] != post.tags[tag[0]].value:

@@ -244,7 +244,18 @@ class Client:
 		seen.add(f.md5)
 		tagdicts = [f.fulltags, f.weaktags]
 		if wanted and "implied" in wanted:
-			tagdicts += [f.implfulltags, f.implweaktags]
+			settags = TagDict()
+			for td in tagdicts:
+				for tag in td:
+					settags._add(tag, tag.pname, tag.pguid)
+			idicts = [f.implfulltags, f.implweaktags]
+			tagdicts += idicts
+			impltags = TagDict()
+			for td in tagdicts:
+				for tag in td:
+					impltags._add(tag, tag.pname, tag.pguid)
+			f.settags = settags
+			f.impltags = impltags
 		else:
 			del f.implfulltags
 			del f.implweaktags
