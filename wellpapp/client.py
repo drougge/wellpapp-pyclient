@@ -1,14 +1,13 @@
 # -*- coding: iso-8859-1 -*-
 
 import socket
-import codecs
 import os
 import hashlib
 import re
 from functools import partial
 
 from wellpapp.vt import VTdatetime, VTuint, VTint, valuetypes
-from wellpapp._util import _utf
+from wellpapp._util import _uniw
 from wellpapp.util import DotDict, CommentWrapper, make_pdirs, RawWrapper
 
 class WellpappError(Exception): pass
@@ -24,7 +23,7 @@ def _rfindany(s, chars, pos=-1):
 	return -1
 
 def _tagspec(type, value):
-	if value[0] in "~!":
+	if value[0] in u"~!":
 		type = value[0] + type
 		value = value[1:]
 	return type + value
@@ -60,7 +59,7 @@ class Tag(DotDict):
 		if len(vt) == 2:
 			self.valuetype = vt[0]
 			self.value = _vtparse(*vt)
-		if "~" in flags:
+		if u"~" in flags:
 			if self.name: self.pname = u"~" + self.name
 			if self.guid: self.pguid = "~" + self.guid
 		else:
@@ -122,7 +121,7 @@ _field_sparser = {
 _p_int = lambda i: str(int(i))
 _p_hexint = lambda i: "%x" % (int(i),)
 def _p_date(val):
-	if isinstance(val, basestring): return _utf(val)
+	if isinstance(val, basestring): return _uniw(val)
 	return val.format()
 _field_cparser = {
 	"width"          : _p_hexint,
@@ -130,7 +129,7 @@ _field_cparser = {
 	"rotate"         : _p_int,
 	"created"        : _p_date,
 	"imgdate"        : _p_date,
-	"ext"            : _utf,
+	"ext"            : _uniw,
 }
 
 class Config(DotDict):
@@ -169,34 +168,34 @@ class Client:
 		self.is_connected = False
 		self._md5re = re.compile(r"^[0-9a-f]{32}$", re.I)
 		base = cfg.image_base
-		if base[-1] == "/": base = base[:-1]
+		while base.endswith("/"): base = base[:-1]
 		base = re.escape(base)
 		self._destmd5re = re.compile(r"^" + base + r"/[0-9a-f]/[0-9a-f]{2}/([0-9a-f]{32})$")
 	
 	def _reconnect(self):
 		if self.is_connected: return
-		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.sock.connect(self.server)
-		self.utfdec = codecs.getdecoder("utf8")
-		self.fh = self.sock.makefile()
+		self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self._sock.connect(self.server)
+		self._fh = self._sock.makefile()
 		self.is_connected = True
 	
 	def _writeline(self, line, retry=True):
+		assert u"\n" not in line
 		self._reconnect()
-		line = line + "\n"
+		line = line.encode("utf-8") + b"\n"
 		try:
-			self.sock.send(line)
-		except:
+			self._sock.sendall(line)
+		except IOError:
 			self.is_connected = False
 			if retry:
 				self._reconnect()
-				self.sock.send(line)
+				self._sock.sendall(line)
 	
 	def _readline(self):
-		return self.utfdec(self.fh.readline())[0]
+		return self._fh.readline()[:-1].decode("utf-8")
 	
 	def _parse_search(self, line, posts, wanted, props):
-		if line == u"OK\n": return True
+		if line == u"OK": return True
 		if line[0] != u"R": raise ResponseError(line)
 		if line[1] == u"E": raise ResponseError(line)
 		if line[1] == u"R":
@@ -204,7 +203,7 @@ class Client:
 			return
 		f = Post()
 		seen = set()
-		pieces = line[1:].split(" :")
+		pieces = line[1:].split(u" :")
 		for token in pieces[0].split():
 			type = token[0]
 			data = token[1:]
@@ -225,14 +224,14 @@ class Client:
 		f.implweaktags = TagDict()
 		f.datatags = TagDict()
 		for piece in pieces[1:-1]:
-			flags, data = piece.split(" ", 1)
-			if "I" in flags and "~" in flags:
+			flags, data = piece.split(u" ", 1)
+			if u"I" in flags and u"~" in flags:
 				ta = f.implweaktags
-			elif "I" in flags:
+			elif u"I" in flags:
 				ta = f.implfulltags
-			elif "~" in flags:
+			elif u"~" in flags:
 				ta = f.weaktags
-			elif "D" in flags:
+			elif u"D" in flags:
 				ta = f.datatags
 			else:
 				ta = f.fulltags
@@ -266,25 +265,24 @@ class Client:
 		return posts
 	
 	def get_post(self, md5, separate_implied=False, wanted=None):
-		md5 = str(md5)
 		if wanted is None:
 			wanted = ["tagname", "tagguid", "tagdata", "datatags", "ext", "created", "width", "height"]
 		if separate_implied and "implied" not in wanted:
 			wanted = ["implied"] + wanted
-		search = "SPM" + md5 + " F".join([""] + self._filter_wanted(wanted))
+		search = u"SPM" + _uniw(md5) + " F".join([""] + self._filter_wanted(wanted))
 		posts = self._search_post(search, wanted)
-		if not posts or posts[0].md5 != md5: return None
+		if not posts: return None
+		assert posts[0].md5 == md5
 		return posts[0]
 	
 	def delete_post(self, md5):
-		md5 = str(md5)
 		assert " " not in md5
-		cmd = "DP" + md5
+		cmd = u"DP" + _uniw(md5)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise ResponseError(res)
+		if res != u"OK": raise ResponseError(res)
 	
-	def _list(self, data, converter = _utf):
+	def _list(self, data, converter=_uniw):
 		if not data: return []
 		if isinstance(data, basestring): return [converter(data)]
 		return map(converter, data)
@@ -292,9 +290,9 @@ class Client:
 	def _guids2posneg(self, guids):
 		pos, neg = [], []
 		for g in guids:
-			if g[0] == "!":
+			if g[0] == u"!":
 				pos.append(g[1:])
-			elif g[0] == "-":
+			elif g[0] == u"-":
 				neg.append(g[1:])
 			else:
 				pos.append(g)
@@ -310,76 +308,71 @@ class Client:
 		neg2, pos2 = self._guids2posneg(excl_guids)
 		search = []
 		for want in self._filter_wanted(wanted):
-			search += ["F", want, " "]
+			search += [u"F", want, u" "]
 		for guid in pos1 + pos2:
-			search += ["T", _tagspec("G", guid), " "]
+			search += [u"T", _tagspec(u"G", guid), u" "]
 		for guid in neg1 + neg2:
-			search += ["t", _tagspec("G", guid), " "]
+			search += [u"t", _tagspec(u"G", guid), u" "]
 		for o in self._list(order, str):
-			search += ["O", o, " "]
+			search += [u"O", o, u" "]
 		if range != None:
-			search += ["R%x:%x" % range]
-		return "".join(search)
+			search += [u"R%x:%x" % range]
+		return u"".join(search)
 	
 	def search_post(self, wanted=None, props=None, **kw):
-		search = "SP" + self._build_search(wanted=wanted, **kw)
+		search = u"SP" + self._build_search(wanted=wanted, **kw)
 		posts = self._search_post(search, wanted, props)
 		return posts
 	
 	def _fieldspec(self, **kwargs):
-		f = [_utf(f) + "=" + _field_cparser[_utf(f)](kwargs[f]) for f in kwargs]
-		if not f: return ""
-		return " " + " ".join(f)
+		f = [_uniw(f) + u"=" + _field_cparser[f](kwargs[f]) for f in kwargs]
+		if not f: return u""
+		return u" ".join([u""] + f)
 	
 	def modify_post(self, md5, **kwargs):
-		md5 = str(md5)
-		assert " " not in md5
 		fspec = self._fieldspec(**kwargs)
 		if fspec:
-			cmd = "MP" + md5 + fspec
+			cmd = u"MP" + _uniw(md5) + fspec
 			self._writeline(cmd)
 			res = self._readline()
-			if res != u"OK\n": raise ResponseError(res)
+			if res != u"OK": raise ResponseError(res)
 	
 	def add_post(self, md5, **kwargs):
-		cmd  = "AP" + str(md5)
+		cmd  = u"AP" + _uniw(md5)
 		assert "width" in kwargs
 		assert "height" in kwargs
 		assert "ext" in kwargs
 		cmd += self._fieldspec(**kwargs)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise ResponseError(res)
+		if res != u"OK": raise ResponseError(res)
 	
 	def _rels(self, c, md5, rels):
-		cmd = "R" + c + str(md5)
-		for rel in self._list(rels, str):
-			cmd += " " + rel
-		self._writeline(cmd)
+		cmd = [u"R", c, md5]
+		for rel in self._list(rels, unicode):
+			assert u" " not in rel
+			cmd.append(u" " + rel)
+		self._writeline(u"".join(cmd))
 		res = self._readline()
-		if res != u"OK\n": raise ResponseError(res)
+		if res != u"OK": raise ResponseError(res)
 	
 	def add_rels(self, md5, rels):
-		self._rels("R", md5, rels)
+		self._rels(u"R", md5, rels)
 	
 	def remove_rels(self, md5, rels):
-		self._rels("r", md5, rels)
+		self._rels(u"r", md5, rels)
 	
 	def _parse_rels(self, line, rels):
-		if line == u"OK\n": return True
+		if line == u"OK": return True
 		if line[0] != u"R": raise ResponseError(line)
 		if line[1] == u"E": raise ResponseError(line)
 		a = str(line[1:]).split()
 		p = a[0]
-		l = []
-		if p in rels: l = rels[p]
-		for rel in a[1:]:
-			l.append(rel)
-		rels[p] = l
+		l = rels.setdefault(p, [])
+		l += a[1:]
 	
 	def post_rels(self, md5):
-		md5 = str(md5)
-		cmd = "RS" + md5
+		cmd = u"RS" + _uniw(md5)
 		self._writeline(cmd)
 		rels = {}
 		while not self._parse_rels(self._readline(), rels): pass
@@ -387,33 +380,32 @@ class Client:
 		return rels[md5]
 	
 	def add_tag(self, name, type=None, guid=None, valuetype=None):
-		cmd = "ATN" + _utf(name)
+		cmd = u"ATN" + _uniw(name)
 		if type:
-			cmd += " T" + _utf(type)
+			cmd += u" T" + _uniw(type)
 		if guid:
-			cmd += " G" + _utf(guid)
+			cmd += u" G" + _uniw(guid)
 		if valuetype:
-			cmd += " V" + _utf(valuetype)
+			cmd += u" V" + _uniw(valuetype)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise ResponseError(res)
+		if res != u"OK": raise ResponseError(res)
 	
 	def add_alias(self, name, origin_guid):
-		cmd = "AAG" + str(origin_guid) + " N" + _utf(name)
+		cmd = u"AAG" + _uniw(origin_guid) + u" N" + _uniw(name)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise ResponseError(res)
+		if res != u"OK": raise ResponseError(res)
 	
 	def remove_alias(self, name):
-		cmd = "DAN" + _utf(name)
+		cmd = u"DAN" + _uniw(name)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise ResponseError(res)
+		if res != u"OK": raise ResponseError(res)
 	
 	def _addrem_implies(self, addrem, set_tag, implied_tag, priostr):
 		assert " " not in set_tag
 		assert " " not in implied_tag
-		implied_tag = str(implied_tag)
 		if implied_tag[0] == "-":
 			add = " i" + implied_tag[1:]
 		else:
@@ -421,7 +413,7 @@ class Client:
 		cmd = "I" + addrem + str(set_tag) + add + priostr
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise ResponseError(res)
+		if res != u"OK": raise ResponseError(res)
 	
 	def add_implies(self, set_tag, implied_tag, priority=0):
 		self._addrem_implies("I", set_tag, implied_tag, ":" + str(priority))
@@ -431,25 +423,24 @@ class Client:
 	
 	def _parse_implies(self, data):
 		res = self._readline()
-		if res == u"OK\n": return
-		set_guid, impl_guid = map(str, res.split(" ", 1))
-		assert set_guid[:2] == "RI"
+		if res == u"OK": return
+		set_guid, impl_guid = map(str, res.split(u" ", 1))
+		assert set_guid[:2] == u"RI"
 		set_guid = set_guid[2:]
 		for impl_guid in impl_guid.split():
-			impl_guid, prio = impl_guid.split(":")
-			if impl_guid[0] == "i":
-				impl_guid = "-" + impl_guid[1:]
+			impl_guid, prio = impl_guid.split(u":")
+			if impl_guid[0] == u"i":
+				impl_guid = u"-" + impl_guid[1:]
 			else:
-				assert impl_guid[0] == "I"
+				assert impl_guid[0] == u"I"
 				impl_guid = impl_guid[1:]
-			if set_guid not in data: data[set_guid] = []
-			data[set_guid].append((impl_guid, int(prio)))
+			l = data.setdefault(set_guid, [])
+			l.append((str(impl_guid), int(prio)))
 		return True
 	
 	def tag_implies(self, tag, reverse=False):
-		tag = str(tag)
-		assert " " not in tag
-		cmd = "IR" if reverse else "IS"
+		tag = _uniw(tag)
+		cmd = u"IR" if reverse else u"IS"
 		self._writeline(cmd + tag)
 		data = {}
 		while self._parse_implies(data): pass
@@ -471,62 +462,61 @@ class Client:
 		if tag in data: return data[tag]
 	
 	def merge_tags(self, into_t, from_t):
-		assert " " not in into_t
-		assert " " not in from_t
-		cmd = "MTG" + str(into_t) + " M" + str(from_t)
+		cmd = u"MTG" + _uniw(into_t) + u" M" + _uniw(from_t)
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise ResponseError(res)
+		if res != u"OK": raise ResponseError(res)
 	
 	def mod_tag(self, guid, name=None, type=None):
-		guid = _utf(guid)
-		assert " " not in guid
-		cmd = "MTG" + guid
+		guid = _uniw(guid)
+		cmd = u"MTG" + guid
 		if name:
-			name = _utf(name)
-			assert " " not in name
-			cmd += " N" + name
+			name = _uniw(name)
+			cmd += u" N" + name
 		if type:
-			type = _utf(type)
-			assert " " not in type
-			cmd += " T" + type
+			type = _uniw(type)
+			cmd += u" T" + type
 		self._writeline(cmd)
 		res = self._readline()
-		if res != u"OK\n": raise ResponseError(res)
+		if res != u"OK": raise ResponseError(res)
 	
 	def _tag2spec(self, t):
 		if type(t) in (tuple, list):
 			assert len(t) in (2, 3)
-			g = str(t[0])
+			g = _uniw(t[0])
 			if t[-1] is None: return g
 			if len(t) == 2:
-				return g + "=" + t[1].format()
+				return g + u"=" + t[1].format()
 			else:
 				return g + t[1] + t[2].format()
 		else:
-			return str(t)
+			return _uniw(t)
 	
 	def tag_post(self, md5, full_tags=None, weak_tags=None, remove_tags=None):
-		tags = map(self._tag2spec, full_tags or []) + map(lambda t: "~" + self._tag2spec(t), weak_tags or [])
-		remove_tags = map(str, remove_tags or [])
-		init = "TP" + str(md5)
-		cmd = init
-		for tag in map(lambda t: " T" + t, tags) + map(lambda t: " t" + t, remove_tags):
-			assert " " not in tag[1:]
-			if len(cmd) + len(tag) > self._prot_max_len:
-				self._writeline(cmd)
+		tags = self._list(full_tags, lambda s: u" T" + self._tag2spec(s))
+		tags += self._list(weak_tags, lambda s: u" T~" + self._tag2spec(s))
+		tags += self._list(remove_tags, lambda s: u" t" + _uniw(s))
+		init = u"TP" + _uniw(md5)
+		cmd = [init]
+		clen = len(init)
+		for tag in tags:
+			assert u" " not in tag[1:]
+			clen += len(tag.encode("utf-8"))
+			if clen >= self._prot_max_len:
+				self._writeline(u"".join(cmd))
 				res = self._readline()
-				if res != u"OK\n": raise ResponseError(res)
-				cmd = init
-			cmd += tag
-		if cmd != init:
-			self._writeline(cmd)
+				if res != u"OK": raise ResponseError(res)
+				cmd = [init]
+				clen = len(init)
+			cmd.append(tag)
+		if len(cmd) > 1:
+			self._writeline(u"".join(cmd))
 			res = self._readline()
-			if res != u"OK\n": raise ResponseError(res)
+			if res != u"OK": raise ResponseError(res)
 	
 	def _parse_tagres(self, resdata = None):
 		res = self._readline()
-		if res == u"OK\n": return
+		if res == u"OK": return
 		if res[0] != u"R": raise ResponseError(res)
 		if res[1] == u"E": raise ResponseError(res)
 		if res[1] == u"R": return True # ignore count for now
@@ -539,47 +529,46 @@ class Client:
 		if kw:
 			filter = self._build_search(**kw)
 			if filter:
-				filter = " :" + filter
+				filter = u" :" + filter
 		else:
-			filter = ""
-		matchtype = str(matchtype)
-		assert " " not in matchtype
-		name = _utf(name)
-		assert " " not in name
-		cmd = "ST" + matchtype + name
-		for o in self._list(order, str):
-			assert " " not in o
-			cmd += " O" + o
-		for f in self._list(flags, str):
-			assert " " not in f
-			cmd += " F" + f
-		if range != None:
+			filter = u""
+		matchtype = _uniw(matchtype)
+		name = _uniw(name)
+		cmd = [u"ST", matchtype, name]
+		for o in self._list(order, _uniw):
+			cmd.append(u" O" + o)
+		for f in self._list(flags, _uniw):
+			cmd.append(u" F" + f)
+		if range is not None:
 			assert len(range) == 2
-			cmd += " R%x:%x" % range
-		self._writeline(cmd + filter)
+			cmd.append(u" R%x:%x" % range)
+		cmd.append(filter)
+		self._writeline(u"".join(cmd))
 		tags = []
 		while self._parse_tagres(tags): pass
 		return tags
 	
 	def _parse_tag(self, prefix, spec, pos, comparison):
-		if pos == -1: return None
+		if pos == -1:
+			return None
 		tag = self.find_tag(spec[:pos])
 		if comparison:
-			ppos = _rfindany(spec, "=<>", pos)
+			ppos = _rfindany(spec, u"=<>", pos)
 		else:
-			ppos = spec.rfind("=", 0, pos)
-		if not tag: return self._parse_tag(prefix, spec, ppos, comparison)
+			ppos = spec.rfind(u"=", 0, pos)
+		if not tag:
+			return self._parse_tag(prefix, spec, ppos, comparison)
 		tag = self.get_tag(tag)
 		if not tag or tag.valuetype in (None, "none"):
 			return self._parse_tag(prefix, spec, ppos, comparison)
 		if comparison:
-			if spec[pos + 1] in "=~":
+			if spec[pos + 1] in u"=~":
 				comp = spec[pos:pos + 2]
 				val = spec[pos + 2:]
 			else:
 				comp = spec[pos]
 				val = spec[pos + 1:]
-			if comp not in ("=", "<", ">", "<=", ">=", "=~"):
+			if comp not in (u"=", u"<", u">", u"<=", u">=", u"=~"):
 				return None
 			val = _vtparse(tag.valuetype, val, True)
 			return (prefix + tag.guid, comp, val)
@@ -592,13 +581,13 @@ class Client:
 			return (prefix + tag.guid, val)
 	
 	def parse_tag(self, spec, comparison=False):
-		spec = _utf(spec)
+		spec = _uniw(spec)
 		if not spec: return None
-		if spec[0] in "~-!":
+		if spec[0] in u"~-!":
 			prefix = spec[0]
 			spec = spec[1:]
 		else:
-			prefix = ""
+			prefix = u""
 		tag = self.find_tag(spec)
 		if tag:
 			if comparison:
@@ -606,19 +595,19 @@ class Client:
 			else:
 				return (prefix + tag, None)
 		if comparison:
-			ppos = _rfindany(spec, "=<>")
+			ppos = _rfindany(spec, u"=<>")
 		else:
-			ppos = spec.rfind("=")
+			ppos = spec.rfind(u"=")
 		return self._parse_tag(prefix, spec, ppos, comparison)
 	
 	def find_tag(self, name, resdata=None, with_prefix=False):
-		name = _utf(name)
-		if with_prefix and name[0] in "~-!":
-			prefix = str(name[0])
+		name = _uniw(name)
+		if with_prefix and name[0] in u"~-!":
+			prefix = name[0]
 			name = name[1:]
 		else:
-			prefix = ""
-		tags = self.find_tags("EAN", name)
+			prefix = u""
+		tags = self.find_tags(u"EAN", name)
 		if not tags: return None
 		assert len(tags) == 1
 		guid = tags[0].guid
@@ -626,13 +615,13 @@ class Client:
 		return prefix + guid
 	
 	def get_tag(self, guid, with_prefix=False):
-		guid = _utf(guid)
+		guid = _uniw(guid)
 		if with_prefix and guid[0] in u"~-!":
 			prefix = guid[0]
 			guid = guid[1:]
 		else:
 			prefix = u""
-		tags = self.find_tags("EAG", guid)
+		tags = self.find_tags(u"EAG", guid)
 		if not tags: return None
 		assert len(tags) == 1
 		data = tags[0]
@@ -641,22 +630,22 @@ class Client:
 		return data
 	
 	def begin_transaction(self):
-		self._writeline("tB")
+		self._writeline(u"tB")
 		res = self._readline()
-		return res == u"OK\n"
+		return res == u"OK"
 	
 	def end_transaction(self):
-		self._writeline("tE")
+		self._writeline(u"tE")
 		res = self._readline()
-		return res == u"OK\n"
+		return res == u"OK"
 	
 	def thumb_path(self, md5, size):
 		md5 = str(md5)
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
 	
 	def pngthumb_path(self, md5, ft, size):
-		fn = str(md5) + "." + str(ft)
-		md5 = hashlib.md5(fn).hexdigest()
+		fn = _uniw(md5) + u"." + _uniw(ft)
+		md5 = hashlib.md5(fn.encode("utf-8")).hexdigest()
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
 	
 	def image_dir(self, md5):
@@ -667,7 +656,7 @@ class Client:
 		md5 = str(md5)
 		return os.path.join(self.image_dir(md5), md5)
 	
-	def postspec2md5(self, spec, default = None):
+	def postspec2md5(self, spec, default=None):
 		if os.path.lexists(spec) and not os.path.isdir(spec):
 			# some extra magic to avoid reading the files if possible
 			if os.path.islink(spec):
@@ -690,33 +679,32 @@ class Client:
 		return default
 	
 	def order(self, tag, posts):
-		tag = str(tag)
-		assert " " not in tag
-		init = "OG" + tag
-		cmd = init
-		anything = False
-		for post in map(str, posts):
-			cmd += " P" + post
-			anything = True
-			if len(cmd) + 64 > self._prot_max_len:
-				self._writeline(cmd)
+		init = u"OG" + _uniw(tag)
+		cmd = [init]
+		clen = len(init)
+		for post in map(_uniw, posts):
+			post = u" P" + post
+			clen += len(post.encode("utf-8"))
+			if clen >= self._prot_max_len:
+				self._writeline(u"".join(cmd))
 				res = self._readline()
-				if res != u"OK\n": raise ResponseError(res)
-				cmd = init + " P" + post
-				anything = False
-		if anything:
-			self._writeline(cmd)
+				if res != u"OK": raise ResponseError(res)
+				cmd = [init]
+				clen = len(init)
+			cmd.append(post)
+		if len(cmd) > 1:
+			self._writeline(u"".join(cmd))
 			res = self._readline()
-			if res != u"OK\n": raise ResponseError(res)
+			if res != u"OK": raise ResponseError(res)
 	
 	def metalist(self, name):
-		cmd = "L" + _utf(name)
+		cmd = u"L" + _uniw(name)
 		self._writeline(cmd)
 		res = self._readline()
 		names = []
-		while res != u"OK\n":
+		while res != u"OK":
 			if res[:2] != u"RN": raise ResponseError(res)
-			names.append(res[2:-1])
+			names.append(res[2:])
 			res = self._readline()
 		return names
 	
@@ -724,7 +712,7 @@ class Client:
 		sizes = self.cfg.thumb_sizes.split()
 		jpeg_fns = map(lambda z: (self.thumb_path(m, int(z)), int(z)), sizes)
 		png_fns = map(lambda n, z: (self.pngthumb_path(m, ft, n), z),
-			      ("normal", "large"), (128, 256))
+		              ("normal", "large"), (128, 256))
 		return jpeg_fns, png_fns
 	
 	def save_thumbs(self, m, img, ft, rot, force=False):
