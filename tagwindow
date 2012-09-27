@@ -2,7 +2,6 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from wellpapp import Client, RawWrapper
 from itertools import chain
 import pygtk
 pygtk.require("2.0")
@@ -14,6 +13,8 @@ from os.path import commonprefix
 from hashlib import md5
 from threading import Thread
 from glib import markup_escape_text
+
+from wellpapp import Client, RawWrapper, WellpappError
 
 def clean(n):
 	n = _uni(n)
@@ -31,7 +32,7 @@ def _uni(s):
 	if type(s) is not unicode:
 		try:
 			s = s.decode("utf-8")
-		except Exception:
+		except UnicodeDecodeError:
 			s = s.decode("iso-8859-1")
 	return s
 
@@ -244,6 +245,8 @@ class TagWindow:
 		try:
 			data = str(selection.data).lower()
 		except Exception:
+			from traceback import print_exc
+			print_exc()
 			return
 		add = []
 		for m in data.split():
@@ -332,7 +335,8 @@ class TagWindow:
 					if new_name: model[row][0] = pre + new_name
 					model[row][3] = self.tag_colour_guid(guid)
 				except Exception:
-					pass
+					from traceback import print_exc
+					print_exc()
 		dialog.destroy()
 		if self._needs_refresh: self.refresh()
 
@@ -437,6 +441,8 @@ class TagWindow:
 			f = FullscreenWindowThread(fn, tw)
 			f.start()
 		except Exception:
+			from traceback import print_exc
+			print_exc()
 			self.fullscreen_open = False
 
 	def update_from_selection(self):
@@ -576,6 +582,8 @@ class TagWindow:
 							assert not p
 							todo[m][0].append(tag)
 			except Exception:
+				from traceback import print_exc
+				print_exc()
 				failed.append(t)
 		bad = False
 		todo_m = filter(lambda m: todo[m] != ([], [], []), todo)
@@ -584,7 +592,7 @@ class TagWindow:
 			for m in todo_m:
 				full, weak, remove = map(set, todo[m])
 				client.tag_post(m, full, weak, remove)
-		except:
+		except WellpappError:
 			bad = True
 		finally:
 			if todo_m: client.end_transaction()
@@ -712,7 +720,7 @@ class ImplicationsDialog(gtk.Dialog):
 	def _update(self, entry, guid):
 		try:
 			prio = int(entry.get_text())
-		except Exception:
+		except ValueError:
 			prio = 0
 		client.add_implies(self.guid, guid, prio)
 		self.did_something = True
@@ -731,7 +739,7 @@ class ImplicationsDialog(gtk.Dialog):
 			return
 		try:
 			prio = int(self._add_prio.get_text())
-		except Exception:
+		except ValueError:
 			prio = 0
 		pre = prefix(name)
 		if pre and pre != u"-": return
@@ -823,9 +831,12 @@ class FullscreenWindowThread(Thread):
 			idle_add(self._win._init, self._tw, pixbuf)
 			idle_add(self._tw.set_msg, u"")
 		except Exception:
+			from traceback import print_exc
+			print_exc()
 			self._cleanup()
 		finally:
-			if loader: loader.close()
+			if loader:
+				loader.close()
 
 	def _cleanup(self, *args):
 		self._tw.fullscreen_open = False

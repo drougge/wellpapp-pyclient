@@ -11,11 +11,13 @@ from wellpapp.vt import VTdatetime, VTuint, VTint, valuetypes
 from wellpapp._util import _utf
 from wellpapp.util import DotDict, CommentWrapper, make_pdirs, RawWrapper
 
+__all__ = ("Client", "Config", "Post", "Tag", "WellpappError", "ResponseError",
+           "DuplicateError",
+          )
+
 class WellpappError(Exception): pass
 class ResponseError(WellpappError): pass
 class DuplicateError(WellpappError): pass
-
-__all__ = ("Client", "Config", "Post", "Tag", "ResponseError", "DuplicateError",)
 
 def _rfindany(s, chars, pos=-1):
 	if pos < 0: pos = len(s)
