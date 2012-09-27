@@ -403,7 +403,7 @@ class TagWindow:
 			if thumb[0] in self.posts:
 				post = self.posts[thumb[0]]
 				tip = [post.md5]
-				tags = sorted(post.datatags.items())
+				tags = sorted(post.datatags.names.items())
 				tip += [name + u": " + unicode(tag.value) for name, tag in tags]
 				thumb[2] = u"\n".join(tip).encode("utf-8")
 
