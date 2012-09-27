@@ -5,6 +5,7 @@ import codecs
 import os
 import hashlib
 import re
+from functools import partial
 
 from wellpapp.vt import VTdatetime, VTuint, VTint, valuetypes
 from wellpapp._util import _utf
@@ -35,7 +36,7 @@ class Tag(DotDict):
 		res = res.split()
 		alias = []
 		flaglist = []
-		hexint = lambda s: int(s, 16)
+		hexint = partial(int, base=16)
 		dummy = lambda s: s
 		incl = {u"N": ("name", dummy),
 		        u"T": ("type", dummy),
@@ -63,7 +64,8 @@ class Tag(DotDict):
 			if self.name: self.pname = u"~" + self.name
 			if self.guid: self.pguid = "~" + self.guid
 		else:
-			self.pname, self.pguid = self.name, self.guid
+			if self.name: self.pname = self.name
+			if self.guid: self.pguid = self.guid
 
 class TagDict(dict):
 	"""Dictionary-like object that holds the tag lists in Posts.
