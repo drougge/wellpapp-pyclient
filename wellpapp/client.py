@@ -291,41 +291,37 @@ class Client:
 		if isinstance(data, basestring): return [converter(data)]
 		return map(converter, data)
 	
-	def _shuffle_minus(self, pos, neg, converter):
-		pos = self._list(pos, converter)
-		neg = self._list(neg, converter)
-		pos1 = [t for t in pos if t[0] != "-"]
-		neg1 = [t[1:] for t in pos if t[0] == "-"]
-		pos2 = [t[1:] for t in neg if t[0] == "-"]
-		neg2 = [t for t in neg if t[0] != "-"]
-		return pos1 + pos2, neg1 + neg2
+	def _guids2posneg(self, guids):
+		pos, neg = [], []
+		for g in guids:
+			if g[0] == "!":
+				pos.append(g[1:])
+			elif g[0] == "-":
+				neg.append(g[1:])
+			else:
+				pos.append(g)
+		return pos, neg
 	
 	def _filter_wanted(self, wanted):
 		return [w for w in self._list(wanted, str) if w != "datatags"]
 	
-	def _build_search(self, tags=None, guids=None, excl_tags=None,
-	                  excl_guids=None, wanted=None, order=None, range=None):
-		search = ""
-		tags, excl_tags = self._shuffle_minus(tags, excl_tags, _utf)
-		guids = map(self._tag2spec, guids or [])
-		excl_guids = map(self._tag2spec, excl_guids or [])
-		guids, excl_guids = self._shuffle_minus(guids, excl_guids, str)
+	def _build_search(self, guids=None, excl_guids=None, wanted=None, order=None, range=None):
+		guids = self._list(guids, self._tag2spec)
+		excl_guids = self._list(excl_guids, self._tag2spec)
+		pos1, neg1 = self._guids2posneg(guids)
+		neg2, pos2 = self._guids2posneg(excl_guids)
+		search = []
 		for want in self._filter_wanted(wanted):
-			search += "F" + want + " "
-		for tag in tags:
-			search += "T" + _tagspec("N", tag) + " "
-		for guid in guids:
-			search += "T" + _tagspec("G", guid) + " "
-		for tag in excl_tags:
-			search += "t" + _tagspec("N", tag) + " "
-		for guid in excl_guids:
-			search += "t" + _tagspec("G", guid) + " "
+			search += ["F", want, " "]
+		for guid in pos1 + pos2:
+			search += ["T", _tagspec("G", guid), " "]
+		for guid in neg1 + neg2:
+			search += ["t", _tagspec("G", guid), " "]
 		for o in self._list(order, str):
-			search += "O" + o + " "
+			search += ["O", o, " "]
 		if range != None:
-			assert len(range) == 2
-			search += "R" + ("%x" % range[0]) + ":" + ("%x" % range[1])
-		return search
+			search += ["R%x:%x" % range]
+		return "".join(search)
 	
 	def search_post(self, wanted=None, props=None, **kw):
 		search = "SP" + self._build_search(wanted=wanted, **kw)
