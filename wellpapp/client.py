@@ -164,8 +164,6 @@ class Client:
 			cfg = Config()
 		self.cfg = cfg
 		self.server = (cfg.server, int(cfg.port))
-		self.userpass = None
-		self.auth_ok = False
 		self.is_connected = False
 		self._md5re = re.compile(r"^[0-9a-f]{32}$", re.I)
 		base = cfg.image_base
@@ -180,8 +178,6 @@ class Client:
 		self.utfdec = codecs.getdecoder("utf8")
 		self.fh = self.sock.makefile()
 		self.is_connected = True
-		self.auth_ok = False
-		if self.userpass: self._send_auth()
 	
 	def _writeline(self, line, retry=True):
 		self._reconnect()
@@ -327,15 +323,6 @@ class Client:
 		search = "SP" + self._build_search(wanted=wanted, **kw)
 		posts = self._search_post(search, wanted, props)
 		return posts
-	
-	def _send_auth(self):
-		self._writeline("a" + self.userpass[0] + " " + self.userpass[1], False)
-		if self._readline() == "OK\n": self.auth_ok = True
-	
-	def auth(self, user, password):
-		self.userpass = (_utf(user), _utf(password))
-		self._send_auth()
-		return self.auth_ok
 	
 	def _fieldspec(self, **kwargs):
 		f = [_utf(f) + "=" + _field_cparser[_utf(f)](kwargs[f]) for f in kwargs]
