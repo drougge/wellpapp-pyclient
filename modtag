@@ -4,12 +4,15 @@
 from sys import argv, exit
 from wellpapp import Client
 
-a = {}
-if len(argv) == 4:
-	a["type"] = argv[3]
-elif len(argv) != 3:
-	print "Usage:", argv[0], "tag new_name [new_type]"
+if len(argv) not in (3, 4, 5):
+	print "Usage:", argv[0], "tag new_name [new_type [new_valuetype]]"
 	exit(1)
+
+a = {}
+if len(argv) > 3:
+	a["type"] = argv[3]
+if len(argv) > 4:
+	a["valuetype"] = argv[4]
 
 client = Client()
 tag = client.find_tag(argv[1])

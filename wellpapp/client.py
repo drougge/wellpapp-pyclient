@@ -480,15 +480,11 @@ class Client:
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
 	
-	def mod_tag(self, guid, name=None, type=None):
-		guid = _uniw(guid)
-		cmd = u"MTG" + guid
-		if name:
-			name = _uniw(name)
-			cmd += u" N" + name
-		if type:
-			type = _uniw(type)
-			cmd += u" T" + type
+	def mod_tag(self, guid, name=None, type=None, valuetype=None):
+		cmd = u"MTG" + _uniw(guid)
+		for init, field in ((u" N", name), (u" T", type), (u" V", valuetype)):
+			if field:
+				cmd += init + _uniw(field)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
