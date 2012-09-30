@@ -304,7 +304,7 @@ class Client:
 		pos, neg = [], []
 		for g in guids:
 			if g[0] == u"!":
-				pos.append(g[1:])
+				pos.append(g)
 			elif g[0] == u"-":
 				neg.append(g[1:])
 			else:
