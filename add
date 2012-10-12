@@ -10,13 +10,34 @@ from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, Exi
 from time import gmtime, strftime
 
 def determine_filetype(data):
-	if data[:3] == "\xff\xd8\xff": return "jpeg"
-	if data[:4] == "GIF8": return "gif"
-	if data[:4] == "\x89PNG": return "png"
-	if data[:2] == "BM": return "bmp"
-	if data[:3] == "FWS" or data[:3] == "CWS": return "swf"
+	if data[:3] == "\xff\xd8\xff":
+		return "jpeg"
+	if data[:4] == "GIF8":
+		return "gif"
+	if data[:4] == "\x89PNG":
+		return "png"
+	if data[:2] == "BM":
+		return "bmp"
+	if data[:3] == "FWS" or data[:3] == "CWS":
+		return "swf"
 	if data[:4] in ("MM\0*", "II*\0"):
 		return identify_raw(StringIO(data))
+	if data[:4] == "RIFF" and data[8:12] == "AVI ":
+		return "avi"
+	if data[3:] == "\x00\x00\x01":
+		return "mpeg"
+	if data[:4] == "\x1a\x45\xdf\xa3" and data[5:7] == "\x42\x82" and data[8:16] == "matroska":
+		return "mkv"
+	if data[:4] == "OggS" and data[28:35] in ("\x01video\x00", "\x80theora"):
+		return "ogm"
+	if data[4:8] == "ftyp":
+		return "mp4"
+	if data[:4] == "\x30\x26\xb2\x75":
+		return "wmv"
+	if data[:3] == "FLV":
+		return "flv"
+	if data[4:8] == "mdat":
+		return "mov"
 
 def needs_thumbs(m, ft):
 	if force_thumbs: return True
@@ -146,6 +167,16 @@ def flash_dimensions(data):
 	ymax = get_bits(bpv)
 	return [int(round(v / 20.0)) for v in (xmax - xmin, ymax - ymin)]
 
+def mplayer_dimensions(fn):
+	from subprocess import Popen, PIPE, STDOUT
+	p = Popen(["mplayer", "-frames", "0", "-identify", fn],
+	           stdout=PIPE, stderr=STDOUT, close_fds=True)
+	data = p.communicate()[0].split("\n")
+	data = dict(d.split("=", 1) for d in data if d.startswith("ID_VIDEO_"))
+	return [int(data[v]) for v in ("ID_VIDEO_WIDTH", "ID_VIDEO_HEIGHT")]
+
+movie_ft = set("swf avi mpeg mkv ogm mp4 wmv flv mov".split())
+
 def add_image(fn):
 	if verbose: print fn
 	fn = realpath(fn)
@@ -181,12 +212,15 @@ def add_image(fn):
 			jz = None
 		generate_cache(m, fn, jz)
 	if not post or needs_thumbs(m, ft):
-		if ft == "swf":
+		if ft in movie_ft:
 			if not thumb_source:
-				print "Can't generate flash thumbnails"
+				print "Can't generate " + ft + " thumbnails"
 				exit(1)
 			if not post:
-				w, h = flash_dimensions(data)
+				if ft == "swf":
+					w, h = flash_dimensions(data)
+				else:
+					w, h = mplayer_dimensions(fn)
 		else:
 			datafh = RawWrapper(StringIO(data))
 			img = Image.open(datafh)
