@@ -107,7 +107,11 @@ class tagset(set):
 		if prefix != "-": set.add(self, (prefix + guid, val))
 	
 	def add_spec(self, s):
-		t = client.parse_tag(s)
+		try:
+			t = client.parse_tag(s)
+		except Exception:
+			print "Failed to parse: " + s
+			return
 		if t:
 			self.add(t)
 		else:
