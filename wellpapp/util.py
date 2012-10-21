@@ -224,6 +224,8 @@ class ExifWrapper:
 					l = unpack(">H", data[1:3])[0]
 					fh.seek(l - 7, 1)
 					data = fh.read(9)
+					if data[0] == b"\xDA": # Start of Scan
+						return
 				if not data: return
 				# Now comes a complete TIFF, with offsets relative to its' start
 				l = unpack(">H", data[1:3])[0]
