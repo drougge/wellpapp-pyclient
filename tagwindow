@@ -655,17 +655,30 @@ class ImplicationsDialog(gtk.Dialog):
 		if impl:
 			lab = gtk.Label(u"Implied by")
 			self.vbox.pack_start(lab)
-			rev_impl = gtk.ListStore(TYPE_STRING, TYPE_INT)
-			lines = [(client.get_tag(guid, with_prefix=True).pname, prio) for guid, prio in impl]
+			rev_impl = gtk.ListStore(TYPE_STRING, TYPE_INT, TYPE_STRING, TYPE_STRING)
+			lines = []
+			complex = False
+			for i in impl:
+				tag = client.get_tag(i.guid, with_prefix=True)
+				if i.filter:
+					filt = i.filter[0] + unicode(i.filter[1])
+				else:
+					filt = ""
+				val = unicode(i.value or u"")
+				if filt or val:
+					complex = True
+				lines.append((tag.pname, i.prio, filt, val))
 			for d in sorted(lines):
 				rev_impl.append(d)
 			rev_impl = gtk.TreeView(rev_impl)
-			crt = gtk.CellRendererText()
-			tvc = gtk.TreeViewColumn("Tag", crt, text=0)
-			rev_impl.append_column(tvc)
-			crt = gtk.CellRendererText()
-			tvc = gtk.TreeViewColumn("Priority", crt, text=1)
-			rev_impl.append_column(tvc)
+			if complex:
+				headings = ("Tag", "Priority", "Filter", "Value")
+			else:
+				headings = ("Tag", "Priority")
+			for i, n in enumerate(headings):
+				crt = gtk.CellRendererText()
+				tvc = gtk.TreeViewColumn(n, crt, text=i)
+				rev_impl.append_column(tvc)
 			rev_impl.get_selection().set_mode(gtk.SELECTION_NONE)
 			self.vbox.pack_start(rev_impl)
 			self.vbox.pack_start(gtk.HSeparator())
@@ -689,9 +702,9 @@ class ImplicationsDialog(gtk.Dialog):
 		impl = client.tag_implies(self.guid)
 		[self._ibox.remove(c) for c in self._ibox.get_children()]
 		if impl:
-			lines = [self._impl_wids(guid, prio) for guid, prio in impl]
+			lines = map(self._impl_wids, impl)
 			self._ibox.resize(len(lines) + 1, 4)
-			for row, l in zip(range(len(lines)), sorted(lines)):
+			for row, l in enumerate(sorted(lines)):
 				for col, wid in zip(range(4), l[1]):
 					self._ibox.attach(wid, col, col + 1, row, row + 1)
 			row = len(lines)
@@ -703,18 +716,31 @@ class ImplicationsDialog(gtk.Dialog):
 		self._ibox.show_all()
 		self._add_name.grab_focus()
 
-	def _impl_wids(self, guid, prio):
-		name = client.get_tag(guid, with_prefix=True).pname
+	def _impl_wids(self, impl):
+		name = client.get_tag(impl.guid, with_prefix=True).pname
 		lab = gtk.Label(name)
-		entry = gtk.Entry()
-		entry.set_width_chars(5)
-		entry.set_text(unicode(prio))
-		entry.connect("activate", lambda *a: self._update(entry, guid))
-		update = gtk.Button(u"Update")
-		update.connect("clicked", lambda *a: self._update(entry, guid))
-		remove = gtk.Button(u"Remove")
-		wids = (lab, entry, update, remove)
-		remove.connect("clicked", lambda *a: self._remove(wids, guid))
+		if impl.filter or impl.value:
+			# Ideally, we'd have support for updating this too.
+			prio = gtk.Label(str(impl.prio))
+			if impl.filter:
+				filt = gtk.Label(impl.filter[0] + unicode(impl.filter[1]))
+			else:
+				filt = gtk.Label("")
+			if impl.value:
+				val = gtk.Label(unicode(impl.value))
+			else:
+				val = gtk.Label("")
+			wids = (lab, prio, filt, val)
+		else:
+			entry = gtk.Entry()
+			entry.set_width_chars(5)
+			entry.set_text(unicode(impl.prio))
+			entry.connect("activate", lambda *a: self._update(entry, impl.guid))
+			update = gtk.Button(u"Update")
+			update.connect("clicked", lambda *a: self._update(entry, impl.guid))
+			remove = gtk.Button(u"Remove")
+			wids = (lab, entry, update, remove)
+			remove.connect("clicked", lambda *a: self._remove(wids, impl.guid))
 		return name, wids
 
 	def _update(self, entry, guid):
