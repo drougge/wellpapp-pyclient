@@ -658,7 +658,7 @@ class ImplicationsDialog(gtk.Dialog):
 			rev_impl = gtk.ListStore(TYPE_STRING, TYPE_INT, TYPE_STRING, TYPE_STRING)
 			lines = []
 			complex = False
-			for i in impl:
+			for i in impl[:10]:
 				tag = client.get_tag(i.guid, with_prefix=True)
 				if i.filter:
 					filt = i.filter[0] + unicode(i.filter[1])
@@ -670,6 +670,8 @@ class ImplicationsDialog(gtk.Dialog):
 				lines.append((tag.pname, i.prio, filt, val))
 			for d in sorted(lines):
 				rev_impl.append(d)
+			if len(impl) > 10:
+				rev_impl.append(("... hidden:", len(impl) - 10, "", ""))
 			rev_impl = gtk.TreeView(rev_impl)
 			if complex:
 				headings = ("Tag", "Priority", "Filter", "Value")
