@@ -5,18 +5,26 @@ import os
 import hashlib
 import re
 from functools import partial
+from collections import namedtuple
 
 from wellpapp.vt import VTdatetime, VTuint, VTint, valuetypes
 from wellpapp._util import _uniw
 from wellpapp.util import DotDict, CommentWrapper, make_pdirs, RawWrapper
 
 __all__ = ("Client", "Config", "Post", "Tag", "WellpappError", "ResponseError",
-           "DuplicateError",
+           "DuplicateError", "InheritValue",
           )
 
 class WellpappError(Exception): pass
 class ResponseError(WellpappError): pass
 class DuplicateError(WellpappError): pass
+
+class InheritValue:
+	def __str__(self):
+		return "<InheritValue>"
+InheritValue = InheritValue()
+
+ImplicationTuple = namedtuple("ImplicationTuple", "guid prio filter value")
 
 def _rfindany(s, chars, pos=-1):
 	if pos < 0: pos = len(s)
@@ -416,20 +424,25 @@ class Client:
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
 	
-	def _addrem_implies(self, addrem, set_tag, implied_tag, priostr):
-		assert " " not in set_tag
-		assert " " not in implied_tag
-		if implied_tag[0] == "-":
-			add = " i" + implied_tag[1:]
+	def _addrem_implies(self, addrem, set_tag, implied_tag, datastr):
+		set_tag = self._tag2spec(set_tag)
+		implied_tag = self._tag2spec(implied_tag)
+		assert u" " not in set_tag
+		assert u" " not in implied_tag
+		if implied_tag[0] == u"-":
+			add = u" i" + implied_tag[1:]
 		else:
-			add = " I" + implied_tag
-		cmd = "I" + addrem + str(set_tag) + add + priostr
+			add = u" I" + implied_tag
+		cmd = u"I" + addrem + set_tag + add + datastr
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
 	
 	def add_implies(self, set_tag, implied_tag, priority=0):
-		self._addrem_implies("I", set_tag, implied_tag, ":" + str(priority))
+		datastr = u""
+		if priority:
+			datastr += u" P%d" % (priority,)
+		self._addrem_implies("I", set_tag, implied_tag, datastr)
 	
 	def remove_implies(self, set_tag, implied_tag):
 		self._addrem_implies("i", set_tag, implied_tag, "")
@@ -437,18 +450,43 @@ class Client:
 	def _parse_implies(self, data):
 		res = self._readline()
 		if res == u"OK": return
-		set_guid, impl_guid = map(str, res.split(u" ", 1))
-		assert set_guid[:2] == u"RI"
-		set_guid = set_guid[2:]
-		for impl_guid in impl_guid.split():
-			impl_guid, prio = impl_guid.split(u":")
-			if impl_guid[0] == u"i":
-				impl_guid = u"-" + impl_guid[1:]
+		guid, impl = res.split(u" ", 1)
+		assert guid[:2] == u"RI"
+		guid = guid[2:]
+		if len(guid) == 27:
+			filter = None
+		else:
+			pt = self._parse_tag("", guid, 27, True, True)
+			filter = pt[1:]
+			if filter == (None, None): filter = None
+			guid = pt[0]
+		l = data.setdefault(guid, [])
+		guid = None
+		prio = 0
+		value = None
+		for part in impl.split():
+			if part[0] in u"Ii":
+				if guid:
+					l.append(ImplicationTuple(guid, prio, filter, value))
+				prio = 0
+				value = None
+				guid = str(part[1:])
+				if part[0] == u"i":
+					guid = "-" + guid
+			elif part[0] == u"P":
+				assert guid
+				prio = int(part[1:])
+			elif part[0] == u"V":
+				assert guid
+				value = part[1:]
+				if value:
+					valuetype, value = value.split("=", 1)
+					value = _vtparse(valuetype, value)
+				else:
+					value = InheritValue
 			else:
-				assert impl_guid[0] == u"I"
-				impl_guid = impl_guid[1:]
-			l = data.setdefault(set_guid, [])
-			l.append((str(impl_guid), int(prio)))
+				raise ResponseError(res)
+		l.append(ImplicationTuple(guid, prio, filter, value))
 		return True
 	
 	def tag_implies(self, tag, reverse=False):
@@ -456,23 +494,23 @@ class Client:
 		cmd = u"IR" if reverse else u"IS"
 		self._writeline(cmd + tag)
 		data = {}
-		while self._parse_implies(data): pass
+		while self._parse_implies(data):
+			pass
 		if reverse:
 			rev = []
 			for itag in data:
-				impl = data[itag]
-				assert len(impl) == 1
-				impl = impl[0]
-				assert len(impl) == 2
-				ttag = impl[0]
-				if ttag[0] == "-":
-					assert ttag[1:] == tag
-					rev.append(("-" + itag, impl[1]))
-				else:
-					assert ttag == tag
-					rev.append((itag, impl[1]))
+				for impl in data[itag]:
+					assert len(impl) >= 2
+					ttag = impl[0]
+					if ttag[0] == "-":
+						assert ttag[1:] == tag
+						rev.append(impl._replace(guid="-" + itag))
+					else:
+						assert ttag == tag
+						rev.append(impl._replace(guid=itag))
 			return rev or None
-		if tag in data: return data[tag]
+		if tag in data:
+			return data[tag]
 	
 	def merge_tags(self, into_t, from_t):
 		cmd = u"MTG" + _uniw(into_t) + u" M" + _uniw(from_t)
@@ -557,19 +595,25 @@ class Client:
 		while self._parse_tagres(tags): pass
 		return tags
 	
-	def _parse_tag(self, prefix, spec, pos, comparison):
+	def _parse_tag(self, prefix, spec, pos, comparison, is_guid=False):
 		if pos == -1:
 			return None
-		tag = self.find_tag(spec[:pos])
-		if comparison:
-			ppos = _rfindany(spec, u"=<>", pos)
+		if is_guid:
+			assert comparison
+			ppos = -1
+			tag = Tag()
+			tag.guid = spec[:pos]
 		else:
-			ppos = spec.rfind(u"=", 0, pos)
-		if not tag:
-			return self._parse_tag(prefix, spec, ppos, comparison)
-		tag = self.get_tag(tag)
-		if not tag or tag.valuetype in (None, "none"):
-			return self._parse_tag(prefix, spec, ppos, comparison)
+			tag = self.find_tag(spec[:pos])
+			if comparison:
+				ppos = _rfindany(spec, u"=<>", pos)
+			else:
+				ppos = spec.rfind(u"=", 0, pos)
+			if not tag:
+				return self._parse_tag(prefix, spec, ppos, comparison)
+			tag = self.get_tag(tag)
+			if not tag or tag.valuetype in (None, "none"):
+				return self._parse_tag(prefix, spec, ppos, comparison)
 		if comparison:
 			if spec[pos + 1] in u"=~":
 				comp = spec[pos:pos + 2]
@@ -577,6 +621,8 @@ class Client:
 			else:
 				comp = spec[pos]
 				val = spec[pos + 1:]
+			if is_guid:
+				tag.valuetype, val = val.split("=", 1)
 			if comp not in (u"=", u"<", u">", u"<=", u">=", u"=~"):
 				return None
 			val = _vtparse(tag.valuetype, val, True)
