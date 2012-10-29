@@ -8,9 +8,15 @@ from os.path import exists
 from os import readlink
 
 def implfmt(impl):
-	guid, prio = impl
-	data = client.get_tag(guid, with_prefix=True)
-	return u"\n\t" + data.pname + u" " + unicode(prio)
+	data = client.get_tag(impl.guid, with_prefix=True)
+	a = [data.pname, unicode(impl.prio)]
+	if impl.filter:
+		a.append(impl.filter[0] + unicode(impl.filter[1]))
+		a.append(unicode(impl.value))
+	elif impl.value:
+		a.append(u":")
+		a.append(unicode(impl.value))
+	return u"\n\t" + u"\t".join(a)
 
 def show_implies(guid, heading, reverse):
 	impl = client.tag_implies(guid, reverse)
