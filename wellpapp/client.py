@@ -424,7 +424,7 @@ class Client:
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
 	
-	def _addrem_implies(self, addrem, set_tag, implied_tag, datastr):
+	def _addrem_implies(self, addrem, set_tag, implied_tag, datastr, filter, value=None):
 		set_tag = self._tag2spec(set_tag)
 		implied_tag = self._tag2spec(implied_tag)
 		assert u" " not in set_tag
@@ -433,19 +433,26 @@ class Client:
 			add = u" i" + implied_tag[1:]
 		else:
 			add = u" I" + implied_tag
+		if filter:
+			assert isinstance(filter, tuple) and len(filter) == 2
+			filter = _uniw(filter[0]) + filter[1].format()
+			assert u" " not in filter
+			set_tag += filter
+		if value:
+			datastr += " V" + value.format()
 		cmd = u"I" + addrem + set_tag + add + datastr
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
 	
-	def add_implies(self, set_tag, implied_tag, priority=0):
+	def add_implies(self, set_tag, implied_tag, priority=0, filter=None, value=None):
 		datastr = u""
 		if priority:
 			datastr += u" P%d" % (priority,)
-		self._addrem_implies("I", set_tag, implied_tag, datastr)
+		self._addrem_implies("I", set_tag, implied_tag, datastr, filter, value)
 	
-	def remove_implies(self, set_tag, implied_tag):
-		self._addrem_implies("i", set_tag, implied_tag, "")
+	def remove_implies(self, set_tag, implied_tag, filter=None):
+		self._addrem_implies("i", set_tag, implied_tag, "", filter)
 	
 	def _parse_implies(self, data):
 		res = self._readline()
