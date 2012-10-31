@@ -116,6 +116,20 @@ class FileWindow:
 			self.fh.close()
 			self.closed = True
 
+def _parse_date(d):
+	from time import strptime, mktime
+	def parse(d):
+		for fmt in ("%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y:%m:%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+			while len(fmt) > 6:
+				try:
+					return strptime(d, fmt)
+				except ValueError:
+					pass
+				fmt = fmt[:-3]
+	tt = parse(d)
+	return int(mktime(tt))
+
+
 class ExifWrapper:
 	"""Wrapper for several EXIF libraries.
 	Starts out with an internal parser, falls back to two incompatible
@@ -295,23 +309,32 @@ class ExifWrapper:
 		lens = " ".join(map(str, t.ifdget(t.ifd[0], 0x3f)))
 		self._d["Exif.Pentax.LensType"] = lens
 	
-	def date(self):
-		"""Return some reasonable EXIF date field as unix timestamp, or None"""
-		fields = ("Exif.Image.Date", "Exif.Photo.DateTimeOriginal", "Exif.Photo.CreateDate")
+	def date(self, tz=None):
+		"""Return some reasonable EXIF date field as VTdatetime, or None
+		Will guess the timezone (based on environment) if not specified.
+		"""
+		from wellpapp.vt import VTdatetime
+		from time import gmtime, localtime, mktime, strftime
+		fields = ("Exif.Photo.DateTimeOriginal", "Exif.Photo.CreateDate", "Exif.Image.DateTime")
 		for f in fields:
 			try:
-				date = self[f]
-				if isinstance(date, basestring):
-					try:
-						from time import strptime, mktime
-						date = mktime(strptime(date, "%Y:%m:%d %H:%M:%S"))
-					except Exception:
-						pass
-				try:
-					date = int(date.strftime("%s"))
-				except Exception:
-					pass
-				return int(date)
+				if isinstance(self[f], basestring):
+					dt = self[f].strip()
+					d, t = dt.split(" ", 1)
+					if " " in t:
+						t, ltz = t.split(" ")
+						ltz = tz or ltz
+					elif tz:
+						ltz = tz
+					else:
+						ut = _parse_date(dt)
+						td = int(mktime(gmtime(ut)) - mktime(localtime(ut))) // 60
+						ltz = "%s%02d%02d" % ("+" if td <= 0 else "-", abs(td // 60), abs(td % 60))
+					date = d.replace(":", "-") + "T" + t + ltz
+				else:
+					t = int(self[f].strftime("%s"))
+					date = strftime("%Y-%m-%dT%H:%M:%SZ", gmtime(t))
+				return VTdatetime(date)
 			except Exception:
 				pass
 	
