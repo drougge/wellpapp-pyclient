@@ -419,6 +419,9 @@ class VTdatetime(ValueType):
 			# "day 0" of next month
 			l[1] += 1
 			l[2] = 0
+			if l[1] == 13:
+				l[1] = 1
+				l[0] += 1
 		return timegm(l)
 
 valuetypes = {"string"  : VTstring,
