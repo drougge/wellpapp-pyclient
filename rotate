@@ -12,24 +12,21 @@ spec, new_r = argv[1:]
 client = Client()
 md5 = client.postspec2md5(spec)
 post = None
-if md5: post = client.get_post(md5, wanted = ["rotate", "ext", "width", "height"])
+if md5:
+	post = client.get_post(md5, wanted = ["rotate", "ext", "width", "height"])
 if not post:
 	print "Post not found"
 	exit(1)
 
 r = int(post.get("rotate", 0))
 new_r = int(new_r)
-good_r = (0, 90, 180, 270)
-if r not in good_r or new_r not in good_r:
-	print "Can only handle 0, 90, 180 or 270 degrees rotation"
+if r not in (0, 90, 180, 270) or abs(new_r) not in (90, 180, 270):
+	print "Can only handle 90, 180 or 270 degrees rotation"
 	exit(1)
-diff = new_r - r
-if diff < 0: diff += 360
-if diff == 0:
-	exit(0)
-props = {"rotate": new_r}
-if diff in (90, 270):
+dest_r = (r + new_r) % 360
+props = {"rotate": dest_r}
+if abs(new_r) in (90, 270):
 	props["width"], props["height"] = post["height"], post["width"]
 
-client.save_thumbs(md5, None, post.ext, new_r, True)
+client.save_thumbs(md5, None, post.ext, dest_r, True)
 client.modify_post(md5, **props)
