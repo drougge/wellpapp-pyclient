@@ -200,7 +200,16 @@ class ExifWrapper:
 	def __getitem__(self, name):
 		v = self.__getitem(name)
 		if isinstance(v, tuple):
-			return self._fmtrational(*v)
+			if len(v) > 2:
+				res = []
+				for r in zip(v[::2], v[1::2]):
+					r = self._fmtrational(*r)
+					if r is None:
+						r = "-"
+					res.append(r)
+				return " ".join(res)
+			else:
+				return self._fmtrational(*v)
 		if hasattr(v, "numerator") and not isinstance(v, (int, long)):
 			return self._fmtrational(v.numerator, v.denominator)
 		return v
@@ -263,6 +272,12 @@ class ExifWrapper:
 			                     (0x9004, "Exif.Photo.CreateDate", False),
 			                     (0x920a, "Exif.Photo.FocalLength", True),
 			                     (0xa405, "Exif.Photo.FocalLengthIn35mmFilm", False),
+			                     (0xa430, "Exif.Photo.OwnerName", False),
+			                     (0xa431, "Exif.Photo.SerialNumber", False),
+			                     (0xa432, "Exif.Photo.LensInfo", True),
+			                     (0xa433, "Exif.Photo.LensMake", False),
+			                     (0xa434, "Exif.Photo.LensModel", False),
+			                     (0xa435, "Exif.Photo.LensSerialNumber", False),
 			                    ):
 				val = self._get(tag, t)
 				if val is not None: self._d[name] = val
