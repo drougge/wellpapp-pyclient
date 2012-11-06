@@ -84,8 +84,9 @@ findtag:
 Find tags. -a for matching anywhere (not just at the start), -f for fuzzy.
 
 rotate:
-Rotate a post. Can rotate 90, 180 or 270 degrees (clockwise) relative
+Rotate posts. Can rotate 90, 180 or 270 degrees (clockwise) relative
 current rotation. Rewrites thumbnails, doesn't touch original file.
+First rotation, then post-spec[s].
 
 tagwindow:
 A graphical interface for tagging posts. Takes a list of post-specs as
