@@ -5,7 +5,7 @@ import fuse
 import stat
 import errno
 import os
-from wellpapp import Client
+from wellpapp import Client, Tag
 import re
 from time import time, sleep
 from hashlib import md5
@@ -309,7 +309,13 @@ class Wellpapp(fuse.Fuse):
 					e = self._client.parse_tag(e[1:], True)
 				dontwant.add(e)
 			elif e[:2] == "O:":
-				order.append(e[2:])
+				o = e[2:]
+				if o != "group":
+					t = Tag()
+					with self._client_lock:
+						o = self._client.find_tag(o, t, True)
+					assert t.valuetype
+				order.append(o)
 			elif e[:2] == "R:":
 				range = tuple(map(int, e[2:].split(":")))
 			else:
