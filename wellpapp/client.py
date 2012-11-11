@@ -260,7 +260,7 @@ class Client:
 			idicts = [f.implfulltags, f.implweaktags]
 			tagdicts += idicts
 			impltags = TagDict()
-			for td in tagdicts:
+			for td in idicts:
 				for tag in td:
 					impltags._add(tag, tag.pname, tag.pguid)
 			f.settags = settags
