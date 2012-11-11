@@ -337,7 +337,7 @@ class Client:
 		for o in self._list(order, str):
 			search += [u"O", o, u" "]
 		if range != None:
-			search += [u"R%x:%x" % range]
+			search += [u"R%x:%x" % tuple(range)]
 		return u"".join(search)
 	
 	def search_post(self, wanted=None, props=None, **kw):
@@ -595,7 +595,7 @@ class Client:
 			cmd.append(u" F" + f)
 		if range is not None:
 			assert len(range) == 2
-			cmd.append(u" R%x:%x" % range)
+			cmd.append(u" R%x:%x" % tuple(range))
 		cmd.append(filter)
 		self._writeline(u"".join(cmd))
 		tags = []
