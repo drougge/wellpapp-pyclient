@@ -12,7 +12,7 @@ from wellpapp._util import _uniw
 from wellpapp.util import DotDict, CommentWrapper, make_pdirs, RawWrapper
 
 __all__ = ("Client", "Config", "Post", "Tag", "WellpappError", "ResponseError",
-           "DuplicateError", "InheritValue",
+           "DuplicateError", "InheritValue", "ImplicationTuple",
           )
 
 class WellpappError(Exception): pass
