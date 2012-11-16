@@ -670,22 +670,23 @@ class Client:
 		else:
 			prefix = u""
 		tags = self.find_tags(matchtype, name)
-		if not tags: return None, None
+		if not tags: return None
 		assert len(tags) == 1
-		return tags[0], prefix
-	
-	def find_tag(self, name, resdata=None, with_prefix=False):
-		tag, prefix = self._find_tag(u"EAN", name, with_prefix)
-		if not tag: return None
-		if resdata != None: resdata.update(tag)
-		return prefix + tag.guid
-	
-	def get_tag(self, guid, with_prefix=False):
-		tag, prefix = self._find_tag(u"EAG", guid, with_prefix)
-		if not tag: return None
-		assert guid[-27:] == tag.guid
+		tag = tags[0]
 		tag.pname = prefix + tag.name
 		tag.pguid = prefix + tag.guid
+		return tag
+	
+	def find_tag(self, name, resdata=None, with_prefix=False):
+		tag = self._find_tag(u"EAN", name, with_prefix)
+		if not tag: return None
+		if resdata != None: resdata.update(tag)
+		return tag.pguid
+	
+	def get_tag(self, guid, with_prefix=False):
+		tag = self._find_tag(u"EAG", guid, with_prefix)
+		if not tag: return None
+		assert guid[-27:] == tag.guid
 		return tag
 	
 	def begin_transaction(self):
