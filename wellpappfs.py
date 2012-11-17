@@ -28,7 +28,7 @@ orient = {0: 1, 90: 6, 180: 3, 270: 8}
 default_range = (0, 10000)
 
 _stat_t = namedtuple("stat_t", ["version", "size", "mtime", "dest", "jpegsize"])
-_search_t = namedtuple("search_t", ["want", "dontwant", "order", "range"])
+_search_t = namedtuple("search_t", ["want", "dontwant", "order", "range", "clean"])
 
 class WpStat(fuse.Stat):
 	def __init__(self, mode, nlink, size, time):
@@ -290,11 +290,14 @@ class Wellpapp(fuse.Fuse):
 			if order:
 				prefix = "%06d." % (idx,)
 				idx += 1
-			m = p.md5
-			ext = p.ext
-			if self._raw2jpeg and ext in _rawext and self._stat(m).jpegsize:
-				r.append(prefix + m + "." + _rawext[ext])
-			r.append(prefix + m + "." + ext)
+			if search.clean:
+				r.append(prefix + p.md5)
+			else:
+				m = p.md5
+				ext = p.ext
+				if self._raw2jpeg and ext in _rawext and self._stat(m).jpegsize:
+					r.append(prefix + m + "." + _rawext[ext])
+				r.append(prefix + m + "." + ext)
 		return map(str, r), {}
 
 	def _path2search(self, path):
@@ -304,6 +307,7 @@ class Wellpapp(fuse.Fuse):
 		order = []
 		first = None
 		range = None
+		clean = False
 		for e in filter(None, sre.split(path[1:])):
 			if e[0] == "-":
 				with self._client_lock:
@@ -319,6 +323,8 @@ class Wellpapp(fuse.Fuse):
 				order.append(o)
 			elif e[:2] == "R:":
 				range = tuple(map(int, e[2:].split(":")))
+			elif e == "C:":
+				clean = True
 			else:
 				with self._client_lock:
 					e = self._client.parse_tag(e, True)
@@ -327,7 +333,7 @@ class Wellpapp(fuse.Fuse):
 		if "group" in order:
 			want.remove(first)
 			want = [first] + list(want)
-		return _search_t(tuple(want), tuple(dontwant), tuple(order), range)
+		return _search_t(tuple(want), tuple(dontwant), tuple(order), range, clean)
 
 	def main(self, *a, **kw):
 		self._cache = Cache(30)
