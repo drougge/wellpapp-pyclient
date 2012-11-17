@@ -28,6 +28,7 @@ orient = {0: 1, 90: 6, 180: 3, 270: 8}
 default_range = (0, 10000)
 
 _stat_t = namedtuple("stat_t", ["version", "size", "mtime", "dest", "jpegsize"])
+_search_t = namedtuple("search_t", ["want", "dontwant", "order", "range"])
 
 class WpStat(fuse.Stat):
 	def __init__(self, mode, nlink, size, time):
@@ -145,13 +146,13 @@ class Wellpapp(fuse.Fuse):
 			if not m or not m.group(2) != ".png": raise NOTFOUND
 			search = self._path2search("/" + " ".join(spath[:-3]))
 			if not search: raise NOTFOUND
-			if search[2] or self._raw2jpeg: # order specified or potentially unwrapped
+			if search.order or self._raw2jpeg: # order specified or potentially unwrapped
 				orgmd5 = self._resolve_thumb(search, spath[-1])
 				if not orgmd5: raise NOTFOUND
 				mode = stat.S_IFREG | 0444
 				tfn = self._client.thumb_path(orgmd5[0], spath[-2])
 				size = os.stat(tfn).st_size
-				if search[2]: # ordered
+				if search.order:
 					# plus six digits and a period
 					size += 7
 			else:
@@ -271,14 +272,14 @@ class Wellpapp(fuse.Fuse):
 			yield fuse.Direntry(e)
 
 	def _search(self, search):
-		order = search[2]
-		range = search[3]
+		order = search.order
+		range = search.range
 		if not range: range = default_range
-		assert None not in search[0]
-		assert None not in search[1]
+		assert None not in search.want
+		assert None not in search.dontwant
 		with self._client_lock:
-			s = self._client.search_post(guids=search[0],
-			                             excl_guids=search[1],
+			s = self._client.search_post(guids=search.want,
+			                             excl_guids=search.dontwant,
 			                             wanted=["ext"],
 			                             order=order,
 			                             range=range)
@@ -326,7 +327,7 @@ class Wellpapp(fuse.Fuse):
 		if "group" in order:
 			want.remove(first)
 			want = [first] + list(want)
-		return tuple(want), tuple(dontwant), tuple(order), range
+		return _search_t(tuple(want), tuple(dontwant), tuple(order), range)
 
 	def main(self, *a, **kw):
 		self._cache = Cache(30)
@@ -402,13 +403,13 @@ class Wellpapp(fuse.Fuse):
 				fh = open(tfn)
 				data = fh.read()
 				fh.close()
-				if not (search[2] or ext in _rawext_r):
+				if not (search.order or ext in _rawext_r):
 					return data
 				data = data.split("tEXtThumb::URI\0")
 				if len(data) != 2: raise NOTFOUND
 				pre, post = data
 				clen, = unpack(">I", pre[-4:])
-				if search[2]: # It's longer only of search was ordered
+				if search.order: # It's longer only of search was ordered
 					pre = pre[:-4] + pack(">I", clen + 7)
 				post = post[clen - 7:]
 				tEXt = "tEXtThumb::URI\0" + fn
