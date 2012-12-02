@@ -2,6 +2,7 @@
 
 import re
 from fractions import Fraction
+from decimal import Decimal
 from abc import ABCMeta, abstractmethod, abstractproperty
 from time import localtime, struct_time
 from calendar import timegm
@@ -10,7 +11,7 @@ from math import log, log10
 from wellpapp._util import _uni, _enc, _dec
 
 __all__ = ("ValueType", 'VTstring', 'VTword', 'VTnumber', 'VTint', 'VTuint',
-           'VTfloat', 'VTf_stop', 'VTstop', 'VTdatetime', 'valuetypes',)
+           'VTfloat', 'VTf_stop', 'VTstop', 'VTdatetime', 'VTgps', 'valuetypes',)
 
 class ValueType(object):
 	"""Represents the value of a tag.
@@ -424,6 +425,43 @@ class VTdatetime(ValueType):
 				l[0] += 1
 		return timegm(l)
 
+class VTgps(ValueType):
+	"""Represents the value of a tag with valuetype gps."""
+	
+	type = "gps"
+	_cmp_t = "VTgps"
+	
+	v = r"(-?\d+(?:\.\d+)?)"
+	_re = re.compile(v + r"(\+-?" + v + r")?$")
+	del v
+	def __init__(self, val, human=False):
+		try:
+			strval = str(val)
+			s = strval.split(",")
+			assert len(s) == 2
+		except (UnicodeEncodeError, AssertionError):
+			raise ValueError(val)
+		for n, c in zip(("lat", "lon"), s):
+			m = self._re.match(c)
+			if not m: raise ValueError(val)
+			self.__dict__[n] = Decimal(m.group(1))
+			f = 0
+			if m.group(2):
+				f = Decimal(m.group(2)[1:])
+			self.__dict__[n + "_fuzz"] = f
+		self.__dict__["str"] = strval
+		for n in ("value", "exact"):
+			self.__dict__[n] = (self.lat, self.lon)
+		for n in ("", "exact_"):
+			self.__dict__[n + "fuzz"] = (self.lat_fuzz, self.lon_fuzz)
+	
+	def __str__(self):
+		return self.str
+	def format(self):
+		return self.str
+	
+	# @@ Missing: comparison/min/max/overlap
+
 valuetypes = {"string"  : VTstring,
               "word"    : VTword,
               "int"     : VTint,
@@ -432,4 +470,5 @@ valuetypes = {"string"  : VTstring,
               "f-stop"  : VTf_stop,
               "stop"    : VTstop,
               "datetime": VTdatetime,
+              "gps"     : VTgps,
              }
