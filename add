@@ -278,7 +278,9 @@ def add_image(fn):
 	filetags = find_tags(fn)
 	exif2tags(exif, filetags)
 	for guid, val in filetags.difference(posttags):
-		if guid[0] == "~":
+		if guid in post.tags:
+			print "Not overriding value on", post.tags[guid].pname
+		elif guid[0] == "~":
 			weak.add((guid[1:], val))
 		else:
 			full.add((guid, val))
