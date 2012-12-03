@@ -288,7 +288,7 @@ def add_image(fn):
 	filetags = find_tags(fn)
 	exif2tags(exif, filetags)
 	for guid, val in filetags.difference(posttags):
-		if guid in post.tags:
+		if guid in post.tags and not override_tags:
 			print "Not overriding value on", post.tags[guid].pname
 		elif guid[0] == "~":
 			weak.add((guid[1:], val))
@@ -311,13 +311,14 @@ def usage():
 	print "\t-d Dummy, only print what would be done"
 	print "\t-t Post or file to generate thumb from"
 	print "\t-z Timezone to assume EXIF dates are in (+-HHMM format)"
+	print "\t-o Override existing tags from with data from filename and exif"
 	exit(1)
 
 if __name__ == '__main__':
 	from sys import argv, exit
 	if len(argv) < 2: usage()
 	a = 1
-	switches = ("-v", "-q", "-f", "-h", "-n", "-d", "-t", "-z")
+	switches = ("-v", "-q", "-f", "-h", "-n", "-d", "-t", "-z", "-o")
 	quiet = False
 	verbose = False
 	force_thumbs = False
@@ -325,6 +326,7 @@ if __name__ == '__main__':
 	dummy = False
 	thumb_source = None
 	tz = None
+	override_tags = False
 	while argv[a] in switches:
 		if argv[a] == "-q":
 			quiet = True
@@ -345,6 +347,8 @@ if __name__ == '__main__':
 			a += 1
 			if len(argv) == a: usage()
 			tz = argv[a]
+		elif argv[a] == "-o":
+			override_tags = True
 		else:
 			usage()
 		a += 1
