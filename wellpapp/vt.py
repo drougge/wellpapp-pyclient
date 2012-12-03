@@ -443,6 +443,8 @@ class VTgps(ValueType):
 	
 	type = "gps"
 	_cmp_t = "VTgps"
+	altitude = None
+	altitude_fuzz = None
 	
 	v = r"(-?\d+(?:\.\d+)?)"
 	_re = re.compile(v + r"(\+-?" + v + r")?$")
@@ -451,10 +453,14 @@ class VTgps(ValueType):
 		try:
 			strval = str(val)
 			s = strval.split(",")
-			assert len(s) == 2
+			if len(s) == 3:
+				fields = ("lat", "lon", "altitude")
+			else:
+				assert len(s) == 2
+				fields = ("lat", "lon")
 		except (UnicodeEncodeError, AssertionError):
 			raise ValueError(val)
-		for n, c in zip(("lat", "lon"), s):
+		for n, c in zip(fields, s):
 			m = self._re.match(c)
 			if not m: raise ValueError(val)
 			self.__dict__[n] = Decimal(m.group(1))
@@ -464,9 +470,9 @@ class VTgps(ValueType):
 			self.__dict__[n + "_fuzz"] = f
 		self.__dict__["str"] = strval
 		for n in ("value", "exact"):
-			self.__dict__[n] = (self.lat, self.lon)
+			self.__dict__[n] = (self.lat, self.lon, self.altitude)
 		for n in ("", "exact_"):
-			self.__dict__[n + "fuzz"] = (self.lat_fuzz, self.lon_fuzz)
+			self.__dict__[n + "fuzz"] = (self.lat_fuzz, self.lon_fuzz, self.altitude_fuzz)
 	
 	def __str__(self):
 		return self.str

@@ -99,7 +99,15 @@ def exif2tags(exif, tags):
 	if "Exif.GPSInfo.GPSLatitude" in exif:
 		lat = _gpspos(exif["Exif.GPSInfo.GPSLatitude"], exif["Exif.GPSInfo.GPSLatitudeRef"])
 		lon = _gpspos(exif["Exif.GPSInfo.GPSLongitude"], exif["Exif.GPSInfo.GPSLongitudeRef"])
-		tags.add(("aaaaaa-aaaadt-faketg-gpspos", VTgps("%s,%s" % (lat, lon))))
+		if "Exif.GPSInfo.GPSAltitude" in exif:
+			from fractions import Fraction
+			alt = Fraction(exif["Exif.GPSInfo.GPSAltitude"])
+			if exif["Exif.GPSInfo.GPSAltitudeRef"]:
+				alt = -alt
+			gps = VTgps("%s,%s,%.1f" % (lat, lon, alt))
+		else:
+			gps = VTgps("%s,%s" % (lat, lon))
+		tags.add(("aaaaaa-aaaadt-faketg-gpspos", gps))
 
 class tagset(set):
 	def add(self, t):

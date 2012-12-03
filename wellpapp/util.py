@@ -289,8 +289,8 @@ class ExifWrapper:
 				                     (0x0002, "Exif.GPSInfo.GPSLatitude", True),
 				                     (0x0003, "Exif.GPSInfo.GPSLongitudeRef", False),
 				                     (0x0004, "Exif.GPSInfo.GPSLongitude", True),
-				                     (0x0003, "Exif.GPSInfo.GPSAltitudeRef", False),
-				                     (0x0004, "Exif.GPSInfo.GPSAltitude", True),
+				                     (0x0005, "Exif.GPSInfo.GPSAltitudeRef", False),
+				                     (0x0006, "Exif.GPSInfo.GPSAltitude", False),
 				                    ):
 					val = self._get(tag, t)
 					if val is not None:
