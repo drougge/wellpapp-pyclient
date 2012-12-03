@@ -4,7 +4,7 @@ import re
 from fractions import Fraction
 from decimal import Decimal
 from abc import ABCMeta, abstractmethod, abstractproperty
-from time import localtime, struct_time
+from time import localtime, struct_time, strftime, gmtime
 from calendar import timegm
 from math import log, log10
 
@@ -252,10 +252,23 @@ class VTdatetime(ValueType):
 	del fres
 	
 	def __init__(self, val, human=False):
-		try:
-			strval = str(val)
-		except Exception:
-			raise ValueError(val)
+		if isinstance(val, tuple):
+			try:
+				assert len(val) == 2
+				int(val[0])
+				if val[1]:
+					int(val[1])
+			except Exception:
+				raise ValueError(val)
+			strval = strftime("%Y-%m-%dT%H:%M:%S", gmtime(int(val[0])))
+			if val[1]:
+				strval = "%s+%d" % (strval, int(val[1]))
+			strval += "Z"
+		else:
+			try:
+				strval = str(val)
+			except Exception:
+				raise ValueError(val)
 		if not strval: raise ValueError(val)
 		if strval[-1] == "Z":
 			zone = "Z"
@@ -338,7 +351,7 @@ class VTdatetime(ValueType):
 		self.__dict__["_fuzz"] = (last_fuzz or "")
 		self.__dict__["time"] = parsed
 		self.__dict__["_tz"] = offset if zone else None
-		self.__dict__["str"] = val.replace(" ", "T")
+		self.__dict__["str"] = strval.replace(" ", "T") + (zone or "")
 		self.__dict__["value"] = value
 		self.__dict__["exact"] = value
 		self.__dict__["fuzz"] = fuzz
