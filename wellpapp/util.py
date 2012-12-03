@@ -281,6 +281,10 @@ class ExifWrapper:
 			                    ):
 				val = self._get(tag, t)
 				if val is not None: self._d[name] = val
+			try:
+				self._parse_makernotes()
+			except Exception:
+				pass
 			gps = self._get(0x8825)
 			if gps:
 				tiff.reinit_from(gps)
@@ -298,10 +302,6 @@ class ExifWrapper:
 						if t:
 							val = [Fraction(*v) for v in  zip(val[::2], val[1::2])]
 						self._d[name] = val
-			try:
-				self._parse_makernotes()
-			except Exception:
-				pass
 		finally:
 			fh.close()
 	
