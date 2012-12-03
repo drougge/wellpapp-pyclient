@@ -6,7 +6,7 @@ import Image
 from cStringIO import StringIO
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, stat
-from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts
+from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts, VTgps
 from struct import unpack
 
 def determine_filetype(data):
@@ -64,6 +64,12 @@ def needs_thumbs(m, ft):
 	for fn, z in jpeg_fns + png_fns:
 		if not exists(fn): return True
 
+def _gpspos(pos, ref):
+	pos = pos[0] + pos[1] / 60 + pos[2] / 3600
+	if ref[0] in "SWsw":
+		pos = -pos
+	return "%.7f" % (pos,)
+
 def exif2tags(exif, tags):
 	cfg = client.cfg
 	if "lenstags" in cfg:
@@ -90,6 +96,10 @@ def exif2tags(exif, tags):
 			if et in exif:
 				v = exif[et]
 				tags.add_spec(tn + "=" + str(exif[et]))
+	if "Exif.GPSInfo.GPSLatitude" in exif:
+		lat = _gpspos(exif["Exif.GPSInfo.GPSLatitude"], exif["Exif.GPSInfo.GPSLatitudeRef"])
+		lon = _gpspos(exif["Exif.GPSInfo.GPSLongitude"], exif["Exif.GPSInfo.GPSLongitudeRef"])
+		tags.add(("aaaaaa-aaaadt-faketg-gpspos", VTgps("%s,%s" % (lat, lon))))
 
 class tagset(set):
 	def add(self, t):

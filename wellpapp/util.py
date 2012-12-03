@@ -281,6 +281,23 @@ class ExifWrapper:
 			                    ):
 				val = self._get(tag, t)
 				if val is not None: self._d[name] = val
+			gps = self._get(0x8825)
+			if gps:
+				tiff.reinit_from(gps)
+				self._ifd = tiff.ifd[0]
+				for tag, name, t in ((0x0001, "Exif.GPSInfo.GPSLatitudeRef", False),
+				                     (0x0002, "Exif.GPSInfo.GPSLatitude", True),
+				                     (0x0003, "Exif.GPSInfo.GPSLongitudeRef", False),
+				                     (0x0004, "Exif.GPSInfo.GPSLongitude", True),
+				                     (0x0003, "Exif.GPSInfo.GPSAltitudeRef", False),
+				                     (0x0004, "Exif.GPSInfo.GPSAltitude", True),
+				                    ):
+					val = self._get(tag, t)
+					if val is not None:
+						from fractions import Fraction
+						if t:
+							val = [Fraction(*v) for v in  zip(val[::2], val[1::2])]
+						self._d[name] = val
 			try:
 				self._parse_makernotes()
 			except Exception:
