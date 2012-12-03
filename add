@@ -108,6 +108,8 @@ def exif2tags(exif, tags):
 		else:
 			gps = VTgps("%s,%s" % (lat, lon))
 		tags.add(("aaaaaa-aaaadt-faketg-gpspos", gps))
+	if override_tags:
+		tags.add(("aaaaaa-aaaac8-faketg-bddate", exif.date(tz)))
 
 class tagset(set):
 	def add(self, t):
