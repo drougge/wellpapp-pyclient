@@ -10,6 +10,8 @@ from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, Exi
 from struct import unpack
 
 def determine_filetype(data):
+	if force_filetype:
+		return force_filetype
 	data2 = data[:2]
 	data3 = data[:3]
 	data4 = data[:4]
@@ -313,13 +315,14 @@ def add_image(fn):
 			client.tag_post(m, full, weak)
 
 def usage():
-	print "Usage:", argv[0], "[-v] [-q] [-f] [-n] [-d] [-t thumb_source] [-z timezone] filename [filename [..]]"
+	print "Usage:", argv[0], "[-v] [-q] [-f] [-n] [-d] [-t thumb_source] [-T type] [-z timezone] filename [filename [..]]"
 	print "\t-v Verbose"
 	print "\t-q Quiet"
 	print "\t-f Force thumbnail regeneration"
 	print "\t-n No tagging (prints what would have been tagged)"
 	print "\t-d Dummy, only print what would be done"
 	print "\t-t Post or file to generate thumb from"
+	print "\t-T Override file type detection"
 	print "\t-z Timezone to assume EXIF dates are in (+-HHMM format)"
 	print "\t-o Override existing tags from with data from filename and exif"
 	exit(1)
@@ -328,7 +331,7 @@ if __name__ == '__main__':
 	from sys import argv, exit
 	if len(argv) < 2: usage()
 	a = 1
-	switches = ("-v", "-q", "-f", "-h", "-n", "-d", "-t", "-z", "-o")
+	switches = ("-v", "-q", "-f", "-h", "-n", "-d", "-t", "-T", "-z", "-o")
 	quiet = False
 	verbose = False
 	force_thumbs = False
@@ -337,6 +340,7 @@ if __name__ == '__main__':
 	thumb_source = None
 	tz = None
 	override_tags = False
+	force_filetype = False
 	while argv[a] in switches:
 		if argv[a] == "-q":
 			quiet = True
@@ -353,6 +357,10 @@ if __name__ == '__main__':
 			if len(argv) == a: usage()
 			thumb_source = argv[a]
 			force_thumbs = True
+		elif argv[a] == "-T":
+			a += 1
+			if len(argv) == a: usage()
+			force_filetype = argv[a]
 		elif argv[a] == "-z":
 			a += 1
 			if len(argv) == a: usage()
