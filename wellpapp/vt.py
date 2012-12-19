@@ -6,7 +6,7 @@ from decimal import Decimal
 from abc import ABCMeta, abstractmethod, abstractproperty
 from time import localtime, struct_time, strftime, gmtime
 from calendar import timegm
-from math import log, log10
+from math import log, log10, sin, cos, acos, radians, pi
 
 from wellpapp._util import _uni, _enc, _dec
 
@@ -104,7 +104,7 @@ class ValueType(object):
 	
 	def overlap(self, other):
 		other = self.__cmp(other)
-		return self.min() <= other.max() and other.min() <= self.max()
+		return self.min <= other.max and other.min <= self.max
 	
 	def format(self):
 		return self.str
@@ -444,11 +444,8 @@ class VTgps(ValueType):
 	type = "gps"
 	_cmp_t = "VTgps"
 	altitude = None
-	altitude_fuzz = None
+	_R = 6371000.0 # Earth's radius in meters (approx)
 	
-	v = r"(-?\d+(?:\.\d+)?)"
-	_re = re.compile(v + r"(\+-?" + v + r")?$")
-	del v
 	def __init__(self, val, human=False):
 		try:
 			strval = str(val)
@@ -460,26 +457,74 @@ class VTgps(ValueType):
 				fields = ("lat", "lon")
 		except (UnicodeEncodeError, AssertionError):
 			raise ValueError(val)
+		fc = s[-1].split("+-")
+		if len(fc) > 1:
+			if len(fc) != 2:
+				raise ValueError(val)
+			s[-1] = fc[0]
+			self.__dict__["fuzz"] = float(fc[1])
+			self.__dict__["exact_fuzz"] = Decimal(fc[1])
+		self.__dict__["_fuzz_R"] = (self.fuzz or 0) / self._R
 		for n, c in zip(fields, s):
-			m = self._re.match(c)
-			if not m: raise ValueError(val)
-			self.__dict__[n] = Decimal(m.group(1))
-			f = 0
-			if m.group(2):
-				f = Decimal(m.group(2)[1:])
-			self.__dict__[n + "_fuzz"] = f
+			try:
+				self.__dict__[n] = Decimal(c)
+			except ValueError:
+				raise ValueError(val)
+		self.__dict__["exact"] = (self.lat, self.lon, self.altitude)
+		for n in ("lat", "lon", "altitude"):
+			v = self.__dict__.get(n)
+			if v is not None:
+				self.__dict__[n] = float(v)
+		self.__dict__["value"] = (self.lat, self.lon, self.altitude)
 		self.__dict__["str"] = strval
-		for n in ("value", "exact"):
-			self.__dict__[n] = (self.lat, self.lon, self.altitude)
-		for n in ("", "exact_"):
-			self.__dict__[n + "fuzz"] = (self.lat_fuzz, self.lon_fuzz, self.altitude_fuzz)
 	
 	def __str__(self):
 		return self.str
 	def format(self):
 		return self.str
 	
-	# @@ Missing: comparison/min/max/overlap
+	@property
+	def _sphere_fuzz_lon(self):
+		if not self.fuzz:
+			return 0
+		lat = radians(self.lat)
+		clat = cos(lat)
+		if clat == 0:
+			return pi
+		slat = sin(lat)
+		return acos((cos(self._fuzz_R) - slat * slat) / (clat * clat))
+	
+	@property
+	def min(self):
+		if not self.fuzz:
+			return self.value[:2]
+		return self.lat - self._fuzz_R, self.lon - self._sphere_fuzz_lon
+	
+	@property
+	def max(self):
+		if not self.fuzz:
+			return self.value[:2]
+		return self.lat + self._fuzz_R, self.lon + self._sphere_fuzz_lon
+	
+	def distance(self, other):
+		""""""
+		if not isinstance(other, VTgps):
+			raise TypeError("Can only compare to a VTgps")
+		return self._sphere_dist(other) * self._R
+	
+	def _sphere_dist(self, other):
+		alat = radians(self.lat)
+		blat = radians(other.lat)
+		try:
+			return acos(sin(alat) * sin(blat) + cos(alat) * cos(blat) * cos(radians(other.lon - self.lon)))
+		except ValueError:
+			return pi
+	
+	def overlap(self, other):
+		if not isinstance(other, VTgps):
+			raise TypeError("Can only compare to a VTgps")
+		dist = self._sphere_dist(other)
+		return dist <= ((self._fuzz_R or 0) + (other._fuzz_R or 0))
 
 valuetypes = {"string"  : VTstring,
               "word"    : VTword,
