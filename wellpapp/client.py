@@ -561,7 +561,7 @@ class Client:
 				res = self._readline()
 				if res != u"OK": raise ResponseError(res)
 				cmd = [init]
-				clen = len(init)
+				clen = len(init) + len(tag.encode("utf-8"))
 			cmd.append(tag)
 		if len(cmd) > 1:
 			self._writeline(u"".join(cmd))
