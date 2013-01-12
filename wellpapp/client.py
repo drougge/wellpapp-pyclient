@@ -725,8 +725,8 @@ class Client:
 				if m: return m.group(1)
 			# Even when the fuse fs returns files, bare IDs are links
 			aspec = spec.split("/")
-			afn = aspec[-1].split(".")
-			if len(afn) == 2 and self._md5re.match(afn[0]):
+			afn = aspec[-1].split(".")[-2:]
+			if self._md5re.match(afn[0]):
 				aspec[-1] = afn[0]
 				shortspec = "/".join(aspec)
 				if os.path.islink(shortspec):
