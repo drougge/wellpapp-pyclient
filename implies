@@ -5,21 +5,31 @@ from sys import exit
 from wellpapp import Client, InheritValue, valuetypes
 from optparse import OptionParser
 
-p = OptionParser(usage="Usage: %prog [options] set_tag implied_tag")
+p = OptionParser(usage="Usage: %prog [options] set_tag implied_tag [priority]")
 p.add_option("-d", "--delete", help="Delete implication", action="store_true")
-p.add_option("-p", "--priority", help="Priority of implication", default=0, type="int")
+p.add_option("-p", "--priority", help="Priority of implication", type="int")
 p.add_option("-f", "--filter", help="Filter on set_tag value")
 p.add_option("-v", "--value", help="Value of implied tag. '' means inherit.")
 opts, args = p.parse_args()
 
-if len(args) != 2:
+def usage():
 	p.print_help()
 	exit(1)
+
+if len(args) not in (2, 3):
+	usage()
 
 client = Client()
 set_tag = client.find_tag(args[0], with_prefix=True)
 implied_tag = client.find_tag(args[1], with_prefix=True)
-priority = 0
+if len(args) == 3:
+	try:
+		priority = int(args[2])
+		assert opts.priority is None
+	except Exception:
+		usage()
+else:
+	priority = opts.priority or 0
 
 if set_tag and implied_tag:
 	if opts.filter:
@@ -57,6 +67,6 @@ if set_tag and implied_tag:
 	if opts.delete:
 		client.remove_implies(set_tag, implied_tag, filter)
 	else:
-		client.add_implies(set_tag, implied_tag, opts.priority, filter, value)
+		client.add_implies(set_tag, implied_tag, priority, filter, value)
 else:
 	print "Not found"
