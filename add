@@ -79,7 +79,7 @@ def exif2tags(exif, tags):
 		for lt in lenstags:
 			if lt in exif:
 				v = exif[lt]
-				if type(v) is tuple:
+				if isinstance(v, tuple) or hasattr(v, "pop"):
 					v = " ".join([str(e) for e in v])
 				lt = "lens:" + lt + ":" + v
 				if lt in cfg:
