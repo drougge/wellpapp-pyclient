@@ -44,6 +44,7 @@ def complete(word):
 	assert u" " not in word
 	pre = prefix(word)
 	word = clean(word)
+	org_word = word
 	for t, get in ("EI", lambda t: t["name"]), ("EAI", lambda t: t["alias"][0]), \
 	              ("FI", lambda t: t["name"]), ("FAI", lambda t: t["alias"][0]):
 		tags = client.find_tags(t, word)
@@ -70,7 +71,11 @@ def complete(word):
 		candidates = map(unicode.lower, candidates)
 		for k in names.keys():
 			names[k.lower()] = names[k]
-	word = pre + commonprefix(candidates)
+	common = commonprefix(candidates)
+	org_fuzz = _completefuzz(org_word)
+	if _completefuzz(common)[:len(org_fuzz)] != org_fuzz:
+		common = org_word
+	word = pre + common
 	candidates = [(c, names[c].type) for c in candidates]
 	return word, candidates
 
