@@ -233,7 +233,19 @@ def add_image(fn):
 	p = client.image_path(m)
 	if lexists(p):
 		ld = readlink(p)
-		if exists(p):
+		is_wpfs = False
+		try:
+			dot = fn.rindex(".")
+			if "/" not in fn[dot:]:
+				bare_fn = fn[:fn.rindex(".")]
+				if m == bare_fn[-32:] and readlink(bare_fn)[-32:] == m:
+					is_wpfs = True # probably
+		except (OSError, ValueError):
+			pass
+		if is_wpfs:
+			if not quiet:
+				print "Not updating", fn, "because this looks like a wellpappfs"
+		elif exists(p):
 			if fn != ld:
 				if not dummy: record_filename(m, fn)
 				if not quiet:
