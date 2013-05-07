@@ -534,11 +534,12 @@ class Client:
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
 	
-	def _tag2spec(self, t):
+	def _tag2spec(self, t, value_allowed=True):
 		if type(t) in (tuple, list):
 			assert len(t) in (2, 3)
 			g = _uniw(t[0])
 			if t[-1] is None: return g
+			assert value_allowed
 			if len(t) == 2:
 				return g + u"=" + t[1].format()
 			else:
@@ -549,7 +550,7 @@ class Client:
 	def tag_post(self, md5, full_tags=None, weak_tags=None, remove_tags=None):
 		tags = self._list(full_tags, lambda s: u" T" + self._tag2spec(s))
 		tags += self._list(weak_tags, lambda s: u" T~" + self._tag2spec(s))
-		tags += self._list(remove_tags, lambda s: u" t" + _uniw(s))
+		tags += self._list(remove_tags, lambda s: u" t" + self._tag2spec(s, False))
 		init = u"TP" + _uniw(md5)
 		cmd = [init]
 		clen = len(init)
