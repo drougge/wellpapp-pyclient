@@ -8,7 +8,7 @@ from functools import partial
 from collections import namedtuple
 
 from wellpapp.vt import VTdatetime, VTuint, VTint, valuetypes
-from wellpapp._util import _uniw
+from wellpapp._util import _uniw, _uni
 from wellpapp.util import DotDict, CommentWrapper, make_pdirs, RawWrapper
 
 __all__ = ("Client", "Config", "Post", "Tag", "WellpappError", "ResponseError",
@@ -644,21 +644,24 @@ class Client:
 			return (prefix + tag.guid, val)
 	
 	def parse_tag(self, spec, comparison=False):
-		spec = _uniw(spec)
+		spec = _uni(spec)
 		if not spec: return None
 		if spec[0] in u"~-!":
 			prefix = spec[0]
 			spec = spec[1:]
 		else:
 			prefix = u""
-		tag = self.find_tag(spec)
+		if u" " not in spec:
+			tag = self.find_tag(spec)
+		else:
+			tag = None
 		if tag:
 			if comparison:
 				return (prefix + tag, None, None)
 			else:
 				return (prefix + tag, None)
 		if comparison:
-			ppos = _rfindany(spec, u"=<>")
+			ppos = _rfindany(spec, u"=<>", spec.find(u" "))
 		else:
 			ppos = spec.rfind(u"=")
 		return self._parse_tag(prefix, spec, ppos, comparison)
