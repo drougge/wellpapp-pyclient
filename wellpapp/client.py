@@ -140,6 +140,7 @@ _field_cparser = {
 	"created"        : _p_date,
 	"imgdate"        : _p_date,
 	"ext"            : _uniw,
+	"MD5"            : _uniw,
 }
 
 class Config(DotDict):
