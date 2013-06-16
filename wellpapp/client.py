@@ -76,6 +76,8 @@ class Tag(DotDict):
 			if self.name: self.pname = self.name
 			if self.guid: self.pguid = self.guid
 
+_nonetag = Tag()
+
 class TagDict(dict):
 	"""Dictionary-like object that holds the tag lists in Posts.
 	Members are keyed on both .name and .guid (if they exist).
@@ -116,6 +118,13 @@ class TagDict(dict):
 	
 	def __delitem__(self, key):
 		raise AttributeError("TagDicts are immutable-ish")
+	
+	def get(self, key, default=_nonetag):
+		"""Just like get on dict, except the default is an empty Tag.
+		This is still False as a bool, but you can do things like
+		post.tags.get("foo").value which gives None if foo isn't set.
+		"""
+		return dict.get(self, key, default)
 
 def _vtparse(vtype, val, human=False):
 	return valuetypes[vtype](val, human)
