@@ -39,7 +39,7 @@ def determine_filetype(data):
 		return "avi"
 	if data3 == "\x00\x00\x01":
 		return "mpeg"
-	if data4 == "\x1a\x45\xdf\xa3" and data[5:7] == "\x42\x82" and data[8:16] == "matroska":
+	if data4 == "\x1a\x45\xdf\xa3" and "matroska" in data[:64]:
 		return "mkv"
 	if data4 == "OggS" and data[28:35] in ("\x01video\x00", "\x80theora"):
 		return "ogm"
