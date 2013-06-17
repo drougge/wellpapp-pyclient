@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import exit
-from wellpapp import Client, InheritValue, valuetypes
+from wellpapp import Client, InheritValue, vtparse
 from optparse import OptionParser
 
 p = OptionParser(usage="Usage: %prog [options] set_tag implied_tag [priority]")
@@ -34,7 +34,7 @@ else:
 if set_tag and implied_tag:
 	if opts.filter:
 		filter = opts.filter
-		if filter[1] in "=~":
+		if len(filter) > 1 and filter[1] in "=~":
 			comp = filter[:2]
 			filter = filter[2:]
 		else:
@@ -47,7 +47,7 @@ if set_tag and implied_tag:
 		if not tag.valuetype:
 			print "Set tag does not take a value"
 			exit(1)
-		filter = (comp, valuetypes[tag.valuetype](filter, True))
+		filter = (comp, vtparse(tag.valuetype, filter, True))
 	else:
 		filter = None
 	if opts.value is None:
@@ -61,7 +61,7 @@ if set_tag and implied_tag:
 			if not tag.valuetype:
 				print "Implied tag does not take a value"
 				exit(1)
-			value = valuetypes[tag.valuetype](opts.value, True)
+			value = vtparse(tag.valuetype, opts.value, True)
 		else:
 			value = InheritValue
 	if opts.delete:

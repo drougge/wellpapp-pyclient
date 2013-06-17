@@ -7,12 +7,12 @@ import re
 from functools import partial
 from collections import namedtuple
 
-from wellpapp.vt import VTdatetime, VTuint, VTint, valuetypes
+from wellpapp.vt import VTdatetime, VTuint, VTint, VTnull, valuetypes
 from wellpapp._util import _uniw, _uni
 from wellpapp.util import DotDict, CommentWrapper, make_pdirs, RawWrapper
 
 __all__ = ("Client", "Config", "Post", "Tag", "WellpappError", "ResponseError",
-           "DuplicateError", "InheritValue", "ImplicationTuple",
+           "DuplicateError", "InheritValue", "ImplicationTuple", "vtparse",
           )
 
 class WellpappError(Exception): pass
@@ -68,7 +68,7 @@ class Tag(DotDict):
 		vt = (self.valuetype or "").split("=", 1)
 		if len(vt) == 2:
 			self.valuetype = vt[0]
-			self.value = _vtparse(*vt)
+			self.value = vtparse(*vt)
 		if u"~" in flags:
 			if self.name: self.pname = u"~" + self.name
 			if self.guid: self.pguid = "~" + self.guid
@@ -126,8 +126,13 @@ class TagDict(dict):
 		"""
 		return dict.get(self, key, default)
 
-def _vtparse(vtype, val, human=False):
-	return valuetypes[vtype](val, human)
+def vtparse(vtype, val, human=False):
+	try:
+		return valuetypes[vtype](val, human)
+	except ValueError:
+		if human and val == "":
+			return VTnull()
+		raise
 
 _field_sparser = {
 	"created"        : VTdatetime,
@@ -498,7 +503,7 @@ class Client:
 				value = part[1:]
 				if value:
 					valuetype, value = value.split("=", 1)
-					value = _vtparse(valuetype, value)
+					value = vtparse(valuetype, value)
 				else:
 					value = InheritValue
 			else:
@@ -633,7 +638,7 @@ class Client:
 			if not tag or tag.valuetype in (None, "none"):
 				return self._parse_tag(prefix, spec, ppos, comparison)
 		if comparison:
-			if spec[pos + 1] in u"=~":
+			if pos + 1 < len(spec) and spec[pos + 1] in u"=~":
 				comp = spec[pos:pos + 2]
 				val = spec[pos + 2:]
 			else:
@@ -643,12 +648,14 @@ class Client:
 				tag.valuetype, val = val.split("=", 1)
 			if comp not in (u"=", u"<", u">", u"<=", u">=", u"=~"):
 				return None
-			val = _vtparse(tag.valuetype, val, True)
+			val = vtparse(tag.valuetype, val, True)
+			if comp != u"=" and isinstance(val, VTnull):
+				return None
 			return (prefix + tag.guid, comp, val)
 		else:
 			val = spec[pos + 1:]
 			if val:
-				val = _vtparse(tag.valuetype, val, True)
+				val = vtparse(tag.valuetype, val, True)
 			else:
 				val = None
 			return (prefix + tag.guid, val)

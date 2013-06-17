@@ -11,7 +11,8 @@ from math import log, log10, sin, cos, acos, radians, pi
 from wellpapp._util import _uni, _enc, _dec
 
 __all__ = ("ValueType", 'VTstring', 'VTword', 'VTnumber', 'VTint', 'VTuint',
-           'VTfloat', 'VTf_stop', 'VTstop', 'VTdatetime', 'VTgps', 'valuetypes',)
+           'VTfloat', 'VTf_stop', 'VTstop', 'VTdatetime', 'VTgps', 'VTnull',
+           'valuetypes',)
 
 class ValueType(object):
 	"""Represents the value of a tag.
@@ -108,6 +109,19 @@ class ValueType(object):
 	
 	def format(self):
 		return self.str
+
+class VTnull(ValueType):
+	type = "null"
+	_cmp_t = "VTstring"
+	str = ""
+	value = ""
+	exact = ""
+	
+	def __init__(self, val=None, human=False):
+		assert val is None or (isinstance(val, basestring) and not val)
+	
+	def __nonzero__(self):
+		return False
 
 class VTstring(ValueType):
 	"""Represents the value of a tag with valuetype string.
