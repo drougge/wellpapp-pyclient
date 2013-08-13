@@ -1,5 +1,7 @@
 # -*- coding: iso-8859-1 -*-
 
+from __future__ import print_function
+
 __all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "ExifWrapper",
            "identify_raw", "make_pdirs", "raw_exts", "RawWrapper",
            "CommentWrapper", "DotDict")
@@ -35,11 +37,19 @@ class TIFF:
 	def reinit_from(self, next_ifd, short_header=False):
 		self.ifd = []
 		self.subifd = []
+		seen_ifd = set()
 		while next_ifd:
 			self.ifd.append(self._ifdread(next_ifd))
 			if short_header: return
 			next_ifd = self._up1("I", self._fh.read(4))
+			if next_ifd in seen_ifd:
+				from sys import stderr
+				print("WARNING: Looping IFDs", file=stderr)
+				break
+			seen_ifd.add(next_ifd)
+			assert len(self.ifd) < 32 # way too many
 		subifd = self.ifdget(self.ifd[0], 0x14a) or []
+		assert len(subifd) < 32 # way too many
 		for next_ifd in subifd:
 			self.subifd.append(self._ifdread(next_ifd))
 	
