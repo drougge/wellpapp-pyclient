@@ -530,9 +530,10 @@ class Client:
 					else:
 						assert ttag == tag
 						rev.append(impl._replace(guid=itag))
-			return rev or None
+			return rev
 		if tag in data:
 			return data[tag]
+		return []
 	
 	def merge_tags(self, into_t, from_t):
 		cmd = u"MTG" + _uniw(into_t) + u" M" + _uniw(from_t)

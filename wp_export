@@ -80,6 +80,7 @@ class Spec:
 			exit(1)
 
 def rotate_image(img, rot):
+	rot = int(rot or 0)
 	rotation = {90: Image.ROTATE_270, 180: Image.ROTATE_180, 270: Image.ROTATE_90}
 	if rot not in rotation: return img
 	return img.transpose(rotation[rot])
@@ -125,24 +126,33 @@ spec.parse()
 
 posts = {}
 for s in spec.search:
-	ps = src_client.search_post(wanted=["tagguid", "implied", "ext", "width", "height", "rotate", "imgdate", "created"], **s)
+	ps = src_client.search_post(wanted=["tagguid", "tagname", "implied", "ext", "width", "height", "rotate", "tagdata", "datatags"], **s)
 	for p in ps:
 		posts[p.md5] = p
 md5s = set(posts.keys())
 posts = posts.values()
 
+datatags = set(["aaaaaa-aaaac8-faketg-bddate", "aaaaaa-aaaadt-faketg-gpspos"])
+magic_tags = set(["aaaaaa-aaaads-faketg-create", "aaaaaa-aaaaas-faketg-chaage",
+                  "aaaaaa-aaaac8-faketg-bddate", "aaaaaa-aaaaeL-faketg-bbredd",
+                  "aaaaaa-aaaaf9-faketg-heyght", "aaaaaa-aaaacr-faketg-FLekst",
+                  "aaaaaa-aaaade-faketg-rotate", "aaaaaa-aaaadt-faketg-gpspos",
+                ])
+spec.include.update(magic_tags)
+
 bad = set()
 for post in posts:
 	for t in post.tags:
-		if t.name not in spec.include and t.name not in spec.exclude:
+		if t.guid not in spec.include and t.guid not in spec.exclude:
 			bad.add(t.name)
+
+spec.include.difference_update(magic_tags)
 
 if bad:
 	print "Unspecified tags:"
-	names = [src_client.get_tag(t).name for t in bad]
-	for n in names:
+	for n in bad:
 		print "include:" + n
-	for n in names:
+	for n in bad:
 		print "exclude:" + n
 	exit(1)
 
@@ -194,7 +204,8 @@ print "Copying to destination server.."
 if dest_client._search_post("SP", []):
 	print "ERROR: destination server has posts"
 	exit(1)
-if dest_client.find_tags("EAI", ""):
+dest_tags = set(t.guid for t in dest_client.find_tags("EAI", ""))
+if dest_tags.difference(magic_tags):
 	print "ERROR: destination server has tags"
 	exit(1)
 
@@ -204,27 +215,30 @@ print "Tags.."
 ordered = set()
 for t in spec.include:
 	tag = src_client.get_tag(t)
-	dest_client.add_tag(tag.name, tag.type, tag.guid)
+	dest_client.add_tag(tag.name, tag.type, tag.guid, tag.valuetype)
 	if "alias" in tag:
 		for alias in tag.alias:
 			dest_client.add_alias(alias, tag.guid)
 	if tag.ordered: ordered.add(tag.guid)
 
 for t in spec.include:
-	impl = src_client.tag_implies(t)
-	if impl:
-		for g, p in impl:
-			if g in spec.include:
-				dest_client.add_implies(t, g, p)
+	for impl in src_client.tag_implies(t):
+		if impl.guid in spec.include:
+			dest_client.add_implies(t, *impl)
 
 print "Posts.."
 for post in posts:
 	full = [(t.guid, t.value) for t in post.fulltags if t.guid in spec.include]
 	weak = [(t.guid, t.value) for t in post.weaktags if t.guid in spec.include]
 	data = Post(post)
-	for d in "tags", "fulltags", "weaktags", "implfulltags", "implweaktags":
+	for t in post.datatags:
+		if t.guid in datatags:
+			full.append((t.guid, t.value))
+		if t.guid == "aaaaaa-aaaads-faketg-create":
+			data.created = t.value
+	for d in ("tags", "fulltags", "weaktags", "implfulltags", "implweaktags", "settags", "impltags", "datatags"):
 		del data[d]
-	w, h = data.width, data.height
+	w, h = map(int, (data.width, data.height))
 	if w > z:
 		h = h * z // w
 		w = z
