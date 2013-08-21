@@ -104,7 +104,7 @@ def exif2tags(exif, tags):
 		if "Exif.GPSInfo.GPSAltitude" in exif:
 			from fractions import Fraction
 			alt = Fraction(exif["Exif.GPSInfo.GPSAltitude"])
-			if exif["Exif.GPSInfo.GPSAltitudeRef"]:
+			if "Exif.GPSInfo.GPSAltitudeRef" in exif and exif["Exif.GPSInfo.GPSAltitudeRef"]:
 				alt = -alt
 			gps = VTgps("%s,%s,%.1f" % (lat, lon, alt))
 		else:
