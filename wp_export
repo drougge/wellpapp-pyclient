@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from sys import argv, exit
-from wellpapp import Client, Config, Post, CommentWrapper, RawWrapper
+from wellpapp import Client, Config, Post, CommentWrapper, RawWrapper, raw_exts
 import re
 from os.path import exists, dirname
 from os import makedirs, stat
@@ -162,7 +162,6 @@ z = spec.max_side
 
 print "Copying/rescaling images"
 count = 0
-raw_exts = ("dng", "pef", "nef")
 for post in posts:
 	m = post.md5
 	w, h = post.width, post.height

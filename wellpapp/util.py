@@ -389,7 +389,7 @@ class ExifWrapper:
 		if o not in orient: return -1
 		return orient[o]
 
-raw_exts = ("dng", "pef", "nef")
+raw_exts = ("dng", "pef", "nef", "cr2")
 
 def _identify_raw(fh, tiff):
 	ifd0 = tiff.ifd[0]
@@ -403,6 +403,8 @@ def _identify_raw(fh, tiff):
 				return "pef"
 			if make[:6] == b"NIKON ":
 				return "nef"
+			if make[:5] == b"Canon":
+				return "cr2"
 def identify_raw(fh):
 	"""A lower case file extension (e.g. "dng") or None."""
 	return _identify_raw(fh, TIFF(fh))
@@ -604,6 +606,8 @@ class RawWrapper:
 				self._test_jpeg(jpeg, jpeglen)
 			elif fmt == "pef":
 				self._test_pef(tiff)
+			elif fmt == "cr2":
+				self._test_cr2(tiff)
 		except Exception:
 			pass
 		self.seek(0)
@@ -628,6 +632,15 @@ class RawWrapper:
 			if w and h and max(w[0], h[0]) > 1000: # looks like a real image
 				jpeg = tiff.ifdget(ifd, 0x201)
 				jpeglen = tiff.ifdget(ifd, 0x202)
+				if self._test_jpeg(jpeg, jpeglen):
+					return True
+	
+	def _test_cr2(self, tiff):
+		for ifd in tiff.ifd:
+			w, h = tiff.ifdget(ifd, 0x100), tiff.ifdget(ifd, 0x101)
+			if w and h and max(w[0], h[0]) > 1000: # looks like a real image
+				jpeg = tiff.ifdget(ifd, 0x111)
+				jpeglen = tiff.ifdget(ifd, 0x117)
 				if self._test_jpeg(jpeg, jpeglen):
 					return True
 	
