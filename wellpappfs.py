@@ -68,7 +68,7 @@ class Cache:
 _thumbpaths = ([".thumblocal", "normal"], [".thumblocal", "large"])
 _cfgpath = "/.wellpapprc"
 _cloudname = ".cloud"
-_rawext = {"dng": "Jpg", "pef": "jPg", "nef": "jpG"}
+_rawext = {"dng": "Jpg", "pef": "jPg", "nef": "jpG", "cr2": "JPg"}
 _rawext_r = dict([(v, k) for k, v in _rawext.items()])
 
 class Wellpapp(fuse.Fuse):
