@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-from sys import argv, exit
+from sys import exit
 from wellpapp import Client
 from re import match
 from os.path import exists
-from os import readlink
+from os import readlink, stat
 
 def implfmt(impl):
 	data = client.get_tag(impl.guid, with_prefix=True)
@@ -29,7 +29,7 @@ def fmt_tag(tag):
 		val = u""
 	return tag.pname + val
 
-def show_post(m, short=False):
+def show_post(m, short=False, show_thumbs=False):
 	post = client.get_post(m, True, ["tagname", "tagdata", "datatags", "ext", "created", "width", "height"])
 	if not post:
 		print "Post not found"
@@ -39,11 +39,22 @@ def show_post(m, short=False):
 		print post["width"], "x", post["height"], post["ext"]
 	try:
 		path = readlink(client.image_path(m))
-		if not exists(path):
+		try:
+			path += " (%d bytes)" % (stat(path).st_size,)
+		except OSError:
 			path += " (MISSING)"
 	except Exception:
 		path = "MISSING"
 	print "Original file: " + path
+	if show_thumbs:
+		jpeg, png = client.thumb_fns(m, post.ext)
+		for kind, lst in (("jpeg", jpeg), ("png", png)):
+			for fn, z in lst:
+				try:
+					extra = "%d bytes" % (stat(fn).st_size,)
+				except OSError:
+					extra = "MISSING"
+				print "Thumb %dpx %s: %s (%s)" % (z, kind, fn, extra)
 	if short: return 0
 	tags = [fmt_tag(t) for n, t in sorted(post.datatags.items())]
 	if tags:
@@ -61,7 +72,7 @@ def show_post(m, short=False):
 		print "Related posts:\n\t" + "\n\t".join(rels)
 	return 0
 
-def show_tag(name, short=False):
+def show_tag(name, short=False, show_thumbs=False):
 	guid = client.find_tag(name)
 	if not guid and match(r"(?:\w{6}-){3}\w{6}", name):
 		guid = name
@@ -90,23 +101,27 @@ def show_tag(name, short=False):
 	return 0
 
 if __name__ == "__main__":
-	new_argv = []
-	short = False
-	for a in argv[1:]:
-		if a == "-q":
-			short = True
-		else:
-			new_argv.append(a)
-	if len(new_argv) < 1:
-		print "Usage:", argv[0], "post-spec or tagname [...]"
+	from optparse import OptionParser
+	p = OptionParser(usage="Usage: %prog [-qt] post-spec or tagname [...]")
+	p.add_option("-q", "--short",
+	             action="store_true",
+	             help="Short output format"
+	            )
+	p.add_option("-t", "--show-thumbs",
+	             action="store_true",
+	             help="Show thumb paths"
+	            )
+	opts, args = p.parse_args()
+	if not args:
+		p.print_help()
 		exit(1)
 	client = Client()
 	ret = 0
-	for object in new_argv:
+	for object in args:
 		object = client.postspec2md5(object, object)
 		if match(r"^[0-9a-f]{32}$", object):
-			ret |= show_post(object, short)
+			ret |= show_post(object, **opts.__dict__)
 		else:
-			ret |= show_tag(object, short)
-		if len(new_argv) > 1: print
+			ret |= show_tag(object, **opts.__dict__)
+		if len(args) > 1: print
 	exit(ret)
