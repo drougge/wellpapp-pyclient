@@ -295,6 +295,10 @@ class ExifWrapper:
 				self._parse_makernotes()
 			except Exception:
 				pass
+			fl = "Exif.Photo.FocalLength"
+			fl135 = "Exif.Photo.FocalLengthIn35mmFilm"
+			if fl135 not in self._d and fl in self._d and self._d.get("Exif.Image.Model") == "Canon EOS 5D":
+				self._d[fl135] = self._d[fl]
 			gps = self._get(0x8825)
 			if gps:
 				tiff.reinit_from(gps)
