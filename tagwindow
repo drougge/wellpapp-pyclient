@@ -45,10 +45,13 @@ def complete(word):
 	pre = prefix(word)
 	word = clean(word)
 	org_word = word
+	known_tags = set()
+	for tl in ("all", "allcurrent", "currentother", "other"):
+		known_tags.update(clean(g) for g in tw.taglist[tl])
 	for t, get in ("EI", lambda t: t["name"]), ("EAI", lambda t: t["alias"][0]), \
 	              ("FI", lambda t: t["name"]), ("FAI", lambda t: t["alias"][0]):
 		tags = client.find_tags(t, word)
-		if pre == "-": tags = filter(tw.known_tag, tags)
+		if pre == "-": tags = [t for t in tags if t.guid in known_tags]
 		if len(tags) == 1:
 			name = get(tags[0])
 			return pre + name, [(name, tags[0].type)]
