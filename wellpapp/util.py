@@ -33,8 +33,8 @@ class TIFF:
 		else:
 			good = [b"II*\0", b"MM\0*"]
 			if allow_variants:
-				# Olympus ORF
-				good += [b"IIRO"]
+				# Olympus ORF, Panasonic RW2
+				good += [b"IIRO", b"IIU\0"]
 			if d not in good: raise Exception("Not TIFF")
 			self.variant = d[2:4].strip(b"\0")
 		endian = {b"M": ">", b"I": "<"}[d[0]]
@@ -408,7 +408,7 @@ class ExifWrapper:
 		if o not in orient: return -1
 		return orient[o]
 
-raw_exts = ("dng", "pef", "nef", "cr2", "orf")
+raw_exts = ("dng", "pef", "nef", "cr2", "orf", "rw2")
 
 def _identify_raw(fh, tiff):
 	ifd0 = tiff.ifd[0]
@@ -427,6 +427,8 @@ def _identify_raw(fh, tiff):
 					return "cr2"
 			elif tiff.variant == b"RO" and make[:8] == b"OLYMPUS ":
 				return "orf"
+			elif tiff.variant == b"U" and make == b"Panasonic\0":
+				return "rw2"
 def identify_raw(fh):
 	"""A lower case file extension (e.g. "dng") or None."""
 	return _identify_raw(fh, TIFF(fh))
@@ -639,6 +641,8 @@ class RawWrapper:
 				self._test_cr2(tiff)
 			elif fmt == "orf":
 				self._test_orf(tiff)
+			elif fmt == "rw2":
+				self._test_rw2(tiff)
 		except Exception:
 			pass
 		self.seek(0)
@@ -688,6 +692,14 @@ class RawWrapper:
 			jpegpos = tiff.ifdget(tiff.ifd[0], 0x101)[0]
 			jpeglen = tiff.ifdget(tiff.ifd[0], 0x102)[0]
 			return self._test_jpeg([makernotes + jpegpos], [jpeglen])
+		except Exception:
+			pass
+	
+	def _test_rw2(self, tiff):
+		try:
+			type, vc, off = tiff.ifd[0][0x2e]
+			if type == 7:
+				return self._test_jpeg([off], [vc])
 		except Exception:
 			pass
 	

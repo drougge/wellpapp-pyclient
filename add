@@ -27,7 +27,7 @@ def determine_filetype(data):
 		return "png"
 	if data2 == "BM" and ord(data[5]) < 4 and data[13] == "\x00":
 		return "bmp"
-	if data4 in ("MM\x00*", "II*\x00", "IIRO"):
+	if data4 in ("MM\x00*", "II*\x00", "IIRO", "IIU\x00"):
 		return identify_raw(StringIO(data))
 	flen = unpack("<I", data48)[0]
 	dlen = len(data)
