@@ -9,22 +9,34 @@ __all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "ExifWrapper",
 class TIFF:
 	"""Pretty minimal TIFF container parser"""
 	
-	types = {1: (1, "B"),  # BYTE
-		 2: (1, None), # ASCII
-		 3: (2, "H"),  # SHORT
-		 4: (4, "I"),  # LONG
-		 5: (8, "II"), # RATIONAL
-		 # No TIFF6 fields, sorry
-		}
+	types = { 1: (1, "B"),  # BYTE
+	          2: (1, None), # ASCII
+	          3: (2, "H"),  # SHORT
+	          4: (4, "I"),  # LONG
+	          5: (8, "II"), # RATIONAL
+	          6: (1, "b"),  # SBYTE
+	          7: (1, None), # UNDEFINE
+	          8: (2, "h"),  # SSHORT
+	          9: (4, "i"),  # SLONG
+	         10: (8, "ii"), # SRATIONAL
+	         11: (4, "f"),  # FLOAT
+	         12: (8, "d"),  # DOUBLE
+	        }
 	
-	def __init__(self, fh, short_header=False):
+	def __init__(self, fh, allow_variants=True, short_header=False):
 		from struct import unpack
 		self._fh = fh
 		d = fh.read(4)
 		if short_header:
 			if d[:2] not in (b"II", b"MM"): raise Exception("Not TIFF")
+			self.variant = None
 		else:
-			if d not in (b"II*\0", b"MM\0*"): raise Exception("Not TIFF")
+			good = [b"II*\0", b"MM\0*"]
+			if allow_variants:
+				# Olympus ORF
+				good += [b"IIRO"]
+			if d not in good: raise Exception("Not TIFF")
+			self.variant = d[2:4].strip(b"\0")
 		endian = {b"M": ">", b"I": "<"}[d[0]]
 		self._up = lambda fmt, *a: unpack(endian + fmt, *a)
 		self._up1 = lambda *a: self._up(*a)[0]
@@ -32,6 +44,9 @@ class TIFF:
 			next_ifd = short_header
 		else:
 			next_ifd = self._up1("I", fh.read(4))
+		# Be conservative with possibly mis-detected ORF
+		if self.variant == "RO":
+			assert next_ifd == 8
 		self.reinit_from(next_ifd, short_header)
 	
 	def reinit_from(self, next_ifd, short_header=False):
@@ -62,7 +77,7 @@ class TIFF:
 				tl, fmt = self.types[type]
 				off = self._fh.read(tl * vc)
 				if fmt: off = self._up(fmt * vc, off)
-			if isinstance(off, basestring):
+			if type == 2:
 				off = off.rstrip("\0")
 			return off
 	
@@ -393,7 +408,7 @@ class ExifWrapper:
 		if o not in orient: return -1
 		return orient[o]
 
-raw_exts = ("dng", "pef", "nef", "cr2")
+raw_exts = ("dng", "pef", "nef", "cr2", "orf")
 
 def _identify_raw(fh, tiff):
 	ifd0 = tiff.ifd[0]
@@ -402,13 +417,16 @@ def _identify_raw(fh, tiff):
 		type, count, off = ifd0[0x010f]
 		if type == 2:
 			fh.seek(off)
-			make = fh.read(min(count, 7))
-			if make[:7] == b"PENTAX ":
-				return "pef"
-			if make[:6] == b"NIKON ":
-				return "nef"
-			if make[:5] == b"Canon":
-				return "cr2"
+			make = fh.read(min(count, 10))
+			if tiff.variant == "*":
+				if make[:7] == b"PENTAX ":
+					return "pef"
+				if make[:6] == b"NIKON ":
+					return "nef"
+				if make[:5] == b"Canon":
+					return "cr2"
+			elif tiff.variant == b"RO" and make[:8] == b"OLYMPUS ":
+				return "orf"
 def identify_raw(fh):
 	"""A lower case file extension (e.g. "dng") or None."""
 	return _identify_raw(fh, TIFF(fh))
@@ -499,10 +517,16 @@ class _ThinExif(TIFF):
 			return type, off
 
 class MakeTIFF:
-	types = {1: "B", # BYTE
-	         3: "H", # SHORT
-	         4: "I", # LONG
-	         5: "I", # RATIONAL
+	types = { 1: "B", # BYTE
+	          3: "H", # SHORT
+	          4: "I", # LONG
+	          5: "I", # RATIONAL
+	          6: "b", # SBYTE
+	          8: "h", # SSHORT
+	          9: "i", # SLONG
+	         10: "i", # SRATIONAL
+	         11: "f", # FLOAT
+	         12: "d", # DOUBLE
 	        }
 
 	def __init__(self):
@@ -581,6 +605,7 @@ def _rawexif(raw, fh):
 	exif_ifd = raw_exif.ifd[0x8769][2][0]
 	raw_exif.reinit_from(exif_ifd)
 	for k in raw_exif.ifd:
+		if k == 0x927c: continue # Skip makernotes
 		d = raw_exif.ifdget(k)
 		if d: exif1.add(k, d)
 	exif = b"Exif\x00\x00"
@@ -592,7 +617,7 @@ def _rawexif(raw, fh):
 
 class RawWrapper:
 	"""Wraps (read only) IO to an image, so that RAW images look like JPEGs.
-	Handles DNG, NEF and PEF.
+	Handles DNG, NEF, PEF, CR2 and ORF.
 	Wraps fh as is if no reasonable embedded JPEG is found."""
 	
 	def __init__(self, fh, make_exif=False):
@@ -612,6 +637,8 @@ class RawWrapper:
 				self._test_pef(tiff)
 			elif fmt == "cr2":
 				self._test_cr2(tiff)
+			elif fmt == "orf":
+				self._test_orf(tiff)
 		except Exception:
 			pass
 		self.seek(0)
@@ -647,6 +674,22 @@ class RawWrapper:
 				jpeglen = tiff.ifdget(ifd, 0x117)
 				if self._test_jpeg(jpeg, jpeglen):
 					return True
+	
+	def _test_orf(self, tiff):
+		try:
+			exif = tiff.ifdget(tiff.ifd[0], 0x8769)[0]
+			tiff.reinit_from(exif)
+			makernotes = tiff.ifd[0][0x927c][2]
+			tiff._fh.seek(makernotes)
+			assert tiff._fh.read(10) == b"OLYMPUS\0II"
+			tiff.reinit_from(makernotes + 12)
+			jpegifd = tiff.ifd[0][0x2020][2]
+			tiff.reinit_from(makernotes + jpegifd)
+			jpegpos = tiff.ifdget(tiff.ifd[0], 0x101)[0]
+			jpeglen = tiff.ifdget(tiff.ifd[0], 0x102)[0]
+			return self._test_jpeg([makernotes + jpegpos], [jpeglen])
+		except Exception:
+			pass
 	
 	def _test_jpeg(self, jpeg, jpeglen):
 		if not jpeg or not jpeglen: return
