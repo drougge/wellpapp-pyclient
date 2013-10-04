@@ -21,7 +21,7 @@ if not hasattr(fuse, "__version__"):
 fuse.fuse_python_api = (0, 2)
 NOTFOUND = IOError(errno.ENOENT, "Not found")
 md5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)$")
-shortmd5re = re.compile(r"^([0-9a-f]{32})$")
+shortmd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})$")
 metamd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)\.gq\.xmp$")
 sre = re.compile(r"[ /]+")
 orient = {0: 1, 90: 6, 180: 3, 270: 8}
