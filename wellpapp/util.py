@@ -21,6 +21,7 @@ class TIFF:
 	         10: (8, "ii"), # SRATIONAL
 	         11: (4, "f"),  # FLOAT
 	         12: (8, "d"),  # DOUBLE
+	         13: (4, "I"),  # IFD
 	        }
 	
 	def __init__(self, fh, allow_variants=True, short_header=False):
@@ -357,6 +358,29 @@ class ExifWrapper:
 			fh.seek(off)
 			data = fh.read(vc)
 			self._pentax_makernotes(data)
+		if make[:8] == "OLYMPUS ":
+			if 0x927c in self._ifd:
+				type, vc, off = self._ifd[0x927c]
+				if type != 7: return
+				fh = self._tiff._fh
+				fh.seek(off)
+				data = fh.read(vc)
+				self._olympus_makernotes(data)
+	
+	def _olympus_makernotes(self, data):
+		if data[:8] != b"OLYMPUS\0": return
+		from io import BytesIO
+		fh = BytesIO(data)
+		try:
+			fh.seek(8)
+			t = TIFF(fh, short_header=12)
+			offset = t.ifdget(t.ifd[0], 0x2010)[0]
+			t.reinit_from(offset)
+			data = t.ifdget(t.ifd[0], 0x0203)
+			assert isinstance(data, bytes)
+			self._d["Exif.OlympusEq.LensModel"] = data
+		except Exception:
+			pass
 	
 	def _pentax_makernotes(self, data):
 		from io import BytesIO
@@ -687,7 +711,7 @@ class RawWrapper:
 			tiff._fh.seek(makernotes)
 			assert tiff._fh.read(10) == b"OLYMPUS\0II"
 			tiff.reinit_from(makernotes + 12)
-			jpegifd = tiff.ifd[0][0x2020][2]
+			jpegifd = tiff.ifdget(tiff.ifd[0], 0x2020)[0]
 			tiff.reinit_from(makernotes + jpegifd)
 			jpegpos = tiff.ifdget(tiff.ifd[0], 0x101)[0]
 			jpeglen = tiff.ifdget(tiff.ifd[0], 0x102)[0]
