@@ -62,6 +62,11 @@ rmpost:
 Delete posts. Allows them to be referenced if you give -f.
 "rmpost [-f] post-spec [post-spec [..]]"
 
+replace:
+Replace the file of a post. The replacement file must not have a post.
+Thumbnails are moved, or regenerated with -t.
+"replace [-t] post-spec new-file"
+
 order:
 Order tags in a post. First argument is the tag, the following arguments are
 post-specs that will be ordered as specified. It's not possible to order posts
