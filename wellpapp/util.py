@@ -348,32 +348,26 @@ class ExifWrapper:
 		return d
 	
 	def _parse_makernotes(self):
-		if "Exif.Image.Make" not in self: return
-		make = self["Exif.Image.Make"]
-		if make[:7] == "PENTAX ":
-			if 0x927c in self._ifd:
-				type, vc, off = self._ifd[0x927c]
-				if type != 7: return
-			elif 0xc634 in self._ifd:
-				type, vc, off = self._ifd[0xc634]
-				if type != 1: return
-			else:
-				return
-			fh = self._tiff._fh
-			fh.seek(off)
-			data = fh.read(vc)
-			self._pentax_makernotes(data)
-		if make[:8] == "OLYMPUS ":
-			if 0x927c in self._ifd:
-				type, vc, off = self._ifd[0x927c]
-				if type != 7: return
-				fh = self._tiff._fh
-				fh.seek(off)
-				data = fh.read(vc)
-				self._olympus_makernotes(data)
+		if 0x927c in self._ifd:
+			type, vc, off = self._ifd[0x927c]
+			if type != 7: return
+		elif 0xc634 in self._ifd:
+			type, vc, off = self._ifd[0xc634]
+			if type != 1: return
+		else:
+			return
+		fh = self._tiff._fh
+		fh.seek(off)
+		data = fh.read(vc)
+		if b"\0" not in data: return
+		mid = data[:data.find(b"\0")]
+		{
+			b"AOC"    : self._pentax_makernotes,
+			b"PENTAX ": self._pentax_makernotes,
+			b"OLYMPUS": self._olympus_makernotes,
+		}.get(mid, lambda _: _)(data)
 	
 	def _olympus_makernotes(self, data):
-		if data[:8] != b"OLYMPUS\0": return
 		from io import BytesIO
 		fh = BytesIO(data)
 		try:
@@ -389,15 +383,13 @@ class ExifWrapper:
 	
 	def _pentax_makernotes(self, data):
 		from io import BytesIO
-		if data[:4] == b"AOC\0": # JPEG/PEF MakerNotes
-			fh = BytesIO(data[4:])
-		elif data[:8] == b"PENTAX \0": # DNG MakerNotes
-			fh = BytesIO(data[8:])
-		else:
-			return
-		t = TIFF(fh, short_header=2)
-		lens = " ".join(map(str, t.ifdget(t.ifd[0], 0x3f)))
-		self._d["Exif.Pentax.LensType"] = lens
+		fh = BytesIO(data[data.find(b"\0") + 1:])
+		try:
+			t = TIFF(fh, short_header=2)
+			lens = " ".join(map(str, t.ifdget(t.ifd[0], 0x3f)))
+			self._d["Exif.Pentax.LensType"] = lens
+		except Exception:
+			pass
 	
 	def date(self, tz=None):
 		"""Return some reasonable EXIF date field as VTdatetime, or None
