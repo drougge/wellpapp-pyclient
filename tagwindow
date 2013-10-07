@@ -222,6 +222,10 @@ class TagWindow:
 		self.type2colour = dict([cs.split("=") for cs in client.cfg.tagcolours.split()])
 		self.md5s = []
 		self.fullscreen_open = False
+		self.taglist = {}
+		for pre in ("", "impl"):
+			for suf in ("any", "all", "allcurrent", "currentother", "other"):
+				self.taglist[pre + suf] = set()
 
 	def _focus_tagfield(self, *a):
 		self.tagfield.grab_focus()
@@ -403,7 +407,6 @@ class TagWindow:
 		self.posts = dict([(p.md5, p) for p in posts])
 		agl = self.ids.keys()
 		self.tag_colours = dict(zip(agl, [self.tag_colour_guid(clean(tg)) for tg in agl]))
-		self.taglist = {}
 		self._tagcompute(posts, "")
 		self._tagcompute(posts, "impl")
 		self.put_in_list(self.tags_all, "all")
