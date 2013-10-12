@@ -315,10 +315,10 @@ class ExifWrapper:
 			fl135 = "Exif.Photo.FocalLengthIn35mmFilm"
 			if fl135 not in self._d and fl in self._d:
 				model = self._d.get("Exif.Image.Model")
+				n, d = self._d[fl]
 				if model == "Canon EOS 5D":
-					self._d[fl135] = int(self._d[fl])
+					self._d[fl135] = int(n / float(d))
 				elif model == "E-P1            ":
-					n, d = self._d[fl]
 					self._d[fl135] = int(n * 2.0 / d)
 			gps = self._get(0x8825)
 			if gps:
