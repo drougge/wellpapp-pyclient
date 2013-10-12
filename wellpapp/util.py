@@ -345,6 +345,7 @@ class ExifWrapper:
 		if type(d) is tuple:
 			if len(d) == 1: return d[0]
 			if not tuple_ok: return None
+			if d == (): return None
 		return d
 	
 	def _parse_makernotes(self):
