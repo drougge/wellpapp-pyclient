@@ -367,6 +367,20 @@ class ExifWrapper:
 			b"PENTAX ": self._pentax_makernotes,
 			b"OLYMPUS": self._olympus_makernotes,
 		}.get(mid, lambda _: _)(data)
+		if self._d.get("Exif.Image.Make") == "Canon" and data[1:4] == "\x00\x01\x00":
+			self._canon_makernotes(off)
+	
+	def _canon_makernotes(self, off):
+		# stupid Canon, no header, and offsets relative to EXIF block.
+		tiff = self._tiff
+		b_ifd, b_subifd = tiff.ifd, tiff.subifd
+		try:
+			tiff.reinit_from(off)
+			lens = tiff.ifdget(tiff.ifd[0], 0x0095)
+			if lens:
+				self._d["Exif.Canon.LensModel"] = lens
+		finally:
+			tiff.ifd, tiff.subifd = b_ifd, b_subifd
 	
 	def _olympus_makernotes(self, data):
 		from io import BytesIO
