@@ -229,9 +229,12 @@ def add_image(fn):
 	fn = realpath(fn)
 	data = file(fn).read()
 	m = md5(data).hexdigest()
-	ft = determine_filetype(data)
-	assert ft
 	post = client.get_post(m, True)
+	if post:
+		ft = post.ext
+	else:
+		ft = determine_filetype(data)
+	assert ft
 	p = client.image_path(m)
 	if lexists(p):
 		ld = readlink(p)
