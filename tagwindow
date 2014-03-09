@@ -550,7 +550,7 @@ class TagWindow:
 		failed = []
 		for t in orgtext.split():
 			tag = client.parse_tag(t)
-			if not tag:
+			if not tag and prefix(t) != u"-":
 				self.create_tag(clean(t))
 				tag = client.parse_tag(t)
 			if tag:
