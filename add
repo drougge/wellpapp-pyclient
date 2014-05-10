@@ -35,7 +35,7 @@ def determine_filetype(data):
 		return "swf"
 	if data3 == "CWS" and dlen < flen < dlen * 10:
 		return "swf"
-	if data4 == "RIFF" and data[8:12] == "AVI " and flen < dlen < flen + 10240:
+	if data4 == "RIFF" and data[8:12] == "AVI " and flen < dlen < flen * 1.4 + 10240:
 		return "avi"
 	if data3 == "\x00\x00\x01":
 		return "mpeg"
