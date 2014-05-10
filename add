@@ -52,9 +52,9 @@ def determine_filetype(data):
 				return "mov"
 			else:
 				return "mp4"
-		if blen < 100 and (data[8:10] == "qt" or data[8:12] == "3gp4"):
+		if blen < 100 and (data[8:10] == "qt" or data[8:12] in ("3gp4", "\0\0\0\0")):
 			return "mov"
-		if data[0] == "\x00" and data[8:12] in ("mp41", "mp42"):
+		if data[0] == "\x00" and data[8:12] in ("mp41", "mp42", "isom"):
 			return "mp4"
 	if data48 == "moov" and data[12:16] in ("mvhd", "cmov"):
 		if "\x00" in (data[0], data[8], data[16]):
