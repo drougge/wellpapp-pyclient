@@ -251,7 +251,7 @@ class TagWindow:
 		iter = self.thumbs.get_iter(item[0])
 		m = self.thumbs.get_value(iter, 0)
 		# @@ check for changing tag values?
-		self._apply([(t, None) for t in selection.data.split()], [], [m])
+		self._apply([((t, None), None) for t in selection.data.split()], [], [m])
 
 	def drag_put_thumb_post(self, selection):
 		try:
