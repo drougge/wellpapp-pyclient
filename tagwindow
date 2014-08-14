@@ -96,6 +96,8 @@ class FixedTreeView(gtk.TreeView):
 	def _press(self, tv, event, data=None):
 		if event.state & (gtk.gdk.CONTROL_MASK | gtk.gdk.SHIFT_MASK):
 			return
+		if event.button == 2:
+			return
 		ev = map(int, (event.x, event.y))
 		path = self.get_path_at_pos(*ev)
 		if not path: return True
@@ -136,6 +138,7 @@ class TagWindow:
 		self.thumbview.set_selection_mode(gtk.SELECTION_MULTIPLE)
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.thumbview.connect("item-activated", self.thumb_activated)
+		self.thumbview.connect("button-press-event", self.middle_toggle_select)
 		self.tagbox = gtk.VBox(False, 0)
 		taglisttypes = [TYPE_STRING] * 5
 		self.tags_all = gtk.ListStore(*taglisttypes)
@@ -166,6 +169,7 @@ class TagWindow:
 			sel = tv.get_selection()
 			sel.set_mode(gtk.SELECTION_MULTIPLE)
 			tv.connect("row-activated", self.modify_tag)
+			tv.connect("button-press-event", self.middle_toggle_select)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("Some", celltext, markup=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
@@ -351,6 +355,22 @@ class TagWindow:
 					print_exc()
 		dialog.destroy()
 		if self._needs_refresh: self.refresh()
+
+	def middle_toggle_select(self, widget, event):
+		if event.button == 2:
+			pathinfo = widget.get_path_at_pos(int(event.x), int(event.y))
+			if pathinfo:
+				path = pathinfo[0]
+				# Why would lists with text and lists with icons have the same interface? Sigh..
+				if hasattr(widget, "get_selection"):
+					sel = widget.get_selection()
+				else:
+					sel = widget
+				if sel.path_is_selected(path):
+					sel.unselect_path(path)
+				else:
+					sel.select_path(path)
+				return True
 
 	def tag_colour(self, type):
 		if type in self.type2colour: return self.type2colour[type]
