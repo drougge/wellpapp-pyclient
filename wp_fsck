@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 from hashlib import md5
-import Image
+from PIL import Image
 from os.path import exists
 from os import stat, walk
 

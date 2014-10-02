@@ -4,8 +4,7 @@
 from os.path import lexists, realpath
 from os import unlink, rename, symlink, stat
 from hashlib import md5
-import Image
-from PIL import PngImagePlugin
+from PIL import Image, PngImagePlugin
 from wellpapp import make_pdirs
 
 def replace(oldfile, newfile, regenerate_thumbs=False):

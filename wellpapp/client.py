@@ -798,8 +798,7 @@ class Client:
 		return jpeg_fns, png_fns
 	
 	def save_thumbs(self, m, img, ft, rot, force=False):
-		import Image
-		from PIL import PngImagePlugin
+		from PIL import Image, PngImagePlugin
 		fn = self.image_path(m)
 		mtime = os.stat(fn).st_mtime
 		if not img:

@@ -6,7 +6,7 @@ from wellpapp import Client, Config, Post, CommentWrapper, RawWrapper, raw_exts
 import re
 from os.path import exists, dirname
 from os import makedirs, stat
-import Image
+from PIL import Image
 from sys import stdout
 from subprocess import call
 
