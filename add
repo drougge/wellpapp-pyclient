@@ -99,6 +99,8 @@ def exif2tags(exif, tags):
 			tn, et = st.split("=", 1)
 			if et in exif:
 				v = exif[et]
+				if ("FocalLength" in et or "FNumber" in et) and not v:
+					continue
 				tags.add_spec(tn + "=" + str(exif[et]))
 	if "Exif.GPSInfo.GPSLatitude" in exif:
 		lat = _gpspos(exif["Exif.GPSInfo.GPSLatitude"], exif["Exif.GPSInfo.GPSLatitudeRef"])
