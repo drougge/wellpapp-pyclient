@@ -316,9 +316,9 @@ class ExifWrapper:
 			if fl135 not in self._d and fl in self._d:
 				model = self._d.get("Exif.Image.Model")
 				n, d = self._d[fl]
-				if model == "Canon EOS 5D":
+				if model.startswith("Canon EOS 5D"):
 					self._d[fl135] = int(n / float(d))
-				elif model == "E-P1            ":
+				elif model.startswith("E-P") or model.startswith("DMC-G"):
 					self._d[fl135] = int(n * 2.0 / d)
 			gps = self._get(0x8825)
 			if gps:
