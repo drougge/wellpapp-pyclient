@@ -165,15 +165,23 @@ class ExifWrapper:
 	
 	def __init__(self, fn):
 		self._d = {}
-		try:
-			self._internal(fn)
-		except Exception:
-			pass
-		try:
-			self._pyexiv2_old(fn)
-		except Exception:
+		if isinstance(fn, str):
+			self.fn = fn
 			try:
-				self._pyexiv2_new(fn)
+				self._pyexiv2_old(fn)
+			except Exception:
+				try:
+					self._pyexiv2_new(fn)
+				except Exception:
+					pass
+			try:
+				self._internal()
+			except Exception:
+				pass
+		else:
+			self.fn = None
+			try:
+				self._internal(fn)
 			except Exception:
 				pass
 	
@@ -262,8 +270,8 @@ class ExifWrapper:
 	def _new_getitem(self, *a):
 		return self._exif.__getitem__(*a).value
 	
-	def _internal(self, fn):
-		fh = file(fn, "rb")
+	def _internal(self, fh=None):
+		fh = fh or open(self.fn, "rb")
 		try:
 			data = fh.read(12)
 			if data[:3] == b"\xff\xd8\xff": # JPEG
@@ -349,26 +357,52 @@ class ExifWrapper:
 		return d
 	
 	def _parse_makernotes(self):
+		fh = self._tiff._fh
 		if 0x927c in self._ifd:
 			type, vc, off = self._ifd[0x927c]
 			if type != 7: return
 		elif 0xc634 in self._ifd:
 			type, vc, off = self._ifd[0xc634]
 			if type != 1: return
+		elif self.fn: # This is not a wrapped embedded jpeg
+			# No makernotes found - try again from embedded jpeg
+			# (At least Panasonic RW2 needs this.)
+			fh.seek(0)
+			j_fh = RawWrapper(fh)._fh
+			if j_fh == fh: return
+			inner = ExifWrapper(j_fh)
+			for k in set(inner._d) - set(self._d):
+				self._d[k] = inner._d[k]
+			return
 		else:
 			return
-		fh = self._tiff._fh
 		fh.seek(off)
 		data = fh.read(vc)
 		if b"\0" not in data: return
 		mid = data[:data.find(b"\0")]
 		{
-			b"AOC"    : self._pentax_makernotes,
-			b"PENTAX ": self._pentax_makernotes,
-			b"OLYMPUS": self._olympus_makernotes,
-		}.get(mid, lambda _: _)(data)
+			b"AOC"      : self._pentax_makernotes,
+			b"PENTAX "  : self._pentax_makernotes,
+			b"OLYMPUS"  : self._olympus_makernotes,
+			b"Panasonic": self._panasonic_makernotes,
+		}.get(mid, lambda _: _)(data, off)
 		if self._d.get("Exif.Image.Make") == "Canon" and data[1:4] == "\x00\x01\x00":
 			self._canon_makernotes(off)
+	
+	def _panasonic_makernotes(self, data, offset):
+		# Headerless IFD after "Panasonic\0\0\0"
+		# Offsets relative to EXIF block
+		if not data.startswith("Panasonic\0\0\0"):
+			return
+		tiff = self._tiff
+		b_ifd, b_subifd = tiff.ifd, tiff.subifd
+		try:
+			tiff.reinit_from(offset + 12, True)
+			lens = tiff.ifdget(tiff.ifd[0], 0x0051)
+			if lens:
+				self._d["Exif.Panasonic.LensType"] = lens.strip()
+		finally:
+			tiff.ifd, tiff.subifd = b_ifd, b_subifd
 	
 	def _canon_makernotes(self, off):
 		# stupid Canon, no header, and offsets relative to EXIF block.
@@ -382,7 +416,7 @@ class ExifWrapper:
 		finally:
 			tiff.ifd, tiff.subifd = b_ifd, b_subifd
 	
-	def _olympus_makernotes(self, data):
+	def _olympus_makernotes(self, data, offset):
 		from io import BytesIO
 		fh = BytesIO(data)
 		try:
@@ -396,7 +430,7 @@ class ExifWrapper:
 		except Exception:
 			pass
 	
-	def _pentax_makernotes(self, data):
+	def _pentax_makernotes(self, data, offset):
 		from io import BytesIO
 		fh = BytesIO(data[data.find(b"\0") + 1:])
 		try:
