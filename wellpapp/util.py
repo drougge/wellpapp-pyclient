@@ -321,7 +321,7 @@ class ExifWrapper:
 				pass
 			fl = "Exif.Photo.FocalLength"
 			fl135 = "Exif.Photo.FocalLengthIn35mmFilm"
-			if fl135 not in self._d and fl in self._d:
+			if (fl135 not in self._d or not self._d[fl135]) and fl in self._d:
 				model = self._d.get("Exif.Image.Model")
 				n, d = self._d[fl]
 				if model.startswith("Canon EOS 5D"):
