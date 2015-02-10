@@ -326,7 +326,7 @@ class ExifWrapper:
 				n, d = self._d[fl]
 				if model.startswith("Canon EOS 5D"):
 					self._d[fl135] = int(n / float(d))
-				elif model.startswith("E-P") or model.startswith("DMC-G"):
+				elif model.startswith("E-P") or model.startswith("E-M") or model.startswith("DMC-G"):
 					self._d[fl135] = int(n * 2.0 / d)
 			gps = self._get(0x8825)
 			if gps:
