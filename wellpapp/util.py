@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "ExifWrapper",
            "identify_raw", "make_pdirs", "raw_exts", "RawWrapper",
-           "CommentWrapper", "DotDict")
+           "CommentWrapper", "DotDict", "X3F",)
 
 class TIFF:
 	"""Pretty minimal TIFF container parser"""
@@ -274,6 +274,30 @@ class ExifWrapper:
 		fh = fh or open(self.fn, "rb")
 		try:
 			data = fh.read(12)
+			if data.startswith(b"FOVb"): # X3F
+				fh.seek(0)
+				x3f = X3F(fh)
+				if x3f.jpegs:
+					j = x3f.jpegs[-1]
+					fh = FileWindow(fh, j.offset, j.length)
+					data = fh.read(12)
+				x3f2exif = dict(
+					FLENGTH="Exif.Photo.FocalLength",
+					FLEQ35MM=("Exif.Photo.FocalLengthIn35mmFilm", lambda v: int(round(float(v))),),
+					ISO=("Exif.Photo.ISOSpeedRatings", int,),
+					SH_DESC="Exif.Photo.ExposureTime",
+					AP_DESC="Exif.Photo.FNumber",
+					CAMMODEL="Exif.Image.Model",
+					CAMMANUF="Exif.Image.Make",
+				)
+				for key in set(x3f2exif) & set(x3f.prop):
+					value = x3f.prop[key]
+					conv = x3f2exif[key]
+					if isinstance(conv, tuple):
+						value = conv[1](value)
+						conv = conv[0]
+					self._d[conv] = value
+				self._d.update(("X3F." + k, v) for k, v in x3f.prop.items())
 			if data[:3] == b"\xff\xd8\xff": # JPEG
 				from struct import unpack
 				data = data[3:]
@@ -478,7 +502,7 @@ class ExifWrapper:
 		if o not in orient: return -1
 		return orient[o]
 
-raw_exts = ("dng", "pef", "nef", "cr2", "orf", "rw2")
+raw_exts = ("dng", "pef", "nef", "cr2", "orf", "rw2", "x3f",)
 
 def _identify_raw(fh, tiff):
 	ifd0 = tiff.ifd[0]
@@ -501,6 +525,10 @@ def _identify_raw(fh, tiff):
 				return "rw2"
 def identify_raw(fh):
 	"""A lower case file extension (e.g. "dng") or None."""
+	fh.seek(0)
+	if fh.read(4) == b"FOVb":
+		return "x3f"
+	fh.seek(0)
 	return _identify_raw(fh, TIFF(fh))
 
 class FileMerge:
@@ -687,13 +715,102 @@ def _rawexif(raw, fh):
 	fm.add(fh, first)
 	return fm
 
+class X3F:
+	"""Find JPEG sections and metadata in X3F files
+	.jpegs is a list from smallest to largest.
+	.prop is a dict {field: value}
+	"""
+	
+	def __init__(self, fh):
+		from collections import defaultdict, namedtuple
+		self.X3F_JPEG = namedtuple("X3F_JPEG", "offset length cols rows")
+		from struct import unpack
+		assert fh.read(4) == b"FOVb"
+		self.vminor, self.vmajor = unpack("<HH", fh.read(4))
+		assert self.vmajor == 2
+		fh.seek(-4, 2)
+		index, = unpack("<I", fh.read(4))
+		fh.seek(index)
+		assert fh.read(4) == b"SECd" # section header
+		secvminor, secvmajor = unpack("<HH", fh.read(4))
+		assert secvmajor == 2
+		nentries, = unpack("<I", fh.read(4))
+		sections = defaultdict(list)
+		for i in range(nentries):
+			offset, length = unpack("<II", fh.read(8))
+			typ = fh.read(4)
+			sections[typ].append((offset, length,))
+		self.jpegs = []
+		for offset, length in sections[b"IMAG"] + sections[b"IMA2"]:
+			fh.seek(offset)
+			self._read_img(fh, length)
+		self.jpegs.sort(key=lambda j: j.cols * j.rows)
+		self.prop = {}
+		for offset, length in sections[b"PROP"]:
+			self._read_prop(fh, offset)
+	
+	def _read_img(self, fh, length):
+		from struct import unpack
+		assert fh.read(4) == b"SECi"
+		vminor, vmajor = unpack("<HH", fh.read(4))
+		assert vmajor == 2
+		typ, = unpack("<I", fh.read(4))
+		if typ != 2:
+			return
+		fmt, cols, rows, rowz = unpack("<IIII", fh.read(16))
+		if fmt != 18:
+			return
+		offset = fh.tell()
+		length -= 28
+		self.jpegs.append(self.X3F_JPEG(offset=offset, length=length, cols=cols, rows=rows))
+	
+	def _read_prop(self, fh, offset):
+		from struct import unpack
+		fh.seek(offset)
+		assert fh.read(4) == b"SECp"
+		vminor, vmajor = unpack("<HH", fh.read(4))
+		assert vmajor == 2
+		nentries, fmt, _, totlen = unpack("<IIII", fh.read(16))
+		if fmt != 0:
+			return
+		hdrs = fh.read(nentries * 8)
+		offset = fh.tell()
+		# Stupid format
+		def getstr(str_off):
+			fh.seek(offset + str_off*2)
+			def reader():
+				while True:
+					v = fh.read(2)
+					if v == b"\0\0" or not v:
+						raise StopIteration
+					yield v
+			return b"".join(reader()).decode("utf-16le")
+		while hdrs:
+			name_off, value_off = unpack("<II", hdrs[:8])
+			hdrs = hdrs[8:]
+			self.prop[getstr(name_off)] = getstr(value_off)
+
 class RawWrapper:
 	"""Wraps (read only) IO to an image, so that RAW images look like JPEGs.
-	Handles DNG, NEF, PEF, CR2 and ORF.
+	Handles DNG, NEF, PEF, CR2, ORF and X3F.
 	Wraps fh as is if no reasonable embedded JPEG is found."""
 	
 	def __init__(self, fh, make_exif=False):
+		self.closed = False
 		self._set_fh(fh)
+		fh.seek(0)
+		if fh.read(4) == b"FOVb":
+			try:
+				fh.seek(0)
+				x3f = X3F(fh)
+				if x3f.jpegs:
+					j = x3f.jpegs[-1]
+					self._test_jpeg([j.offset], [j.length])
+					# No make_exif support, but at least Sigma SD14 puts exif in this JPEG.
+					return
+			except Exception:
+				pass
+		fh.seek(0)
 		try:
 			tiff = TIFF(self)
 			fmt = _identify_raw(self, tiff)
@@ -718,7 +835,6 @@ class RawWrapper:
 		self.seek(0)
 		if make_exif and self._fh != fh:
 			self._set_fh(_rawexif(fh, self._fh))
-		self.closed = False
 	
 	def _set_fh(self, fh):
 		self._fh = fh
