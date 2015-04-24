@@ -450,7 +450,7 @@ class ExifWrapper:
 			t.reinit_from(offset)
 			data = t.ifdget(t.ifd[0], 0x0203)
 			assert isinstance(data, bytes)
-			self._d["Exif.OlympusEq.LensModel"] = data
+			self._d["Exif.OlympusEq.LensModel"] = data.strip()
 		except Exception:
 			pass
 	
