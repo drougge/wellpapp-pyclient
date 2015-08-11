@@ -827,34 +827,35 @@ class Client:
 		png = map(lambda t: (t[0], t[1], png_opts), png_fns)
 		z = max(map(lambda d: d[1], jpeg + png)) * 2
 		if w > z or h > z:
-			img.thumbnail((z, z), Image.ANTIALIAS)
-		if img.mode[-1] == "A":
-			# Images with transparency tend to have crap in the
-			# tansparent pixel values. This is not handled well
-			# when they are saved without transparency (jpeg).
-			# So we put it on a white background.
-			if img.mode == "LA":
-				mode = "LA"
-				col = 255
-			else:
-				mode = "RGBA"
-				col = (255, 255, 255)
-			bgfix = Image.new(mode, img.size, col)
-			alpha = img.split()[-1]
-			bgfix.paste(img, None, alpha)
-			# It seems reasonable to assume that not everything
-			# handles transparency properly in PNG thumbs, so
-			# we want to use this as the data for them as well.
-			# Just copy the alpha and call it good.
-			bgfix.putalpha(alpha)
-			img = bgfix
+			img = _thumb(img, z)
 		for fn, z, opts in jpeg + png:
 			if force or not os.path.exists(fn):
-				t = img.copy()
-				if w > z or h > z:
-					t.thumbnail((z, z), Image.ANTIALIAS)
+				t = _thumb(img.copy(), z)
 				make_pdirs(fn)
 				if t.mode == "LA" and opts["format"] == "JPEG":
 					# This is probably a PIL bug
 					t = t.convert("L")
 				t.save(fn, **opts)
+
+def _thumb(img, z):
+	from PIL import Image
+	if max(img.size) > z:
+		img.thumbnail((z, z), Image.ANTIALIAS)
+	if img.mode[-1] == "A":
+		# Images with transparency tend to have crap in the
+		# tansparent pixel values. In some versions of PIL
+		# this reappears after scaling.
+		# So we put it on a white background every time.
+		if img.mode == "LA":
+			mode = "LA"
+			col = 255
+		else:
+			mode = "RGBA"
+			col = (255, 255, 255)
+		bgfix = Image.new(mode, img.size, col)
+		alpha = img.split()[-1]
+		bgfix.paste(img, None, alpha)
+		bgfix.putalpha(alpha)
+		return bgfix
+	else:
+		return img
