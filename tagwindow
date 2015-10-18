@@ -86,14 +86,20 @@ class FixedTreeView(gtk.TreeView):
 	def __init__(self, *args):
 		gtk.TreeView.__init__(self, *args)
 		self._event = None
+		self._select_all_state = False
 		self.get_selection().set_select_function(self._sel)
 		self.connect('button-press-event', self._press)
 		self.connect('button-release-event', self._release)
+		self.connect('select-all', self._select_all)
 
-	def _sel(self, *args):
+	def _sel(self, path):
+		if self._select_all_state:
+			model = self.get_model()
+			return model[path[0]][5] != "impl"
 		return self._event == None
 
 	def _press(self, tv, event, data=None):
+		self._select_all_state = False
 		if event.state & (gtk.gdk.CONTROL_MASK | gtk.gdk.SHIFT_MASK):
 			return
 		if event.button == 2:
@@ -107,12 +113,16 @@ class FixedTreeView(gtk.TreeView):
 			self._event = None
 
 	def _release(self, tv, event, data=None):
+		self._select_all_state = False
 		if self._event:
 			oldev = self._event
 			self._event = None
 			if oldev != map(int, (event.x, event.y)): return True
 			path = self.get_path_at_pos(*oldev)
 			if path: self.set_cursor(path[0], path[1])
+
+	def _select_all(self, self_again):
+		self._select_all_state = not self._select_all_state
 
 class TagWindow:
 	def __init__(self):
@@ -140,7 +150,7 @@ class TagWindow:
 		self.thumbview.connect("item-activated", self.thumb_activated)
 		self.thumbview.connect("button-press-event", self.middle_toggle_select)
 		self.tagbox = gtk.VBox(False, 0)
-		taglisttypes = [TYPE_STRING] * 5
+		taglisttypes = [TYPE_STRING] * 6
 		self.tags_all = gtk.ListStore(*taglisttypes)
 		self.tags_allcurrent = gtk.ListStore(*taglisttypes)
 		self.tags_currentother = gtk.ListStore(*taglisttypes)
@@ -409,7 +419,7 @@ class TagWindow:
 	def put_in_list(self, lo, li):
 		data = []
 		for pre, bg in ("", "#ffffff"), ("impl", "#ffd8ee"):
-			data += [(self.fmt_tag(t), self._guid_with_val(t), bg, self.tag_colours[clean(t)], self.txt_tag(t)) for t in self.taglist[pre + li]]
+			data += [(self.fmt_tag(t), self._guid_with_val(t), bg, self.tag_colours[clean(t)], self.txt_tag(t), pre) for t in self.taglist[pre + li]]
 		lo.clear()
 		map(lambda d: lo.append(d), sorted(data))
 
