@@ -8,6 +8,10 @@ from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, stat
 from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts, VTgps
 from struct import unpack
+from Queue import Empty
+from multiprocessing import Lock, cpu_count, Queue, Process
+
+lock = Lock()
 
 def determine_filetype(data):
 	if force_filetype:
@@ -133,7 +137,8 @@ class tagset(set):
 	
 	def add_spec(self, s):
 		try:
-			t = client.parse_tag(s)
+			with lock:
+				t = client.parse_tag(s)
 		except Exception:
 			print "Failed to parse: " + s
 			return
@@ -168,12 +173,13 @@ def record_filename(m, fn):
 			r_m, r_fn = line[:-1].split(" ", 1)
 			known.setdefault(r_m, []).append(r_fn)
 	if m not in known or fn not in known[m]:
-		open(rec_fn, "a").write(m + " " + fn + "\n")
+		with lock:
+			with open(rec_fn, "a") as fh:
+				fh.write(m + " " + fn + "\n")
 
 def generate_cache(m, fn, jz):
 	cache_fn = client.cfg.image_base + "/cache"
 	if exists(cache_fn):
-		fh = open(cache_fn, "a")
 		s = stat(fn)
 		z = s.st_size
 		mt = int(s.st_mtime)
@@ -181,8 +187,9 @@ def generate_cache(m, fn, jz):
 			l = "1 %s %d %d %d %s\n" % (m, z, mt, jz, fn)
 		else:
 			l = "0 %s %d %d %s\n" % (m, z, mt, fn)
-		fh.write(l)
-		fh.close()
+		with lock:
+			with open(cache_fn, "a") as fh:
+				fh.write(l)
 
 def fmt_tagvalue(v):
 	if not v: return ""
@@ -231,7 +238,8 @@ def add_image(fn):
 	fn = realpath(fn)
 	data = file(fn).read()
 	m = md5(data).hexdigest()
-	post = client.get_post(m, True)
+	with lock:
+		post = client.get_post(m, True)
 	if post:
 		ft = post.ext
 	else:
@@ -301,7 +309,8 @@ def add_image(fn):
 		if dummy:
 			print "Would have created post " + m
 		else:
-			client.add_post(**args)
+			with lock:
+				client.add_post(**args)
 	if needs_thumbs(m, ft):
 		if dummy:
 			print "Would have generated thumbs for " + m
@@ -312,7 +321,8 @@ def add_image(fn):
 			client.save_thumbs(m, img, ft, rot, force_thumbs)
 	full = tagset()
 	weak = tagset()
-	post = client.get_post(m, True)
+	with lock:
+		post = client.get_post(m, True)
 	posttags = tagset()
 	if post:
 		posttags.update_tags(post.tags)
@@ -326,12 +336,13 @@ def add_image(fn):
 		else:
 			full.add((guid, val))
 	if full or weak:
-		if no_tagging or dummy:
-			full = [client.get_tag(g).name + fmt_tagvalue(v) for g, v in full]
-			weak = ["~" + client.get_tag(g).name + fmt_tagvalue(v) for g, v in weak]
-			print "Would have tagged " + m + " " + " ".join(full + weak)
-		else:
-			client.tag_post(m, full, weak)
+		with lock:
+			if no_tagging or dummy:
+				full = [client.get_tag(g).name + fmt_tagvalue(v) for g, v in full]
+				weak = ["~" + client.get_tag(g).name + fmt_tagvalue(v) for g, v in weak]
+				print "Would have tagged " + m + " " + " ".join(full + weak)
+			else:
+				client.tag_post(m, full, weak)
 
 def usage():
 	print "Usage:", argv[0], "[-v] [-q] [-f] [-n] [-d] [-t thumb_source] [-T type] [-z timezone] filename [filename [..]]"
@@ -401,6 +412,23 @@ if __name__ == '__main__':
 		if not exists(thumb_source):
 			print "Thumb source not found"
 			exit(1)
+	todo = argv[a:]
+	if not todo:
+		exit(0)
 	client.begin_transaction()
-	map(add_image, argv[a:])
+	q = Queue()
+	map(q.put, todo)
+	def worker():
+		while True:
+			try:
+				add_image(q.get(False))
+			except Empty:
+				break
+	# I would have used Pool, but it's completely broken if you ^C
+	ps = [Process(target=worker) for _ in range(min(cpu_count(), len(todo)))]
+	for p in ps:
+		p.daemon = True
+		p.start()
+	for p in ps:
+		p.join()
 	client.end_transaction()
