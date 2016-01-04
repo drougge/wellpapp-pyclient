@@ -70,7 +70,7 @@ def needs_thumbs(m, ft):
 
 def _gpspos(pos, ref):
 	pos = pos[0] + pos[1] / 60 + pos[2] / 3600
-	if ref[0] in "SWsw":
+	if ref and ref[0] in "SWsw":
 		pos = -pos
 	return "%.7f" % (pos,)
 
