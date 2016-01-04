@@ -189,7 +189,10 @@ class Client:
 		if not cfg:
 			cfg = Config()
 		self.cfg = cfg
-		self.server = (cfg.server, int(cfg.port))
+		if cfg.socket:
+			self.server = cfg.socket
+		else:
+			self.server = (cfg.server, int(cfg.port))
 		self.is_connected = False
 		self._md5re = re.compile(r"^[0-9a-f]{32}$", re.I)
 		base = cfg.image_base
@@ -199,7 +202,10 @@ class Client:
 	
 	def _reconnect(self):
 		if self.is_connected: return
-		self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		if isinstance(self.server, tuple):
+			self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		else:
+			self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 		self._sock.connect(self.server)
 		self._fh = self._sock.makefile()
 		self.is_connected = True
