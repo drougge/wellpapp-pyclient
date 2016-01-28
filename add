@@ -10,6 +10,7 @@ from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, Exi
 from struct import unpack
 from Queue import Empty
 from multiprocessing import Lock, cpu_count, Queue, Process
+from traceback import print_exc
 
 lock = Lock()
 
@@ -417,13 +418,19 @@ if __name__ == '__main__':
 		exit(0)
 	client.begin_transaction()
 	q = Queue()
+	bad_q = Queue()
 	map(q.put, todo)
 	def worker():
 		while True:
 			try:
-				add_image(q.get(False))
+				i = q.get(False)
 			except Empty:
 				break
+			try:
+				add_image(i)
+			except Exception:
+				print_exc()
+				bad_q.put(i)
 	# I would have used Pool, but it's completely broken if you ^C
 	ps = [Process(target=worker) for _ in range(min(cpu_count(), len(todo)))]
 	for p in ps:
@@ -432,3 +439,11 @@ if __name__ == '__main__':
 	for p in ps:
 		p.join()
 	client.end_transaction()
+	if not bad_q.empty():
+		print
+		print "Failed files:"
+		while True:
+			try:
+				print "\t%s" % (bad_q.get(False),)
+			except Empty:
+				break
