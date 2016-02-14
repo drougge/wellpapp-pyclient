@@ -54,7 +54,7 @@ def complete(word):
 		if pre == "-": tags = [t for t in tags if t.guid in known_tags]
 		if len(tags) == 1:
 			name = get(tags[0])
-			return pre + name, [(name, tags[0].type)]
+			return pre + name, [(name, tags[0])]
 		if len(tags) > 1: break
 	names = {}
 	for t in tags:
@@ -79,7 +79,7 @@ def complete(word):
 	if _completefuzz(common)[:len(org_fuzz)] != org_fuzz:
 		common = org_word
 	word = pre + common
-	candidates = [(c, names[c].type) for c in candidates]
+	candidates = [(c, names[c]) for c in candidates]
 	return word, candidates
 
 class FixedTreeView(gtk.TreeView):
@@ -124,6 +124,8 @@ class FixedTreeView(gtk.TreeView):
 	def _select_all(self, self_again):
 		self._select_all_state = not self._select_all_state
 
+taglisttypes = [TYPE_STRING] * 6
+
 class TagWindow:
 	def __init__(self):
 		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
@@ -150,7 +152,6 @@ class TagWindow:
 		self.thumbview.connect("item-activated", self.thumb_activated)
 		self.thumbview.connect("button-press-event", self.middle_toggle_select)
 		self.tagbox = gtk.VBox(False, 0)
-		taglisttypes = [TYPE_STRING] * 6
 		self.tags_all = gtk.ListStore(*taglisttypes)
 		self.tags_allcurrent = gtk.ListStore(*taglisttypes)
 		self.tags_currentother = gtk.ListStore(*taglisttypes)
@@ -240,6 +241,8 @@ class TagWindow:
 		for pre in ("", "impl"):
 			for suf in ("any", "all", "allcurrent", "currentother", "other"):
 				self.taglist[pre + suf] = set()
+		self.tab_count = 0
+		self.tab_alts = []
 
 	def _focus_tagfield(self, *a):
 		self.tagfield.grab_focus()
@@ -542,28 +545,41 @@ class TagWindow:
 		return "<span color=\"" + col + "\">" + name + "</span>"
 
 	def tagfield_key(self, tagfield, event):
-		if event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK): return
-		if gtk.gdk.keyval_name(event.keyval) == "Tab":
-			self.set_msg(u"")
+		if gtk.gdk.keyval_name(event.keyval) == "Tab" and \
+		   not event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK):
+			self.tab_count += 1
 			text = _uni(tagfield.get_text())
 			pos = tagfield.get_position()
 			spos = text.rfind(u" ", 0, pos) + 1
 			left = text[:spos]
 			word = text[spos:pos]
 			right = text[pos:]
-			if word:
-				new_word, alts = complete(word)
-				if alts:
-					self.set_msg(u"")
-					mu = " ".join([self.fmt_tagalt(*a) for a in alts])
-					self.msg.set_markup(mu)
-					if new_word:
-						if len(alts) == 1 and (not right or right[0] != u" "):
-							new_word += u" "
-						text = left + new_word + right
-						tagfield.set_text(text)
-						tagfield.set_position(pos + len(new_word) - len(word))
+			def update(new_word):
+				text = left + new_word + right
+				tagfield.set_text(text)
+				tagfield.set_position(pos + len(new_word) - len(word))
+			if self.tab_count == 1:
+				self.set_msg(u"")
+				if word:
+					new_word, alts = complete(word)
+					self.tab_alts = alts
+					if alts:
+						self.set_msg(u"")
+						mu = " ".join(self.fmt_tagalt(name, t.type) for name, t in alts)
+						self.msg.set_markup(mu)
+						if new_word:
+							if len(alts) == 1 and (not right or right[0] != u" "):
+								new_word += u" "
+							update(new_word)
+			elif self.tab_count == 2:
+				self.tab_count = 0
+				if self.tab_alts:
+					dialog = TagCompletionDialog(self, word, self.tab_alts)
+					if dialog.run() == gtk.RESPONSE_ACCEPT:
+						update(dialog.get_tt())
+					dialog.destroy()
 			return True
+		self.tab_count = 0
 
 	def create_tag(self, name):
 		dialog = TagDialog(self.window, u"Create tag", name)
@@ -872,6 +888,41 @@ class AliasesDialog(gtk.Dialog):
 		client.add_alias(name, self.guid)
 		self._add_name.set_text(u"")
 		self._refresh()
+
+class TagCompletionDialog(gtk.Dialog):
+	def __init__(self, main, word, alts):
+		gtk.Dialog.__init__(self, u"Completing " + word, main.window, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+		self.set_default_response(gtk.RESPONSE_ACCEPT)
+		self.word = word
+		self.alts = gtk.ListStore(*taglisttypes)
+		for name, t in sorted(alts):
+			self.alts.append((markup_escape_text(name.encode("utf-8")), t.guid, "#ffffff", main.tag_colour(t.type), name, ""))
+		self.altsview = gtk.TreeView(self.alts)
+		celltext = gtk.CellRendererText()
+		tvc = gtk.TreeViewColumn("Alternatives", celltext, markup=0)
+		tvc.add_attribute(celltext, "cell-background", 2)
+		tvc.add_attribute(celltext, "foreground", 3)
+		self.altsview.append_column(tvc)
+		self.altsview.connect("row-activated", lambda *a: self.response(gtk.RESPONSE_ACCEPT))
+		self.scroll = gtk.ScrolledWindow()
+		self.scroll.set_policy(gtk.POLICY_NEVER, gtk.POLICY_ALWAYS)
+		self.scroll.add(self.altsview)
+		self.vbox.pack_start(self.scroll)
+		# Isn't there a better way to set my default size while still allowing smaller windows?
+		a_z = self.altsview.size_request()
+		s_z = self.scroll.size_request()
+		w_z = self.size_request()
+		x = min(a_z[0] + s_z[0], w_z[0])
+		y = min(a_z[1] + w_z[1], int(client.cfg.tagwindow_height))
+		self.resize(x, y)
+		self.show_all()
+
+	def get_tt(self):
+		ls, iter = self.altsview.get_selection().get_selected()
+		if iter:
+			return ls.get_value(iter, 4) + u" "
+		else:
+			return self.word
 
 # This doesn't actually manage the window, it just loads the image for it.
 # Only the main thread ever touches visible objects, because I don't want to
