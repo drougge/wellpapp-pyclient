@@ -896,8 +896,16 @@ class TagCompletionDialog(gtk.Dialog):
 		self.word = word
 		self.alts = gtk.ListStore(*taglisttypes)
 		for name, t in sorted(alts):
-			self.alts.append((markup_escape_text(name.encode("utf-8")), t.guid, "#ffffff", main.tag_colour(t.type), name, ""))
+			m_name = markup_escape_text(name.encode("utf-8"))
+			tooltip = [t.name]
+			if t.alias:
+				tooltip.extend(u"    " + a for a in sorted(t.alias))
+			tooltip.append(t.type)
+			tooltip.append(u"%d posts, %d weak posts" % (t.posts, t.weak_posts))
+			tooltip = markup_escape_text(u"\n".join(tooltip).encode("utf-8"))
+			self.alts.append((m_name, t.guid, "#ffffff", main.tag_colour(t.type), name, tooltip))
 		self.altsview = gtk.TreeView(self.alts)
+		self.altsview.set_tooltip_column(5)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("Alternatives", celltext, markup=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
