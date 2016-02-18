@@ -82,6 +82,41 @@ def complete(word):
 	candidates = [(c, names[c]) for c in candidates]
 	return word, candidates
 
+def complete_entry(parent, window, tagfield, event):
+	if gtk.gdk.keyval_name(event.keyval) == "Tab" and \
+	   not event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK):
+		parent.tab_count += 1
+		text = _uni(tagfield.get_text())
+		pos = tagfield.get_position()
+		spos = text.rfind(u" ", 0, pos) + 1
+		left = text[:spos]
+		word = text[spos:pos]
+		right = text[pos:]
+		def update(new_word):
+			text = left + new_word + right
+			tagfield.set_text(text)
+			tagfield.set_position(pos + len(new_word) - len(word))
+		if parent.tab_count == 1:
+			parent.show_alts([])
+			if word:
+				new_word, alts = complete(word)
+				parent.tab_alts = alts
+				if alts:
+					parent.show_alts(alts)
+					if new_word:
+						if len(alts) == 1 and (not right or right[0] != u" "):
+							new_word += u" "
+						update(new_word)
+		elif parent.tab_count == 2:
+			parent.tab_count = 0
+			if parent.tab_alts:
+				dialog = TagCompletionDialog(window, word, parent.tab_alts)
+				if dialog.run() == gtk.RESPONSE_ACCEPT:
+					update(dialog.get_tt())
+				dialog.destroy()
+		return True
+	parent.tab_count = 0
+
 class FixedTreeView(gtk.TreeView):
 	def __init__(self, *args):
 		gtk.TreeView.__init__(self, *args)
@@ -544,42 +579,13 @@ class TagWindow:
 		col = self.tag_colour(t)
 		return "<span color=\"" + col + "\">" + name + "</span>"
 
+	def show_alts(self, alts):
+		self.set_msg(u"")
+		mu = " ".join(self.fmt_tagalt(name, t.type) for name, t in alts)
+		self.msg.set_markup(mu)
+
 	def tagfield_key(self, tagfield, event):
-		if gtk.gdk.keyval_name(event.keyval) == "Tab" and \
-		   not event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK):
-			self.tab_count += 1
-			text = _uni(tagfield.get_text())
-			pos = tagfield.get_position()
-			spos = text.rfind(u" ", 0, pos) + 1
-			left = text[:spos]
-			word = text[spos:pos]
-			right = text[pos:]
-			def update(new_word):
-				text = left + new_word + right
-				tagfield.set_text(text)
-				tagfield.set_position(pos + len(new_word) - len(word))
-			if self.tab_count == 1:
-				self.set_msg(u"")
-				if word:
-					new_word, alts = complete(word)
-					self.tab_alts = alts
-					if alts:
-						self.set_msg(u"")
-						mu = " ".join(self.fmt_tagalt(name, t.type) for name, t in alts)
-						self.msg.set_markup(mu)
-						if new_word:
-							if len(alts) == 1 and (not right or right[0] != u" "):
-								new_word += u" "
-							update(new_word)
-			elif self.tab_count == 2:
-				self.tab_count = 0
-				if self.tab_alts:
-					dialog = TagCompletionDialog(self, word, self.tab_alts)
-					if dialog.run() == gtk.RESPONSE_ACCEPT:
-						update(dialog.get_tt())
-					dialog.destroy()
-			return True
-		self.tab_count = 0
+		return complete_entry(self, self.window, tagfield, event)
 
 	def create_tag(self, name):
 		dialog = TagDialog(self.window, u"Create tag", name)
@@ -890,8 +896,8 @@ class AliasesDialog(gtk.Dialog):
 		self._refresh()
 
 class TagCompletionDialog(gtk.Dialog):
-	def __init__(self, main, word, alts):
-		gtk.Dialog.__init__(self, u"Completing " + word, main.window, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+	def __init__(self, parent, word, alts):
+		gtk.Dialog.__init__(self, u"Completing " + word, parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
 		self.set_default_response(gtk.RESPONSE_ACCEPT)
 		self.word = word
 		self.alts = gtk.ListStore(*taglisttypes)
@@ -918,12 +924,12 @@ class TagCompletionDialog(gtk.Dialog):
 						iname = markup_escape_text(i_t.pname.encode("utf-8"))
 						if i.filter or i.value:
 							iname = '<span color="#ff0000">*</span> ' + iname
-						tc = main.tag_colour(i_t.type).encode("utf-8")
+						tc = tw.tag_colour(i_t.type).encode("utf-8")
 						tooltip.append('    <span color="%s">%s</span>' % (tc, iname))
 					if dots:
 						tooltip.append("... (%d more)" % (dots,))
 			tooltip = "\n".join(tooltip)
-			self.alts.append((m_name, t.guid, "#ffffff", main.tag_colour(t.type), name, tooltip))
+			self.alts.append((m_name, t.guid, "#ffffff", tw.tag_colour(t.type), name, tooltip))
 		self.altsview = gtk.TreeView(self.alts)
 		self.altsview.set_tooltip_column(5)
 		celltext = gtk.CellRendererText()
