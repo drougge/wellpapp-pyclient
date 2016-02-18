@@ -757,6 +757,7 @@ class ImplicationsDialog(gtk.Dialog):
 		self.vbox.pack_start(self._ibox)
 		self._add_name = gtk.Entry()
 		self._add_name.connect("activate", self._add)
+		self._add_name.connect("key-press-event", self._complete)
 		self._add_prio = gtk.Entry()
 		self._add_prio.set_width_chars(5)
 		self._add_prio.set_text(u"0")
@@ -765,6 +766,8 @@ class ImplicationsDialog(gtk.Dialog):
 		self._add_btn.connect("clicked", self._add)
 		self._show_impl()
 		self.did_something = False
+		self.tab_count = 0
+		self.tab_alts = []
 		self.show_all()
 
 	def _show_impl(self):
@@ -828,7 +831,7 @@ class ImplicationsDialog(gtk.Dialog):
 			w.hide()
 
 	def _add(self, *a):
-		name = self._add_name.get_text()
+		name = self._add_name.get_text().strip()
 		if not name:
 			self.emit("close")
 			return
@@ -845,6 +848,13 @@ class ImplicationsDialog(gtk.Dialog):
 		self._add_name.set_text(u"")
 		self._add_prio.set_text(u"0")
 		self._show_impl()
+
+	def show_alts(self, alts):
+		# I suppose I should show these, but meh.
+		pass
+
+	def _complete(self, tagfield, event):
+		return complete_entry(self, self, tagfield, event)
 
 class AliasesDialog(gtk.Dialog):
 	def __init__(self, parent, guid):
