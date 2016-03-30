@@ -270,7 +270,7 @@ class TagWindow:
 		self.window.show_all()
 		self.b_apply.hide()
 		self.type2colour = dict([cs.split("=") for cs in client.cfg.tagcolours.split()])
-		self.md5s = []
+		self.md5s = set()
 		self.fullscreen_open = False
 		self.taglist = {}
 		for pre in ("", "impl"):
@@ -316,7 +316,7 @@ class TagWindow:
 		for m in data.split():
 			if len(m) == 32 and ishex(m) and m not in self.md5s:
 				add.append(m)
-				self.md5s.append(m)
+				self.md5s.add(m)
 		if add:
 			fl = FileLoader(self, add)
 			fl.start()
@@ -667,8 +667,7 @@ class TagWindow:
 		return bad
 
 	def add_md5s(self, md5s):
-		for m in md5s:
-			if m not in self.md5s: self.md5s.append(m)
+		self.md5s.update(md5s)
 		self.refresh()
 		self.b_apply.show()
 
