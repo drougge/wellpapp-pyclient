@@ -13,6 +13,8 @@ from os.path import commonprefix
 from hashlib import md5
 from threading import Thread
 from glib import markup_escape_text
+from multiprocessing import cpu_count
+import Queue
 
 from wellpapp import Client, RawWrapper, WellpappError
 
@@ -1058,6 +1060,35 @@ class FullscreenWindow(gtk.Window):
 		self._tw.fullscreen_open = False
 		gtk.Window.destroy(self)
 
+class FileLoaderWorker(Thread):
+	def __init__(self, q_in, d_out, z):
+		Thread.__init__(self)
+		self.name = "FileLoaderWorker"
+		self.daemon = True
+		self._q_in = q_in
+		self._d_out = d_out
+		self._z = z
+
+	def run(self):
+		try:
+			while True:
+				d = self._q_in.get(False)
+				m = thumb = None
+				try:
+					m = client.postspec2md5(d)
+				except Exception:
+					pass
+				if m:
+					try:
+						fn = client.thumb_path(m, self._z)
+						thumb = gtk.gdk.pixbuf_new_from_file(fn)
+					except Exception:
+						pass
+				self._d_out[d] = (m, thumb, m,)
+				self._q_in.task_done()
+		except Queue.Empty:
+			pass
+
 class FileLoader(Thread):
 	def __init__(self, tw, argv):
 		Thread.__init__(self)
@@ -1068,27 +1099,28 @@ class FileLoader(Thread):
 
 	def run(self):
 		client = Client()
-		md5s = map(client.postspec2md5, self._argv)
+		q_in = Queue.Queue()
+		map(q_in.put, self._argv)
+		d_out = {}
+		z = int(client.cfg.thumb_sizes.split()[0])
+		for _ in range(cpu_count()):
+			FileLoaderWorker(q_in, d_out, z).start()
+		q_in.join()
 		good = True
+		md5s = [d_out[d][0] for d in self._argv]
 		if None in md5s:
 			idle_add(self._tw.error, u"File(s) not found")
 			md5s = filter(None, md5s)
 			good = False
-		else:
-			idle_add(self._tw.set_msg, u"Loading thumbs")
 		if not md5s:
 			idle_add(self._tw.error, u"No posts found")
 			return
+		thumbs = [d_out[d] for d in self._argv if d_out[d][1]]
+		if len(thumbs) != len(md5s):
+			if good:
+				idle_add(self._tw.error, u"Post(s) not found")
+			good = False
 		idle_add(self._tw.add_md5s, md5s)
-		z = int(client.cfg.thumb_sizes.split()[0])
-		thumbs = []
-		for m in md5s:
-			try:
-				fn = client.thumb_path(m, z)
-				thumb = gtk.gdk.pixbuf_new_from_file(fn)
-				thumbs.append((m, thumb, m,))
-			except Exception:
-				good = False
 		idle_add(self._tw.add_thumbs, thumbs)
 		if good:
 			idle_add(self._tw.set_msg, u"")
