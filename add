@@ -46,6 +46,8 @@ def determine_filetype(data):
 		return "mpeg"
 	if data4 == "\x1a\x45\xdf\xa3" and "matroska" in data[:64]:
 		return "mkv"
+	if data4 == "\x1a\x45\xdf\xa3" and "webm" in data[:64]:
+		return "webm"
 	if data4 == "OggS" and data[28:35] in ("\x01video\x00", "\x80theora"):
 		return "ogm"
 	if data16 == "\x30\x26\xb2\x75\x8e\x66\xcf\x11\xa6\xd9\x00\xaa\x00\x62\xce\x6c":
@@ -232,7 +234,7 @@ def mplayer_dimensions(fn):
 	data = dict(d.split("=", 1) for d in data if d.startswith("ID_VIDEO_"))
 	return [int(data[v]) for v in ("ID_VIDEO_WIDTH", "ID_VIDEO_HEIGHT")]
 
-movie_ft = set("swf avi mpeg mkv ogm mp4 wmv flv mov".split())
+movie_ft = set("swf avi mpeg mkv ogm mp4 wmv flv mov webm".split())
 
 def add_image(fn):
 	if verbose: print fn
