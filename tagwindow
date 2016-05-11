@@ -290,7 +290,7 @@ class TagWindow:
 		text = _uni(self.tagfield.get_text())
 		# This gets called twice (why?), so ignore it if we already have the tag
 		if text[-len(tag):] != tag:
-			if text and text[-1] != u" ": text += u" "
+			if text and text[-1] not in (u" ", u"="): text += u" "
 			text += tag
 			self.tagfield.set_text(text)
 		# When recieving standard types, we also have to stop the default handler
