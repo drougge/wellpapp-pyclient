@@ -280,16 +280,18 @@ class TagWindow:
 				self.taglist[pre + suf] = set()
 		self.tab_count = 0
 		self.tab_alts = []
+		self._tagfield_prev_ctx = None
 
 	def _focus_tagfield(self, *a):
 		self.tagfield.grab_focus()
 		self.tagfield.select_region(-1, -1)
 
 	def drag_put_tagfield(self, widget, context, x, y, selection, targetType, eventTime):
-		tag = _uni(selection.data) + u" "
-		text = _uni(self.tagfield.get_text())
-		# This gets called twice (why?), so ignore it if we already have the tag
-		if text[-len(tag):] != tag:
+		# This gets called twice (why?), so ignore it the second time
+		if self._tagfield_prev_ctx != context:
+			self._tagfield_prev_ctx = context
+			tag = _uni(selection.data) + u" "
+			text = _uni(self.tagfield.get_text())
 			if text and text[-1] not in (u" ", u"="): text += u" "
 			text += tag
 			self.tagfield.set_text(text)
