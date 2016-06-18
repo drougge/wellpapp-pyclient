@@ -769,18 +769,21 @@ class Client:
 	def order(self, tag, posts):
 		init = u"OG" + _uniw(tag)
 		cmd = [init]
+		dolen = 2
 		clen = len(init)
 		for post in map(_uniw, posts):
 			post = u" P" + post
+			cmd.append(post)
 			clen += len(post.encode("utf-8"))
-			if clen >= self._prot_max_len:
+			if clen >= self._prot_max_len - 35:
 				self._writeline(u"".join(cmd))
 				res = self._readline()
 				if res != u"OK": raise ResponseError(res)
-				cmd = [init]
+				# Overlap one, so previous ordering doesn't mess us up.
+				cmd = [init, post]
+				dolen = 3
 				clen = len(init) + len(post.encode("utf-8"))
-			cmd.append(post)
-		if len(cmd) > 1:
+		if len(cmd) >= dolen:
 			self._writeline(u"".join(cmd))
 			res = self._readline()
 			if res != u"OK": raise ResponseError(res)
