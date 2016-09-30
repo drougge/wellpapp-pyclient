@@ -352,6 +352,10 @@ class ExifWrapper:
 					self._d[fl135] = int(n / float(d))
 				elif model.startswith("E-P") or model.startswith("E-M") or model.startswith("DMC-G"):
 					self._d[fl135] = int(n * 2.0 / d)
+				elif model == 'Canon PowerShot A590 IS':
+					self._d[fl135] = int(n * 5.9 / d)
+				elif model == 'Canon PowerShot A610':
+					self._d[fl135] = int(n * 4.7 / d)
 			gps = self._get(0x8825)
 			if gps:
 				tiff.reinit_from(gps)
