@@ -298,6 +298,13 @@ class ExifWrapper:
 						conv = conv[0]
 					self._d[conv] = value
 				self._d.update(("X3F." + k, v) for k, v in x3f.prop.items())
+			elif data.startswith(b"FUJI"): # RAF
+				try:
+					offset, length = _RAF_jpeg(fh)
+					fh.seek(offset)
+					data = fh.read(12)
+				except Exception:
+					pass
 			if data[:3] == b"\xff\xd8\xff": # JPEG
 				from struct import unpack
 				data = data[3:]
@@ -506,7 +513,7 @@ class ExifWrapper:
 		if o not in orient: return -1
 		return orient[o]
 
-raw_exts = ("dng", "pef", "nef", "cr2", "orf", "rw2", "x3f",)
+raw_exts = ("dng", "pef", "nef", "cr2", "orf", "rw2", "x3f", "raf",)
 
 def _identify_raw(fh, tiff):
 	ifd0 = tiff.ifd[0]
@@ -530,8 +537,15 @@ def _identify_raw(fh, tiff):
 def identify_raw(fh):
 	"""A lower case file extension (e.g. "dng") or None."""
 	fh.seek(0)
-	if fh.read(4) == b"FOVb":
+	data4 = fh.read(4)
+	if data4 == b"FOVb":
 		return "x3f"
+	if data4 == b"FUJI":
+		try:
+			offset, length = _RAF_jpeg(fh)
+			return "raf"
+		except Exception:
+			pass
 	fh.seek(0)
 	return _identify_raw(fh, TIFF(fh))
 
@@ -719,6 +733,14 @@ def _rawexif(raw, fh):
 	fm.add(fh, first)
 	return fm
 
+def _RAF_jpeg(fh):
+	from struct import unpack
+	fh.seek(84)
+	offset, length = unpack(">II", fh.read(8))
+	fh.seek(offset)
+	if fh.read(3) == "\xff\xd8\xff":
+		return offset, length
+
 class X3F:
 	"""Find JPEG sections and metadata in X3F files
 	.jpegs is a list from smallest to largest.
@@ -796,14 +818,15 @@ class X3F:
 
 class RawWrapper:
 	"""Wraps (read only) IO to an image, so that RAW images look like JPEGs.
-	Handles DNG, NEF, PEF, CR2, ORF and X3F.
+	Handles DNG, NEF, PEF, CR2, ORF, X3F and RAF.
 	Wraps fh as is if no reasonable embedded JPEG is found."""
 	
 	def __init__(self, fh, make_exif=False):
 		self.closed = False
 		self._set_fh(fh)
 		fh.seek(0)
-		if fh.read(4) == b"FOVb":
+		data4 = fh.read(4)
+		if data4 == b"FOVb":
 			try:
 				fh.seek(0)
 				x3f = X3F(fh)
@@ -812,6 +835,14 @@ class RawWrapper:
 					self._test_jpeg([j.offset], [j.length])
 					# No make_exif support, but at least Sigma SD14 puts exif in this JPEG.
 					return
+			except Exception:
+				pass
+		elif data4 == b"FUJI":
+			try:
+				offset, length = _RAF_jpeg(fh)
+				self._test_jpeg([offset], [length])
+				# No make_exif support, but at least X-T2 puts exif in this JPEG.
+				return
 			except Exception:
 				pass
 		fh.seek(0)
