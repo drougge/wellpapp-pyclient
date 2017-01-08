@@ -90,9 +90,9 @@ def complete_entry(parent, window, tagfield, event):
 		parent.tab_count += 1
 		text = _uni(tagfield.get_text())
 		pos = tagfield.get_position()
-		spos = text.rfind(u" ", 0, pos) + 1
+		spos = text.rfind(u" ", 0, pos - 1) + 1
 		left = text[:spos]
-		word = text[spos:pos]
+		word = text[spos:pos].strip()
 		right = text[pos:]
 		def update(new_word):
 			text = left + new_word + right
@@ -112,6 +112,8 @@ def complete_entry(parent, window, tagfield, event):
 		elif parent.tab_count == 2:
 			parent.tab_count = 0
 			if parent.tab_alts:
+				left = left + prefix(word)
+				word = clean(word)
 				dialog = TagCompletionDialog(window, word, parent.tab_alts)
 				if dialog.run() == gtk.RESPONSE_ACCEPT:
 					update(dialog.get_tt())
