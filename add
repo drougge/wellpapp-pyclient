@@ -68,6 +68,8 @@ def determine_filetype(data):
 			return "mov"
 	if data4 == "FLV\x01" and data[5:9] == "\x00\x00\x00\x09" and ord(data[13]) in (8, 9, 18):
 		return "flv"
+	if data.startswith("%PDF-"):
+		return "pdf"
 
 def needs_thumbs(m, ft):
 	if force_thumbs: return True
@@ -236,6 +238,22 @@ def mplayer_dimensions(fn):
 
 movie_ft = set("swf avi mpeg mkv ogm mp4 wmv flv mov webm".split())
 
+def pdf_image(fn):
+	from subprocess import check_output
+	cmd = ["gs",
+	       "-q",
+	       "-sDEVICE=pngalpha",
+	       "-sOutputFile=-",
+	       "-dFirstPage=1",
+	       "-dLastPage=1",
+	       "-dBATCH",
+	       "-dNOPAUSE",
+	       "-dSAFER",
+	       "-r100",
+	       fn,
+	]
+	return check_output(cmd, close_fds=True)
+
 def add_image(fn):
 	if verbose: print fn
 	fn = realpath(fn)
@@ -297,6 +315,8 @@ def add_image(fn):
 				else:
 					w, h = mplayer_dimensions(fn)
 		else:
+			if ft == "pdf":
+				data = pdf_image(fn)
 			datafh = RawWrapper(StringIO(data))
 			img = Image.open(datafh)
 			w, h = img.size
