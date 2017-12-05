@@ -318,7 +318,14 @@ def add_image(fn):
 			if ft == "pdf":
 				data = pdf_image(fn)
 			datafh = RawWrapper(StringIO(data))
-			img = Image.open(datafh)
+			try:
+				img = Image.open(datafh)
+			except IOError:
+				if thumb_source:
+					img = Image.open(RawWrapper(open(thumb_source, "rb")))
+					print "Warning: taking dimensions from thumb source"
+				else:
+					raise
 			w, h = img.size
 	exif = ExifWrapper(fn)
 	if not post:
