@@ -463,9 +463,12 @@ class TagWindow:
 	def put_in_list(self, lo, li):
 		data = []
 		for pre, bg in ("", "#ffffff"), ("impl", "#ffd8ee"):
-			data += [(self.fmt_tag(t), self._guid_with_val(t), bg, self.tag_colours[clean(t)], self.txt_tag(t), pre) for t in self.taglist[pre + li]]
+			# unformatted name first for sorting, not put in lo
+			data.extend((self.ids[clean(t)].name, self.fmt_tag(t), self._guid_with_val(t), bg, self.tag_colours[clean(t)], self.txt_tag(t), pre) for t in self.taglist[pre + li])
 		lo.clear()
-		map(lambda d: lo.append(d), sorted(data))
+		# gtk.ListStore doesn't have extend
+		for t in sorted(data):
+			lo.append(t[1:])
 
 	def refresh(self):
 		posts = map(lambda m: client.get_post(m, True), self.md5s)
