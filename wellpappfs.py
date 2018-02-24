@@ -76,8 +76,11 @@ class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
 		fuse.Fuse.__init__(self, *a, **kw)
 		self._raw2jpeg = False
+		self._default_search = None
 		self.parser.add_option(mountopt="raw2jpeg", action="store_true", dest="_raw2jpeg",
 		                       help="Present RAW files as JPEG")
+		self.parser.add_option(mountopt="default_search", dest="_default_search",
+		                       help="Default search (added to all searches)")
 
 	def _cfg2file(self):
 		cfg = self._client.cfg
@@ -309,6 +312,7 @@ class Wellpapp(fuse.Fuse):
 		first = None
 		range = None
 		clean = False
+		nodefault = False
 		for e in filter(None, sre.split(path[1:])):
 			if e[0] == "-":
 				with self._client_lock:
@@ -326,11 +330,23 @@ class Wellpapp(fuse.Fuse):
 				range = tuple(map(int, e[2:].split(":")))
 			elif e == "C:":
 				clean = True
+			elif e == "N:":
+				nodefault = True
 			else:
 				with self._client_lock:
 					e = self._client.parse_tag(e, True)
 				want.add(e)
 				if not first: first = e
+		if self._default_search and not nodefault:
+			def bare(tg):
+				if tg[0] in "~!":
+					return tg[1:]
+				return tg
+			allguids = {bare(t[0]) for t in want | dontwant if t}
+			for n in ("want", "dontwant"):
+				for t in getattr(self._default_search, n):
+					if bare(t[0]) not in allguids:
+						locals()[n].add(t)
 		if "group" in order:
 			want.remove(first)
 			want = [first] + list(want)
@@ -347,6 +363,12 @@ class Wellpapp(fuse.Fuse):
 			raise Exception("raw2jpeg only works with a stat-cache")
 		if self._raw2jpeg:
 			from wellpapp import RawWrapper
+		if self._default_search:
+			ds = "/" + self._default_search
+			self._default_search = None
+			self._default_search = self._path2search(ds)
+			if None in self._default_search.want or None in self._default_search.dontwant:
+				raise Exception("Default search broken (%r)" % (self._default_search,))
 		wp = self
 		class FakeFile:
 			keep_cache = False

@@ -45,3 +45,11 @@ cache, and as normal files with a cache. You can reference a bare post ID
 
 If you give -o raw2jpeg you get extracted JPEGs with the same base name as
 the RAW files. (This requires a cache file.)
+
+You can also give -o default_search="some search expression" to have some
+base expression that you base all your searches on. Specifying a tag in the
+default_search explicitly ignores it from the default search, and
+specifying N: ("no default") ignores the whole default search. My use for
+this is having a (word valuetype) tag "replaced" for when I make a new
+version of something, and having default_search=-!replaced (! so I can set
+it weakly if I still want to see the replaced post).
