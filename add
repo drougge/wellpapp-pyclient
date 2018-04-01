@@ -254,7 +254,7 @@ def pdf_image(fn):
 	]
 	return check_output(cmd, close_fds=True)
 
-def add_image(fn):
+def add_image(fn, warn_q):
 	if verbose: print fn
 	fn = realpath(fn)
 	data = file(fn).read()
@@ -357,7 +357,11 @@ def add_image(fn):
 	if post:
 		posttags.update_tags(post.tags)
 	filetags = find_tags(fn)
-	exif2tags(exif, filetags)
+	try:
+		exif2tags(exif, filetags)
+	except Exception:
+		print_exc()
+		warn_q.put(fn + ": failed to set tags from exif")
 	for guid, val in filetags.difference(posttags):
 		if guid in post.tags and not override_tags:
 			print "Not overriding value on", post.tags[guid].pname
@@ -448,6 +452,7 @@ if __name__ == '__main__':
 	client.begin_transaction()
 	q = Queue()
 	bad_q = Queue()
+	warn_q = Queue()
 	map(q.put, todo)
 	def worker():
 		while True:
@@ -456,7 +461,7 @@ if __name__ == '__main__':
 			except Empty:
 				break
 			try:
-				add_image(i)
+				add_image(i, warn_q)
 			except Exception:
 				print_exc()
 				bad_q.put(i)
@@ -468,11 +473,14 @@ if __name__ == '__main__':
 	for p in ps:
 		p.join()
 	client.end_transaction()
-	if not bad_q.empty():
-		print
-		print "Failed files:"
-		while True:
-			try:
-				print "\t%s" % (bad_q.get(False),)
-			except Empty:
-				break
+	def print_q(q, msg):
+		if not q.empty():
+			print
+			print msg
+			while True:
+				try:
+					print "\t%s" % (q.get(False),)
+				except Empty:
+					break
+	print_q(warn_q, "Files with warnings:")
+	print_q(bad_q, "Failed files:")
