@@ -15,7 +15,7 @@ def short(tag):
 	print tag.name
 
 def long(tag):
-	names = [tag.name] + (tag.alias if "alias" in tag else [])
+	names = [tag.name] + sorted(tag.alias)
 	props = [str(p) for p in tag.type, tag.posts, tag.weak_posts]
 	if tag.valuetype: props.insert(0, "valuetype:" + tag.valuetype)
 	print " ".join(names + props)
