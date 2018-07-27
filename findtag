@@ -17,10 +17,19 @@ def long(tag):
 def tagsort(a, b):
 	return cmp(a.name, b.name)
 
+def parse_tags(lst):
+	for name in lst:
+		guid = client.find_tag(name, with_prefix=True)
+		if not guid:
+			print "Tag %s not found" % (name,)
+			exit(1)
+		yield guid
+
 parser = ArgumentParser()
 parser.add_argument("-f", "--fuzzy", action="store_true", help="Fuzzy matching")
 parser.add_argument("-a", "--anywhere", action="store_true", help="Match anywhere")
 parser.add_argument("-s", "--short", action="store_true", help="Short listing (just tagnames)")
+parser.add_argument("-i", "--implies", action="append", default=[], metavar="TAG", help="Only find tags that imply this tag")
 parser.add_argument(metavar="partial-tag-name", dest="part")
 args = parser.parse_args()
 
@@ -29,4 +38,11 @@ match = "F" if args.fuzzy else "E"
 where = "P" if args.anywhere else "I"
 cmd = match + "A" + where
 printer = short if args.short else long
-map(printer, sorted(client.find_tags(cmd, args.part), tagsort))
+implies = set(parse_tags(args.implies))
+
+for tag in sorted(client.find_tags(cmd, args.part), tagsort):
+	if implies:
+		tag_implies = set(impl.guid for impl in client.tag_implies(tag.guid))
+		if implies - tag_implies:
+			continue
+	printer(tag)
