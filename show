@@ -84,8 +84,13 @@ def show_tag(name, short=False, show_thumbs=False):
 		print "Tag not found"
 		return 1
 	print "Tag:", data["name"]
-	if "alias" in data and data["alias"]:
-		print "Aliases:", " ".join(data["alias"])
+	if data.alias:
+		if len(data.alias) == 1:
+			print "Aliases:", data.alias[0]
+		else:
+			print "Aliases:"
+			for a in sorted(data.alias):
+				print "\t" + a
 	print "GUID:", guid
 	print "Type:", data["type"]
 	if "valuetype" in data and data["valuetype"]:
