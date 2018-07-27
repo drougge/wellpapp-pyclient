@@ -25,6 +25,13 @@ def parse_tags(lst):
 			exit(1)
 		yield guid
 
+def collect_implies(guid, res):
+	for impl in client.tag_implies(guid):
+		if impl.guid not in res:
+			res.add(impl.guid)
+			if not impl.guid.startswith("-"):
+				collect_implies(impl.guid, res)
+
 parser = ArgumentParser()
 parser.add_argument("-f", "--fuzzy", action="store_true", help="Fuzzy matching")
 parser.add_argument("-a", "--anywhere", action="store_true", help="Match anywhere")
@@ -42,7 +49,8 @@ implies = set(parse_tags(args.implies))
 
 for tag in sorted(client.find_tags(cmd, args.part), tagsort):
 	if implies:
-		tag_implies = set(impl.guid for impl in client.tag_implies(tag.guid))
+		tag_implies = set()
+		collect_implies(tag.guid, tag_implies)
 		if implies - tag_implies:
 			continue
 	printer(tag)
