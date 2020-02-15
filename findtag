@@ -37,6 +37,7 @@ parser.add_argument("-f", "--fuzzy", action="store_true", help="Fuzzy matching")
 parser.add_argument("-a", "--anywhere", action="store_true", help="Match anywhere")
 parser.add_argument("-s", "--short", action="store_true", help="Short listing (just tagnames)")
 parser.add_argument("-i", "--implies", action="append", default=[], metavar="TAG", help="Only find tags that imply this tag")
+parser.add_argument("-t", "--type", action="append", default=[], help="Only tags of this type")
 parser.add_argument(metavar="partial-tag-name", dest="part")
 args = parser.parse_args()
 
@@ -46,11 +47,15 @@ where = "P" if args.anywhere else "I"
 cmd = match + "A" + where
 printer = short if args.short else long
 implies = set(parse_tags(args.implies))
+tagtypes = set(args.type)
 
 for tag in sorted(client.find_tags(cmd, args.part), tagsort):
 	if implies:
 		tag_implies = set()
 		collect_implies(tag.guid, tag_implies)
 		if implies - tag_implies:
+			continue
+	if tagtypes:
+		if tag.type not in tagtypes:
 			continue
 	printer(tag)
