@@ -230,11 +230,10 @@ def flash_dimensions(data):
 
 def mplayer_dimensions(fn):
 	from subprocess import Popen, PIPE, STDOUT
-	p = Popen(["mplayer", "-frames", "0", "-identify", fn],
+	p = Popen(["mediainfo", "--Inform=Video;%Width% %Height%", fn],
 	           stdout=PIPE, stderr=STDOUT, close_fds=True)
-	data = p.communicate()[0].split("\n")
-	data = dict(d.split("=", 1) for d in data if d.startswith("ID_VIDEO_"))
-	return [int(data[v]) for v in ("ID_VIDEO_WIDTH", "ID_VIDEO_HEIGHT")]
+	data = p.communicate()[0].split()
+	return tuple(map(int, data))
 
 movie_ft = set("swf avi mpeg mkv ogm mp4 wmv flv mov webm".split())
 
