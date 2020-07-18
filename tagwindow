@@ -698,29 +698,46 @@ class TagDialog(gtk.Dialog):
 		self.set_default_response(gtk.RESPONSE_ACCEPT)
 		lab = gtk.Label(tagname)
 		self.vbox.pack_start(lab)
+		# Workaround for it being impossible to have no selected row, but
+		# I still really don't want an immediate enter to be "ok".
+		# (Because then when I press enter twice with a misspelled tag
+		# I create that tag.)
+		self._can_enter = False
 		self._tv = self._make_tt_tv(tagtype, tagname)
-		self._tv.connect("row-activated", lambda *a: self.response(gtk.RESPONSE_ACCEPT))
+		self._tv.connect("row-activated", self._accept_maybe)
+		self._tv.connect("cursor-changed", self._cursor_changed)
 		self.vbox.pack_end(self._tv)
 		self.show_all()
 
 	def _make_tt_tv(self, selname, tagname):
-		selpos = 0
+		selpos = None
 		ls = gtk.ListStore(TYPE_STRING)
 		tt = client.metalist(u"tagtypes")
 		for pos, t in zip(range(len(tt)), tt):
 			ls.append((t,))
 			if t == selname: selpos = pos
-			if not selname and tagname[:len(t)] == t: selpos = pos
+			if selname is None and tagname[:len(t)] == t: selpos = pos
 		tv = gtk.TreeView(ls)
 		crt = gtk.CellRendererText()
 		tv.append_column(gtk.TreeViewColumn(u"Type", crt, text=0))
-		tv.get_selection().select_path((selpos,))
+		if selpos is not None:
+			tv.get_selection().select_path((selpos,))
+			self._can_enter = True
 		return tv
 
 	def get_tt(self):
 		ls, iter = self._tv.get_selection().get_selected()
 		if iter:
 			return ls.get_value(iter, 0)
+
+	def _cursor_changed(self, *a):
+		self._can_enter = bool(self._tv.get_selection().get_selected()[1])
+
+	def _accept_maybe(self, *a):
+		if self._can_enter:
+			self.response(gtk.RESPONSE_ACCEPT)
+		else:
+			self._can_enter = True
 
 class ImplicationsDialog(gtk.Dialog):
 	def __init__(self, parent, guid):
