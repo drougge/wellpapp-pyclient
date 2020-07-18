@@ -166,7 +166,8 @@ def find_tags(fn):
 		TAGS = join(path, "TAGS")
 		if exists(TAGS):
 			tags.update(file(TAGS).readline().split())
-	tags.update(basename(fn).split()[:-1])
+	if gen_from_fn:
+		tags.update(basename(fn).split()[:-1])
 	return tags
 
 def record_filename(m, fn):
@@ -383,11 +384,12 @@ def usage():
 	print "\t-q Quiet"
 	print "\t-f Force thumbnail regeneration"
 	print "\t-n No tagging (prints what would have been tagged)"
+	print "\t-g Generate tags from filename (all words except last)"
 	print "\t-d Dummy, only print what would be done"
 	print "\t-t Post or file to generate thumb from"
 	print "\t-T Override file type detection"
 	print "\t-z Timezone to assume EXIF dates are in (+-HHMM format)"
-	print "\t-o Override existing tags from with data from filename and exif"
+	print "\t-o Override existing tag values (from exif, TAGS (and filename))"
 	exit(1)
 
 if __name__ == '__main__':
@@ -399,6 +401,7 @@ if __name__ == '__main__':
 	verbose = False
 	force_thumbs = False
 	no_tagging = False
+	gen_from_fn = False
 	dummy = False
 	thumb_source = None
 	tz = None
@@ -413,6 +416,8 @@ if __name__ == '__main__':
 			force_thumbs = True
 		elif argv[a] == "-n":
 			no_tagging = True
+		elif argv[a] == "-g":
+			gen_from_fn = True
 		elif argv[a] == "-d":
 			dummy = True
 		elif argv[a] == "-t":
