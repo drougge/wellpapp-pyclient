@@ -841,9 +841,12 @@ class Client:
 			if force or not os.path.exists(fn):
 				t = _thumb(img.copy(), z)
 				make_pdirs(fn)
-				if t.mode == "LA" and opts["format"] == "JPEG":
-					# This is probably a PIL bug
-					t = t.convert("L")
+				if opts["format"] == "JPEG":
+					# Some versions of PIL care, some don't.
+					if t.mode == "RGBA":
+						t = t.convert("RGB")
+					if t.mode == "LA":
+						t = t.convert("L")
 				t.save(fn, **opts)
 
 def _thumb(img, z):
