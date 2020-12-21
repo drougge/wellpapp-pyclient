@@ -175,7 +175,7 @@ class Config(DotDict):
 			self._load(rc)
 	
 	def _load(self, fn):
-		with CommentWrapper(file(fn)) as fh:
+		with CommentWrapper(open(fn)) as fh:
 			for line in fh:
 				line = line.strip()
 				a = line.split("=", 1)
@@ -762,7 +762,7 @@ class Client:
 					m = self._destmd5re.match(dest)
 					if m: return m.group(1)
 			# Oh well, hash the file.
-			return hashlib.md5(file(spec).read()).hexdigest()
+			return hashlib.md5(open(spec, "rb").read()).hexdigest()
 		if self._md5re.match(spec): return spec
 		return default
 	
