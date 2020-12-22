@@ -2,8 +2,12 @@
 
 from base64 import b64encode, b64decode
 from functools import partial
+import sys
 
 __all__ = ("_uni", "_uniw", "_enc", "_dec")
+
+if sys.version_info[0] > 2:
+	unicode = str
 
 def _uni(s, allow_space=True):
 	if not isinstance(s, unicode):

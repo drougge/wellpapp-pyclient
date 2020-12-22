@@ -207,7 +207,7 @@ class Client:
 		else:
 			self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 		self._sock.connect(self.server)
-		self._fh = self._sock.makefile()
+		self._fh = self._sock.makefile('rb')
 		self.is_connected = True
 	
 	def _writeline(self, line, retry=True):
@@ -391,8 +391,7 @@ class Client:
 	
 	def _rels(self, c, md5, rels):
 		cmd = [u"R", c, md5]
-		for rel in self._list(rels, unicode):
-			assert u" " not in rel
+		for rel in self._list(rels, _uniw):
 			cmd.append(u" " + rel)
 		self._writeline(u"".join(cmd))
 		res = self._readline()
