@@ -18,6 +18,11 @@ __all__ = ("Client", "Config", "Post", "Tag", "WellpappError", "ResponseError",
 
 if sys.version_info[0] > 2:
 	basestring = (bytes, str)
+	def itervalues(d):
+		return iter(d.values())
+else:
+	def itervalues(d):
+		return d.itervalues()
 
 class WellpappError(Exception): pass
 class ResponseError(WellpappError): pass
@@ -108,8 +113,8 @@ class TagDict(dict):
 		return max(len(self.names), len(self.guids))
 	
 	def __iter__(self):
-		if self.guids: return self.guids.itervalues()
-		return self.names.itervalues()
+		if self.guids: return itervalues(self.guids)
+		return itervalues(self.names)
 	
 	itervalues = __iter__
 	
