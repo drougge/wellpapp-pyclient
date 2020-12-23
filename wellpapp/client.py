@@ -336,7 +336,7 @@ class Client:
 	def _list(self, data, converter=_uniw):
 		if not data: return []
 		if isinstance(data, basestring): return [converter(data)]
-		return map(converter, data)
+		return list(map(converter, data))
 	
 	def _guids2posneg(self, guids):
 		pos, neg = [], []
@@ -812,7 +812,7 @@ class Client:
 		jpeg_fns = map(lambda z: (self.thumb_path(m, int(z)), int(z)), sizes)
 		png_fns = map(lambda n, z: (self.pngthumb_path(m, ft, n), z),
 		              ("normal", "large"), (128, 256))
-		return jpeg_fns, png_fns
+		return list(jpeg_fns), list(png_fns)
 	
 	def save_thumbs(self, m, img, ft, rot, force=False):
 		from PIL import Image, PngImagePlugin
@@ -840,8 +840,8 @@ class Client:
 		meta.add_text("Thumb::URI", str(m + "." + ft), 0)
 		meta.add_text("Thumb::MTime", str(int(mtime)), 0)
 		png_opts = {"format": "PNG", "pnginfo": meta}
-		jpeg = map(lambda t: (t[0], t[1], jpeg_opts), jpeg_fns)
-		png = map(lambda t: (t[0], t[1], png_opts), png_fns)
+		jpeg = list(map(lambda t: (t[0], t[1], jpeg_opts), jpeg_fns))
+		png = list(map(lambda t: (t[0], t[1], png_opts), png_fns))
 		z = max(map(lambda d: d[1], jpeg + png)) * 2
 		if w > z or h > z:
 			img = _thumb(img, z)
