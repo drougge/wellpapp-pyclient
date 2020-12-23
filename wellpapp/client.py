@@ -6,6 +6,7 @@ import hashlib
 import re
 from functools import partial
 from collections import namedtuple
+import sys
 
 from wellpapp.vt import VTdatetime, VTuint, VTint, VTnull, valuetypes
 from wellpapp._util import _uniw, _uni
@@ -14,6 +15,9 @@ from wellpapp.util import DotDict, CommentWrapper, make_pdirs, RawWrapper
 __all__ = ("Client", "Config", "Post", "Tag", "WellpappError", "ResponseError",
            "DuplicateError", "InheritValue", "ImplicationTuple", "vtparse",
           )
+
+if sys.version_info[0] > 2:
+	basestring = (bytes, str)
 
 class WellpappError(Exception): pass
 class ResponseError(WellpappError): pass
