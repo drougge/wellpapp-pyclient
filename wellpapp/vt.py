@@ -336,36 +336,39 @@ class VTdatetime(ValueType):
 				while unit != units.pop(): mult *= mults.pop()
 				f = f[:-1] or "1"
 			exact_fuzz = VTfloat(f).exact * mult
-			fuzz = int(exact_fuzz)
-			if fuzz != exact_fuzz:
-				fuzz = float(exact_fuzz)
 		else:
-			exact_fuzz = fuzz = 0
+			exact_fuzz = 0
 		if not zone:
 			lparsed = localtime(timegm(parsed))
 			offset = timegm(parsed) - timegm(lparsed)
 		value = timegm(parsed)
-		lt = localtime(value + offset)
-		lts = "%04d-%02d-%02dT%02d:%02d:%02d" % lt[:6]
 		if None in datev:
 			valid_steps = datev.index(None)
-			lts = lts[:valid_steps * 3 + 1]
-			self.__dict__["valid_steps"] = valid_steps
-			t2 = self._step_end(parsed)
+			t2 = self._step_end(parsed, valid_steps)
 			implfuzz = t2 - value
 		else:
 			implfuzz = 0
-			self.__dict__["valid_steps"] = 6
+			valid_steps = 6
+		fuzz = int(exact_fuzz)
+		if fuzz != exact_fuzz:
+			fuzz = float(exact_fuzz)
 		if not unit and implfuzz: fuzz *= implfuzz * 2;
 		fuzz += implfuzz
-		value += offset
 		if implfuzz and not exact_fuzz:
 			exact_fuzz = implfuzz
-		self.__dict__["_lts"] = lts
-		self.__dict__["_fuzz"] = (last_fuzz or "")
-		self.__dict__["time"] = parsed
-		self.__dict__["_tz"] = offset if zone else None
+		self._init(parsed, value, offset, exact_fuzz, fuzz, last_fuzz or "", valid_steps, zone, with_steps, steps)
 		self.__dict__["str"] = strval.replace(" ", "T") + (zone or "")
+	
+	def _init(self, parsed, value, offset, exact_fuzz, fuzz, _fuzz, valid_steps, zone, with_steps, steps):
+		lt = localtime(value + offset)
+		lts = "%04d-%02d-%02dT%02d:%02d:%02d" % lt[:6]
+		lts = lts[:valid_steps * 3 + 1]
+		value += offset
+		self.__dict__["_lts"] = lts
+		self.__dict__["_fuzz"] = _fuzz
+		self.__dict__["time"] = parsed
+		self.__dict__["zone"] = zone
+		self.__dict__["_tz"] = offset if zone else None
 		self.__dict__["value"] = value
 		self.__dict__["exact"] = value
 		self.__dict__["fuzz"] = fuzz
@@ -373,6 +376,7 @@ class VTdatetime(ValueType):
 		self.__dict__["utcoffset"] = offset
 		self.__dict__["steps"] = tuple(steps)
 		self.__dict__["with_steps"] = with_steps
+		self.__dict__["valid_steps"] = valid_steps
 	
 	def localtimestr(self, include_fuzz=True):
 		if not include_fuzz: return self._lts
@@ -421,7 +425,7 @@ class VTdatetime(ValueType):
 					unixtime = timegm(l)
 					fuzz = psf
 					if self.valid_steps < 6:
-						t2 = self._step_end(l)
+						t2 = self._step_end(l, self.valid_steps)
 						fuzz += t2 - unixtime
 					value = unixtime + nsf + self.utcoffset
 					a_min = value + min(fuzz, 0)
@@ -439,11 +443,11 @@ class VTdatetime(ValueType):
 				return a.min <= b[1] and b[0] <= a.max
 		return False
 	
-	def _step_end(self, l):
+	def _step_end(self, l, valid_steps):
 		l = list(l)
-		for i in range(self.valid_steps, len(self._ranges)):
+		for i in range(valid_steps, len(self._ranges)):
 			l[i] = self._ranges[i]
-		if self.valid_steps == 2: # year + month specified
+		if valid_steps == 2: # year + month specified
 			# "day 0" of next month
 			l[1] += 1
 			l[2] = 0
@@ -451,6 +455,21 @@ class VTdatetime(ValueType):
 				l[1] = 1
 				l[0] += 1
 		return timegm(l)
+	
+	def __add__(self, other):
+		if hasattr(other, "total_seconds"):
+			other = other.total_seconds()
+		value = int(round(self.exact - self.utcoffset + other))
+		parsed = gmtime(value)
+		res = VTdatetime((0, 0))
+		res._init(parsed, value, self.utcoffset, self.exact_fuzz, self.fuzz, self._fuzz, self.valid_steps, self.zone, self.with_steps, self.steps)
+		ts = "%04d-%02d-%02dT%02d:%02d:%02d" % parsed[:6]
+		ts = ts[:self.valid_steps * 3 + 1]
+		res.__dict__["str"] = ts + (self.zone or "")
+		return res
+	
+	def __sub__(self, other):
+		return self.__add__(-other)
 
 class VTgps(ValueType):
 	"""Represents the value of a tag with valuetype gps."""
