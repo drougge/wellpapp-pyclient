@@ -4,7 +4,6 @@
 from sys import exit
 from wellpapp import Client
 from re import match
-from os.path import exists
 from os import readlink, stat
 
 def implfmt(impl):
