@@ -683,7 +683,7 @@ class Client:
 			spec = spec[1:]
 		else:
 			prefix = u""
-		if u" " not in spec:
+		if u" " not in spec and u"\n" not in spec:
 			tag = self.find_tag(spec)
 		else:
 			tag = None
@@ -695,7 +695,7 @@ class Client:
 		if comparison:
 			ppos = _rfindany(spec, u"=<>", spec.find(u" "))
 		else:
-			ppos = spec.rfind(u"=")
+			ppos = spec.rfind(u"=", 0, spec.find(u" "))
 		return self._parse_tag(prefix, spec, ppos, comparison)
 	
 	def _find_tag(self, matchtype, name, with_prefix):
