@@ -932,6 +932,10 @@ class RawWrapper:
 		if self.read(3) == b"\xff\xd8\xff":
 			self._set_fh(FileWindow(self._fh, jpeg, jpeglen))
 			return True
+	
+	# This is needed so PIL gives an IOError and not an AttributeError on some files.
+	def readline(self):
+		raise IOError("RawWrapper doesn't support readline.")
 
 def make_pdirs(fn):
 	"""Like mkdir -p `dirname fn`"""
