@@ -2,9 +2,15 @@
 
 from __future__ import print_function
 
+import sys
+
 __all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "ExifWrapper",
            "identify_raw", "make_pdirs", "raw_exts", "RawWrapper",
            "CommentWrapper", "DotDict", "X3F",)
+
+if sys.version_info[0] > 2:
+	basestring = (bytes, str)
+	long = int
 
 class TIFF:
 	"""Pretty minimal TIFF container parser"""
