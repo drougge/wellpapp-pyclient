@@ -7,12 +7,17 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from time import localtime, struct_time, strftime, gmtime
 from calendar import timegm
 from math import log, log10, sin, cos, acos, radians, pi
+import sys
 
 from wellpapp._util import _uni, _enc, _dec
 
 __all__ = ("ValueType", 'VTstring', 'VTword', 'VTnumber', 'VTint', 'VTuint',
            'VTfloat', 'VTf_stop', 'VTstop', 'VTdatetime', 'VTgps', 'VTnull',
            'valuetypes',)
+
+if sys.version_info[0] > 2:
+	basestring = (bytes, str)
+	long = int
 
 class ValueType(object):
 	"""Represents the value of a tag.
@@ -139,10 +144,13 @@ class VTstring(ValueType):
 			val = _dec(val)
 		for name in ("str", "value", "exact"):
 			self.__dict__[name] = val
-	def __str__(self):
-		return self.str.encode("utf-8")
 	def __unicode__(self):
 		return self.str
+	if sys.version_info[0] > 2:
+		__str__ = __unicode__
+	else:
+		def __str__(self):
+			return self.str.encode("utf-8")
 	def format(self):
 		return _enc(self.str)
 
