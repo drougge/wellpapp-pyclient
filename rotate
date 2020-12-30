@@ -1,16 +1,17 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python3
+
+from __future__ import print_function
 
 from sys import argv, exit
 from wellpapp import Client
 
 if len(argv) < 3:
-	print "Usage:", argv[0], "rotation post-spec [post-spec [..]]"
+	print("Usage:", argv[0], "rotation post-spec [post-spec [..]]")
 	exit(1)
 
 new_r = int(argv[1])
 if abs(new_r) not in (90, 180, 270):
-	print "Can only handle 90, 180 or 270 degrees rotation"
+	print("Can only handle 90, 180 or 270 degrees rotation")
 	exit(1)
 
 def rotate(spec):
@@ -20,12 +21,12 @@ def rotate(spec):
 	if md5:
 		post = client.get_post(md5, wanted = ["rotate", "ext", "width", "height"])
 	if not post:
-		print spec + ": Post not found"
+		print(spec + ": Post not found")
 		bad = 1
 		return
 	r = int(post.get("rotate", 0))
 	if r not in (0, 90, 180, 270):
-		print spec + ": Invalid current rotation"
+		print(spec + ": Invalid current rotation")
 		bad = 1
 		return
 	dest_r = (r + new_r) % 360
