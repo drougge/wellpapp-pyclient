@@ -13,6 +13,7 @@ from struct import unpack
 from Queue import Empty
 from multiprocessing import Lock, cpu_count, Queue, Process
 from traceback import print_exc
+from io import open
 
 lock = Lock()
 
@@ -167,7 +168,7 @@ def find_tags(fn):
 		path = join(path, dir)
 		TAGS = join(path, "TAGS")
 		if exists(TAGS):
-			tags.update(file(TAGS).readline().split())
+			tags.update(open(TAGS, "r", encoding="utf-8").readline().split())
 	if gen_from_fn:
 		tags.update(basename(fn).split()[:-1])
 	return tags
@@ -177,12 +178,12 @@ def record_filename(m, fn):
 	rec_fn = join(dn, "FILENAMES")
 	known = {}
 	if exists(rec_fn):
-		for line in file(rec_fn):
+		for line in open(rec_fn, "r", encoding="utf-8"):
 			r_m, r_fn = line[:-1].split(" ", 1)
 			known.setdefault(r_m, []).append(r_fn)
 	if m not in known or fn not in known[m]:
 		with lock:
-			with open(rec_fn, "a") as fh:
+			with open(rec_fn, "a", encoding="utf-8") as fh:
 				fh.write(m + " " + fn + "\n")
 
 def generate_cache(m, fn, jz):
@@ -196,7 +197,7 @@ def generate_cache(m, fn, jz):
 		else:
 			l = "0 %s %d %d %s\n" % (m, z, mt, fn)
 		with lock:
-			with open(cache_fn, "a") as fh:
+			with open(cache_fn, "a", encoding="utf-8") as fh:
 				fh.write(l)
 
 def fmt_tagvalue(v):
@@ -259,7 +260,7 @@ def pdf_image(fn):
 def add_image(fn, warn_q):
 	if verbose: print(fn)
 	fn = realpath(fn)
-	data = file(fn).read()
+	data = open(fn, "rb").read()
 	m = md5(data).hexdigest()
 	with lock:
 		post = client.get_post(m, True)
