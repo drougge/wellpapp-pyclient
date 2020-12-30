@@ -5,7 +5,7 @@ from __future__ import print_function
 
 from hashlib import md5
 from PIL import Image
-from cStringIO import StringIO
+from io import BytesIO
 from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, stat
 from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts, VTgps
@@ -35,7 +35,7 @@ def determine_filetype(data):
 	if data2 == "BM" and ord(data[5]) < 4 and data[13] == "\x00":
 		return "bmp"
 	if data4 in ("MM\x00*", "II*\x00", "IIRO", "IIU\x00", "FOVb", "FUJI",):
-		return identify_raw(StringIO(data))
+		return identify_raw(BytesIO(data))
 	flen = unpack("<I", data48)[0]
 	dlen = len(data)
 	if data3 == "FWS" and flen == dlen:
@@ -299,7 +299,7 @@ def add_image(fn, warn_q):
 		make_pdirs(p)
 		symlink(fn, p)
 		if ft in raw_exts:
-			jfh = RawWrapper(StringIO(data), True)
+			jfh = RawWrapper(BytesIO(data), True)
 			jfh.seek(0, 2)
 			jz = jfh.tell()
 			jfh.close()
@@ -319,7 +319,7 @@ def add_image(fn, warn_q):
 		else:
 			if ft == "pdf":
 				data = pdf_image(fn)
-			datafh = RawWrapper(StringIO(data))
+			datafh = RawWrapper(BytesIO(data))
 			try:
 				img = Image.open(datafh)
 			except IOError:
