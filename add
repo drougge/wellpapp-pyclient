@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
+from __future__ import print_function
+
 from hashlib import md5
 from PIL import Image
 from cStringIO import StringIO
@@ -145,12 +147,12 @@ class tagset(set):
 			with lock:
 				t = client.parse_tag(s)
 		except Exception:
-			print "Failed to parse: " + s
+			print("Failed to parse: " + s)
 			return
 		if t:
 			self.add(t)
 		else:
-			print "Unknown tag " + s
+			print("Unknown tag " + s)
 	
 	def update(self, l):
 		[self.add_spec(s) for s in l]
@@ -255,7 +257,7 @@ def pdf_image(fn):
 	return check_output(cmd, close_fds=True)
 
 def add_image(fn, warn_q):
-	if verbose: print fn
+	if verbose: print(fn)
 	fn = realpath(fn)
 	data = file(fn).read()
 	m = md5(data).hexdigest()
@@ -280,18 +282,18 @@ def add_image(fn, warn_q):
 			pass
 		if is_wpfs:
 			if not quiet:
-				print "Not updating", fn, "because this looks like a wellpappfs"
+				print("Not updating", fn, "because this looks like a wellpappfs")
 		elif exists(p):
 			if fn != ld:
 				if not dummy: record_filename(m, fn)
 				if not quiet:
-					print "Not updating", m, fn
+					print("Not updating", m, fn)
 		else:
 			if dummy:
-				if not quiet: print "Would have updated", m, fn
+				if not quiet: print("Would have updated", m, fn)
 			else:
 				record_filename(m, ld)
-				if not quiet: print "Updating", m, fn
+				if not quiet: print("Updating", m, fn)
 				unlink(p)
 	if not lexists(p) and not dummy:
 		make_pdirs(p)
@@ -307,7 +309,7 @@ def add_image(fn, warn_q):
 	if not post or needs_thumbs(m, ft):
 		if ft in movie_ft:
 			if not thumb_source:
-				print "Can't generate " + ft + " thumbnails"
+				print("Can't generate " + ft + " thumbnails")
 				exit(1)
 			if not post:
 				if ft == "swf":
@@ -323,7 +325,7 @@ def add_image(fn, warn_q):
 			except IOError:
 				if thumb_source:
 					img = Image.open(RawWrapper(open(thumb_source, "rb")))
-					print "Warning: taking dimensions from thumb source"
+					print("Warning: taking dimensions from thumb source")
 				else:
 					raise
 			w, h = img.size
@@ -337,13 +339,13 @@ def add_image(fn, warn_q):
 		if date:
 			args["imgdate"] = date
 		if dummy:
-			print "Would have created post " + m
+			print("Would have created post " + m)
 		else:
 			with lock:
 				client.add_post(**args)
 	if needs_thumbs(m, ft):
 		if dummy:
-			print "Would have generated thumbs for " + m
+			print("Would have generated thumbs for " + m)
 		else:
 			rot = exif.rotation()
 			if thumb_source:
@@ -364,7 +366,7 @@ def add_image(fn, warn_q):
 		warn_q.put(fn + ": failed to set tags from exif")
 	for guid, val in filetags.difference(posttags):
 		if guid in post.tags and not override_tags:
-			print "Not overriding value on", post.tags[guid].pname
+			print("Not overriding value on", post.tags[guid].pname)
 		elif guid[0] == "~":
 			weak.add((guid[1:], val))
 		else:
@@ -374,22 +376,22 @@ def add_image(fn, warn_q):
 			if no_tagging or dummy:
 				full = [client.get_tag(g).name + fmt_tagvalue(v) for g, v in full]
 				weak = ["~" + client.get_tag(g).name + fmt_tagvalue(v) for g, v in weak]
-				print "Would have tagged " + m + " " + " ".join(full + weak)
+				print("Would have tagged " + m + " " + " ".join(full + weak))
 			else:
 				client.tag_post(m, full, weak)
 
 def usage():
-	print "Usage:", argv[0], "[-v] [-q] [-f] [-n] [-d] [-t thumb_source] [-T type] [-z timezone] filename [filename [..]]"
-	print "\t-v Verbose"
-	print "\t-q Quiet"
-	print "\t-f Force thumbnail regeneration"
-	print "\t-n No tagging (prints what would have been tagged)"
-	print "\t-g Generate tags from filename (all words except last)"
-	print "\t-d Dummy, only print what would be done"
-	print "\t-t Post or file to generate thumb from"
-	print "\t-T Override file type detection"
-	print "\t-z Timezone to assume EXIF dates are in (+-HHMM format)"
-	print "\t-o Override existing tag values (from exif, TAGS (and filename))"
+	print("Usage:", argv[0], "[-v] [-q] [-f] [-n] [-d] [-t thumb_source] [-T type] [-z timezone] filename [filename [..]]")
+	print("\t-v Verbose")
+	print("\t-q Quiet")
+	print("\t-f Force thumbnail regeneration")
+	print("\t-n No tagging (prints what would have been tagged)")
+	print("\t-g Generate tags from filename (all words except last)")
+	print("\t-d Dummy, only print what would be done")
+	print("\t-t Post or file to generate thumb from")
+	print("\t-T Override file type detection")
+	print("\t-z Timezone to assume EXIF dates are in (+-HHMM format)")
+	print("\t-o Override existing tag values (from exif, TAGS (and filename))")
 	exit(1)
 
 if __name__ == '__main__':
@@ -442,13 +444,13 @@ if __name__ == '__main__':
 	client = Client()
 	if thumb_source:
 		if len(argv) > a + 1:
-			print "Only add one post with -t"
+			print("Only add one post with -t")
 			exit(1)
 		if not exists(thumb_source):
 			m = client.postspec2md5(thumb_source)
 			thumb_source = client.image_path(m)
 		if not exists(thumb_source):
-			print "Thumb source not found"
+			print("Thumb source not found")
 			exit(1)
 	todo = argv[a:]
 	if not todo:
@@ -479,11 +481,11 @@ if __name__ == '__main__':
 	client.end_transaction()
 	def print_q(q, msg):
 		if not q.empty():
-			print
-			print msg
+			print()
+			print(msg)
 			while True:
 				try:
-					print "\t%s" % (q.get(False),)
+					print("\t%s" % (q.get(False),))
 				except Empty:
 					break
 	print_q(warn_q, "Files with warnings:")
