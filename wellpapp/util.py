@@ -260,8 +260,11 @@ class ExifWrapper:
 	def _pyexiv2_old(self, fn):
 		from pyexiv2 import Image
 		exif = Image(fn)
-		exif.readMetadata()
-		keys = set(exif.exifKeys())
+		if hasattr(exif, 'readMetadata'):
+			exif.readMetadata()
+			keys = set(exif.exifKeys())
+		else:
+			exif = keys = exif.read_exif()
 		self._getitem = exif.__getitem__
 		self._contains = keys.__contains__
 	
