@@ -179,7 +179,7 @@ def record_filename(m, fn):
 	rec_fn = join(dn, "FILENAMES")
 	known = {}
 	if exists(rec_fn):
-		for line in open(rec_fn, "r", encoding="utf-8"):
+		for line in open(rec_fn, "r", encoding="utf-8", errors="backslashreplace"):
 			r_m, r_fn = line[:-1].split(" ", 1)
 			known.setdefault(r_m, []).append(r_fn)
 	if m not in known or fn not in known[m]:
