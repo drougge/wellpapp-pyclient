@@ -30,11 +30,11 @@ def determine_filetype(data):
 	data48 = data[4:8]
 	if data3 == b"\xff\xd8\xff" and data[-2:] == b"\xff\xd9":
 		return "jpeg"
-	if data6 in (b"GIF87a", b"GIF89a") and data[-1] == b";":
+	if data6 in (b"GIF87a", b"GIF89a") and data[-1:] == b";":
 		return "gif"
 	if data8 == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
 		return "png"
-	if data2 == b"BM" and ord(data[5]) < 4 and data[13] == b"\x00":
+	if data2 == b"BM" and ord(data[5:6]) < 4 and data[13:14] == b"\x00":
 		return "bmp"
 	if data4 in (b"MM\x00*", b"II*\x00", b"IIRO", b"IIU\x00", b"FOVb", b"FUJI",):
 		return identify_raw(BytesIO(data))
@@ -65,12 +65,12 @@ def determine_filetype(data):
 				return "mp4"
 		if blen < 100 and (data[8:10] == b"qt" or data[8:12] in (b"3gp4", b"\0\0\0\0")):
 			return "mov"
-		if data[0] == b"\x00" and data[8:12] in (b"mp41", b"mp42", b"isom"):
+		if data[0:1] == b"\x00" and data[8:12] in (b"mp41", b"mp42", b"isom"):
 			return "mp4"
 	if data48 == b"moov" and data[12:16] in (b"mvhd", b"cmov"):
-		if b"\x00" in (data[0], data[8], data[16]):
+		if b"\x00" in (data[0:1], data[8:9], data[16:17]):
 			return "mov"
-	if data4 == b"FLV\x01" and data[5:9] == b"\x00\x00\x00\x09" and ord(data[13]) in (8, 9, 18):
+	if data4 == b"FLV\x01" and data[5:9] == b"\x00\x00\x00\x09" and ord(data[13:14]) in (8, 9, 18):
 		return "flv"
 	if data.startswith(b"%PDF-"):
 		return "pdf"
