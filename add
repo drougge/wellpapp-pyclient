@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python3
 
 from __future__ import print_function
 from __future__ import unicode_literals
@@ -11,10 +10,15 @@ from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, stat
 from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts, VTgps
 from struct import unpack
-from Queue import Empty
 from multiprocessing import Lock, cpu_count, Queue, Process
 from traceback import print_exc
-from io import open
+from sys import version_info
+
+if version_info[0] == 2:
+	from Queue import Empty
+	from io import open
+else:
+	from queue import Empty
 
 lock = Lock()
 
@@ -465,7 +469,8 @@ if __name__ == '__main__':
 	q = Queue()
 	bad_q = Queue()
 	warn_q = Queue()
-	map(q.put, todo)
+	for td in todo:
+		q.put(td)
 	def worker():
 		while True:
 			try:
