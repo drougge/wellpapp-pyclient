@@ -297,18 +297,13 @@ def add_image(fn, warn_q):
 				record_filename(m, ld)
 				if not quiet: print("Updating", m, fn)
 				unlink(p)
+	do_cache = False
 	if not lexists(p) and not dummy:
 		make_pdirs(p)
 		symlink(fn, p)
-		if ft in raw_exts:
-			jfh = RawWrapper(BytesIO(data), True)
-			jfh.seek(0, 2)
-			jz = jfh.tell()
-			jfh.close()
-		else:
-			jz = None
-		generate_cache(m, fn, jz)
+		do_cache = True
 	if not post or needs_thumbs(m, ft):
+		do_cache = True
 		if ft in movie_ft:
 			if not thumb_source:
 				print("Can't generate " + ft + " thumbnails")
@@ -331,6 +326,15 @@ def add_image(fn, warn_q):
 				else:
 					raise
 			w, h = img.size
+	if do_cache and not dummy:
+		if ft in raw_exts:
+			jfh = RawWrapper(BytesIO(data), True)
+			jfh.seek(0, 2)
+			jz = jfh.tell()
+			jfh.close()
+		else:
+			jz = None
+		generate_cache(m, fn, jz)
 	exif = ExifWrapper(fn)
 	if not post:
 		rot = exif.rotation()
