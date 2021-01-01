@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
+from __future__ import print_function
+
 from sys import argv, exit
 from wellpapp import Client, Config, Post, CommentWrapper, RawWrapper, raw_exts
 import re
@@ -11,16 +13,16 @@ from sys import stdout
 from subprocess import call
 
 def usage():
-	print "Usage:", argv[0], "[-t] spec-file"
-	print "spec-file contains:"
-	print "source server port"
-	print "destination server port"
-	print "max_side"
-	print "dest_dir for images"
-	print "empty line"
-	print "any number of search-specs"
-	print "empty line"
-	print "any number of include:tag and exclude:tag lines"
+	print("Usage:", argv[0], "[-t] spec-file")
+	print("spec-file contains:")
+	print("source server port")
+	print("destination server port")
+	print("max_side")
+	print("dest_dir for images")
+	print("empty line")
+	print("any number of search-specs")
+	print("empty line")
+	print("any number of include:tag and exclude:tag lines")
 	exit(1)
 
 _guid_re = re.compile(r"-?(?:\w{6}-){3}\w{6}$")
@@ -66,7 +68,7 @@ class Spec:
 			elif ie == "exclude":
 				self.exclude.append(t)
 			else:
-				print "bad line:", line
+				print("bad line:", line)
 				exit(1)
 	
 	def parse(self):
@@ -75,8 +77,8 @@ class Spec:
 		self.exclude = set(map(parse_tag, self.exclude))
 		both = self.include.intersection(self.exclude)
 		if both:
-			print "Either exclude or include, not both:"
-			print "\n".join(sorted([src_client.get_tag(t).name for t in both]))
+			print("Either exclude or include, not both:")
+			print("\n".join(sorted([src_client.get_tag(t).name for t in both])))
 			exit(1)
 
 def rotate_image(img, rot):
@@ -149,18 +151,18 @@ for post in posts:
 spec.include.difference_update(magic_tags)
 
 if bad:
-	print "Unspecified tags:"
+	print("Unspecified tags:")
 	for n in bad:
-		print "include:" + n
+		print("include:" + n)
 	for n in bad:
-		print "exclude:" + n
+		print("exclude:" + n)
 	exit(1)
 
 if test: exit(0)
 
 z = spec.max_side
 
-print "Copying/rescaling images"
+print("Copying/rescaling images")
 count = 0
 for post in posts:
 	m = post.md5
@@ -196,21 +198,21 @@ for post in posts:
 	progress = "\r%d/%d" % (count, len(posts))
 	stdout.write(progress)
 	stdout.flush()
-print
+print()
 
-print "Copying to destination server.."
+print("Copying to destination server..")
 
 if dest_client._search_post("SP", []):
-	print "ERROR: destination server has posts"
+	print("ERROR: destination server has posts")
 	exit(1)
 dest_tags = set(t.guid for t in dest_client.find_tags("EAI", ""))
 if dest_tags.difference(magic_tags):
-	print "ERROR: destination server has tags"
+	print("ERROR: destination server has tags")
 	exit(1)
 
 dest_client.begin_transaction()
 
-print "Tags.."
+print("Tags..")
 ordered = set()
 for t in spec.include:
 	tag = src_client.get_tag(t)
@@ -225,7 +227,7 @@ for t in spec.include:
 		if impl.guid in spec.include:
 			dest_client.add_implies(t, *impl)
 
-print "Posts.."
+print("Posts..")
 for post in posts:
 	full = [(t.guid, t.value) for t in post.fulltags if t.guid in spec.include]
 	weak = [(t.guid, t.value) for t in post.weaktags if t.guid in spec.include]
@@ -251,7 +253,7 @@ for post in posts:
 	dest_client.tag_post(post.md5, full, weak)
 
 rels = set()
-print "Relationships.."
+print("Relationships..")
 for post in posts:
 	all = []
 	for rel in src_client.post_rels(post.md5) or []:
@@ -261,7 +263,7 @@ for post in posts:
 	if all:
 		dest_client.add_rels(post.md5, all)
 
-print "Ordering.."
+print("Ordering..")
 for g in ordered:
 	order = [p.md5 for p in src_client.search_post(guids=[g], order=["group"])]
 	dest_client.order(g, [m for m in order if m in md5s])
