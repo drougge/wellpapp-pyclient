@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python3
 
 from __future__ import print_function
 
@@ -11,6 +10,7 @@ from os import makedirs, stat
 from PIL import Image
 from sys import stdout
 from subprocess import call
+from io import open
 
 def usage():
 	print("Usage:", argv[0], "[-t] spec-file")
@@ -72,7 +72,7 @@ class Spec:
 				exit(1)
 	
 	def parse(self):
-		self.search = map(parse_search, self.search)
+		self.search = list(map(parse_search, self.search))
 		self.include = set(map(parse_tag, self.include))
 		self.exclude = set(map(parse_tag, self.exclude))
 		both = self.include.intersection(self.exclude)
@@ -112,7 +112,7 @@ elif len(argv) == 3:
 else:
 	usage()
 
-spec = Spec(file(fn))
+spec = Spec(open(fn, "r", encoding="utf-8"))
 
 src_cfg = Config()
 src_cfg.server, src_cfg.port = spec.src
@@ -132,7 +132,7 @@ for s in spec.search:
 	for p in ps:
 		posts[p.md5] = p
 md5s = set(posts.keys())
-posts = posts.values()
+posts = list(posts.values())
 
 datatags = set(["aaaaaa-aaaac8-faketg-bddate", "aaaaaa-aaaadt-faketg-gpspos"])
 magic_tags = set(["aaaaaa-aaaads-faketg-create", "aaaaaa-aaaaas-faketg-chaage",
