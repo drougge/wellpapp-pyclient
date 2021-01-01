@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python3
 
 from __future__ import print_function
 
@@ -7,6 +6,10 @@ from hashlib import md5
 from PIL import Image
 from os.path import exists
 from os import stat, walk
+from sys import version_info
+
+if version_info[0] > 2:
+	basestring = str
 
 def usage(argv):
 	print("Usage:", argv[0], "-opts")
@@ -30,14 +33,14 @@ def check_images(integrity):
 			bad.add(m)
 			continue
 		if integrity:
-			if md5(file(path).read()).hexdigest() != m:
+			if md5(open(path, "rb").read()).hexdigest() != m:
 				print("Bad file", m)
 				bad.add(m)
 	return bad
 
 def check_thumbs(integrity):
 	print("Checking thumbs")
-	sizes = map(int, client.cfg.thumb_sizes.split()) + ["normal", "large"]
+	sizes = list(map(int, client.cfg.thumb_sizes.split())) + ["normal", "large"]
 	bad = set()
 	for m in posts:
 		thumbs = []
@@ -120,7 +123,7 @@ def check_connectivity():
 				if prefix + t.guid not in p.tags.guids:
 					print(p["md5"], "reachable with", t.guid, "but not tagged")
 	print("Checking posts")
-	for m, p in posts.iteritems():
+	for m, p in posts.items():
 		guids = ["!" + t.guid for t in p.fulltags] + ["~" + t.guid for t in p.weaktags]
 		while guids:
 			p = client.search_post(guids=guids[:16])
