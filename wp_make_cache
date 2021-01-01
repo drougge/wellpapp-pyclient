@@ -4,7 +4,8 @@
 from os import walk, readlink, stat
 from os.path import join
 from sys import argv, exit
-from dbutil import identify_raw, RawWrapper
+from wellpapp.client import Client
+from wellpapp.util import identify_raw, RawWrapper, raw_exts
 
 def add(m, fn):
 	try:
@@ -41,8 +42,6 @@ if argv[1:] == ["."]:
 		for n in [n for n in fns if len(n) == 32]:
 			add(n, join(dp, n))
 elif argv[1:] == ["raw"]:
-	from wellpapp import Client
-	from dbutil import raw_exts
 	client = Client()
 	ms = []
 	for ext in raw_exts:
@@ -51,7 +50,6 @@ elif argv[1:] == ["raw"]:
 	for m in ms:
 		add(m, client.image_path(m))
 else:
-	from wellpapp import Client
 	client = Client()
 	for n in argv[1:]:
 		m = client.postspec2md5(n)
