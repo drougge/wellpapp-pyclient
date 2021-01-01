@@ -1,11 +1,13 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python3
+
+from __future__ import print_function
 
 from os import walk, readlink, stat
 from os.path import join
 from sys import argv, exit
 from wellpapp.client import Client
 from wellpapp.util import identify_raw, RawWrapper, raw_exts
+from io import open
 
 def add(m, fn):
 	try:
@@ -13,7 +15,7 @@ def add(m, fn):
 		s = stat(dest)
 		z = s.st_size
 		mt = int(s.st_mtime)
-		fh = file(dest, "rb")
+		fh = open(dest, "rb")
 		if identify_raw(fh):
 			fh.seek(0)
 			jfh = RawWrapper(fh, True)
@@ -26,17 +28,17 @@ def add(m, fn):
 		fh.close()
 		res.write(l)
 	except Exception:
-		print m, "failed"
+		print(m, "failed")
 
 if len(argv) < 2 or argv[1][0] == "-":
-	print "Usage: " + argv[0] + " . or raw or post-spec [post-spec [..]]"
-	print "\t.         - Regenerate full cache"
-	print "\traw       - Regenerate cache for all raw images"
-	print "\tpost-spec - add post-spec to cache"
-	print "Run in image_base"
+	print("Usage: " + argv[0] + " . or raw or post-spec [post-spec [..]]")
+	print("\t.         - Regenerate full cache")
+	print("\traw       - Regenerate cache for all raw images")
+	print("\tpost-spec - add post-spec to cache")
+	print("Run in image_base")
 	exit(1)
 
-res = open("cache", "a")
+res = open("cache", "a", encoding="utf-8")
 if argv[1:] == ["."]:
 	for dp, dns, fns in walk("."):
 		for n in [n for n in fns if len(n) == 32]:
@@ -56,5 +58,5 @@ else:
 		if m:
 			add(m, client.image_path(m))
 		else:
-			print "Failed to convert " + n + " to post"
+			print("Failed to convert " + n + " to post")
 res.close()
