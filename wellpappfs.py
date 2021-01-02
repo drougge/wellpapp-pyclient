@@ -21,7 +21,6 @@ from collections import namedtuple
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
 fuse.fuse_python_api = (0, 2)
-NOTFOUND = IOError(errno.ENOENT, "Not found")
 md5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)$")
 shortmd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})$")
 metamd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)\.gq\.xmp$")
@@ -31,6 +30,9 @@ default_range = (0, 10000)
 
 _stat_t = namedtuple("stat_t", ["version", "size", "mtime", "dest", "jpegsize"])
 _search_t = namedtuple("search_t", ["want", "dontwant", "order", "range", "clean"])
+
+def NOTFOUND():
+	raise IOError(errno.ENOENT, "Not found")
 
 class WpStat(fuse.Stat):
 	def __init__(self, mode, nlink, size, time):
@@ -150,12 +152,12 @@ class Wellpapp(fuse.Fuse):
 		metam = metamd5re.match(spath[-1])
 		time = 0
 		if spath[-3:-1] in _thumbpaths:
-			if not m or not m.group(2) != ".png": raise NOTFOUND
+			if not m or not m.group(2) != ".png": NOTFOUND()
 			search = self._path2search("/" + " ".join(spath[:-3]))
-			if not search: raise NOTFOUND
+			if not search: NOTFOUND()
 			if search.order or self._raw2jpeg: # order specified or potentially unwrapped
 				orgmd5 = self._resolve_thumb(search, spath[-1])
-				if not orgmd5: raise NOTFOUND
+				if not orgmd5: NOTFOUND()
 				mode = stat.S_IFREG | 0o444
 				tfn = self._client.thumb_path(orgmd5[0], spath[-2])
 				size = os.stat(tfn).st_size
@@ -191,7 +193,7 @@ class Wellpapp(fuse.Fuse):
 			size = len(self._generate_cloud(spath[:-1], spath[-1]))
 		else:
 			search = self._path2search(path)
-			if not search: raise NOTFOUND
+			if not search: NOTFOUND()
 			try:
 				self._cache.get(search, self._search)
 			except Exception:
@@ -200,7 +202,7 @@ class Wellpapp(fuse.Fuse):
 					mode = stat.S_IFLNK | 0o444
 					nlink = 1
 				else:
-					raise NOTFOUND
+					NOTFOUND()
 		return WpStat(mode, nlink, size, time)
 
 	def _generate_cloud(self, spath, fn):
@@ -258,7 +260,7 @@ class Wellpapp(fuse.Fuse):
 		if path[-3:-1] not in _thumbpaths:
 			m = shortmd5re.match(path[-1])
 			if m: return self._client.image_path(m.group(1))
-		raise NOTFOUND
+		NOTFOUND()
 
 	def readdir(self, path, offset):
 		list = [".", ".."]
@@ -272,9 +274,9 @@ class Wellpapp(fuse.Fuse):
 			try:
 				list += self._cache.get(search, self._search)[0]
 			except Exception:
-				raise NOTFOUND
+				NOTFOUND()
 		else:
-			raise NOTFOUND
+			NOTFOUND()
 		for e in list:
 			yield fuse.Direntry(e)
 
@@ -380,7 +382,7 @@ class Wellpapp(fuse.Fuse):
 			data = ""
 			def __init__(self, path, flags, *mode):
 				rwflags = flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)
-				if rwflags != os.O_RDONLY: raise NOTFOUND
+				if rwflags != os.O_RDONLY: NOTFOUND()
 				if path == _cfgpath:
 					self.data = wp._cfgfile
 					return
@@ -428,7 +430,7 @@ class Wellpapp(fuse.Fuse):
 				self.data = self._fh = self._Lock = None
 			def _make_thumb(self, spath):
 				search = wp._path2search("/".join(spath[:-3]))
-				if not search: raise NOTFOUND
+				if not search: NOTFOUND()
 				orgmd5, fn = wp._resolve_thumb(search, spath[-1])
 				ext = fn.split(".")[-1]
 				tfn = wp._client.thumb_path(orgmd5, spath[-2])
@@ -438,7 +440,7 @@ class Wellpapp(fuse.Fuse):
 				if not (search.order or ext in _rawext_r):
 					return data
 				data = data.split("tEXtThumb::URI\0")
-				if len(data) != 2: raise NOTFOUND
+				if len(data) != 2: NOTFOUND()
 				pre, post = data
 				clen, = unpack(">I", pre[-4:])
 				if search.order: # It's longer only of search was ordered
