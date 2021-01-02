@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
+from __future__ import print_function
+
 import fuse
 import stat
 import errno
@@ -102,7 +104,7 @@ class Wellpapp(fuse.Fuse):
 					assert v == "0"
 				self._stat_cache[m] = _stat_t(int(v), int(size), int(mtime), dest, int(jz))
 			except Exception:
-				print "Bad line in cache:", line
+				print("Bad line in cache:", line)
 
 	def _cache_thread(self):
 		while True:
@@ -113,13 +115,13 @@ class Wellpapp(fuse.Fuse):
 		fn = self._client.cfg.image_base + "/cache"
 		if not exists(fn): return
 		try:
-			print "Loading stat-cache.."
+			print("Loading stat-cache..")
 			self._cache_fh = open(fn, "r")
 			self._stat_cache = {}
 			self._cache_read()
 			self._use_cache = True
 		except Exception:
-			print "Failed to load cache"
+			print("Failed to load cache")
 
 	# Starting threads doesn't work from __init__.
 	def fsinit(self):
@@ -128,11 +130,11 @@ class Wellpapp(fuse.Fuse):
 			t.name = "cache loader"
 			t.daemon = True
 			t.start()
-		print "Ready"
+		print("Ready")
 
 	def _stat(self, m):
 		if m not in self._stat_cache:
-			print m, "not in cache"
+			print(m, "not in cache")
 			p = self._client.image_path(m)
 			dest = os.readlink(p)
 			st = os.stat(dest)
