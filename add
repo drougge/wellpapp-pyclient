@@ -188,7 +188,7 @@ def record_filename(m, fn):
 			known.setdefault(r_m, []).append(r_fn)
 	if m not in known or fn not in known[m]:
 		with lock:
-			with open(rec_fn, "a", encoding="utf-8") as fh:
+			with open(rec_fn, "a", encoding="utf-8", errors="backslashreplace") as fh:
 				fh.write(m + " " + fn + "\n")
 
 def generate_cache(m, fn, jz):
