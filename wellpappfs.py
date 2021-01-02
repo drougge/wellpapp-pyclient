@@ -61,16 +61,16 @@ class Cache:
 	def _clean(self):
 		self._time = time()
 		t = self._time - (self._ttl / 1.5)
-		for key in self._data.keys():
-			if self._data[key][0] < t:
-				del self._data[key]
+		too_old = [k for k, v in self._data.items() if v[0] < t]
+		for key in too_old:
+			del self._data[key]
 
 _thumbpaths = ([".thumblocal", "normal"], [".thumblocal", "large"])
 _cfgpath = "/.wellpapprc"
 _cloudname = ".cloud"
 _rawext = dict(zip(raw_exts, ("Jpg", "jPg", "jpG", "JPg", "JPG", "JpG", "jPG", "jpg")))
 assert len(_rawext) == len(raw_exts)
-_rawext_r = dict([(v, k) for k, v in _rawext.items()])
+_rawext_r = {v: k for k, v in _rawext.items()}
 
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
@@ -85,8 +85,9 @@ class Wellpapp(fuse.Fuse):
 	def _cfg2file(self):
 		cfg = self._client.cfg
 		data = []
-		for f in filter(lambda n: n[0] != "_", cfg.keys()):
-			data.append(f + "=" + cfg[f] + "\n")
+		for k, v in cfg.items():
+			if not k.startswith("_"):
+				data.append(k + "=" + v + "\n")
 		return "".join(sorted(data))
 
 	def _cache_read(self):
@@ -113,7 +114,7 @@ class Wellpapp(fuse.Fuse):
 		if not exists(fn): return
 		try:
 			print "Loading stat-cache.."
-			self._cache_fh = file(fn)
+			self._cache_fh = open(fn, "r")
 			self._stat_cache = {}
 			self._cache_read()
 			self._use_cache = True
@@ -140,7 +141,7 @@ class Wellpapp(fuse.Fuse):
 
 	def getattr(self, path):
 		spath = path.split("/")[1:]
-		mode = stat.S_IFDIR | 0555
+		mode = stat.S_IFDIR | 0o555
 		nlink = 2
 		size = 0
 		m = md5re.match(spath[-1])
@@ -153,37 +154,37 @@ class Wellpapp(fuse.Fuse):
 			if search.order or self._raw2jpeg: # order specified or potentially unwrapped
 				orgmd5 = self._resolve_thumb(search, spath[-1])
 				if not orgmd5: raise NOTFOUND
-				mode = stat.S_IFREG | 0444
+				mode = stat.S_IFREG | 0o444
 				tfn = self._client.thumb_path(orgmd5[0], spath[-2])
 				size = os.stat(tfn).st_size
 				if search.order:
 					# plus six digits and a period
 					size += 7
 			else:
-				mode = stat.S_IFLNK | 0444
+				mode = stat.S_IFLNK | 0o444
 			nlink = 1
 		elif m:
 			if self._use_cache:
-				mode = stat.S_IFREG | 0444
+				mode = stat.S_IFREG | 0o444
 				version, size, time, dest, jpeg = self._stat(m.group(1))
 				if self._raw2jpeg and spath[-1][-3:] in _rawext_r: # wrapped RAW
 					size = jpeg
 			else:
-				mode = stat.S_IFLNK | 0444
+				mode = stat.S_IFLNK | 0o444
 			nlink = 1
 		elif metam:
-			mode = stat.S_IFREG | 0444
+			mode = stat.S_IFREG | 0o444
 			size = len(self._generate_meta(metam.group(1)))
 			nlink = 1
 		elif path == "/" or spath[-1] in (".thumblocal", ".metadata") or \
 		     spath[-2:] in _thumbpaths:
 			pass
 		elif path == _cfgpath:
-			mode = stat.S_IFREG | 0444
+			mode = stat.S_IFREG | 0o444
 			nlink = 1
 			size = len(self._cfgfile)
 		elif spath[-1][:len(_cloudname)] == _cloudname:
-			mode = stat.S_IFREG | 0444
+			mode = stat.S_IFREG | 0o444
 			nlink = 1
 			size = len(self._generate_cloud(spath[:-1], spath[-1]))
 		else:
@@ -194,7 +195,7 @@ class Wellpapp(fuse.Fuse):
 			except Exception:
 				m = shortmd5re.match(spath[-1])
 				if m:
-					mode = stat.S_IFLNK | 0444
+					mode = stat.S_IFLNK | 0o444
 					nlink = 1
 				else:
 					raise NOTFOUND
