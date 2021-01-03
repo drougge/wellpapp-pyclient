@@ -593,7 +593,7 @@ class FileMerge:
 		if self.closed: raise ValueError("I/O operation on closed file")
 		max_size = self.size - self.pos
 		if size < 0 or size > max_size: size = max_size
-		data = ""
+		data = b""
 		skip = self.pos
 		for fh, pos, z in self.contents:
 			if skip > z:
