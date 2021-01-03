@@ -506,7 +506,7 @@ class ExifWrapper:
 						ut = _parse_date(dt)
 						lt = list(localtime(ut))
 						lt[8] = 0 # ignore dst
-						td = int(mktime(gmtime(ut)) - mktime(lt)) // 60
+						td = int(mktime(gmtime(ut)) - mktime(tuple(lt))) // 60
 						ltz = "%s%02d%02d" % ("+" if td <= 0 else "-", abs(td // 60), abs(td % 60))
 					date = d.replace(":", "-") + "T" + t + ltz
 				else:
