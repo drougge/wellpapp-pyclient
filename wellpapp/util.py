@@ -10,6 +10,7 @@ __all__ = ("FileMerge", "FileWindow", "MakeTIFF", "TIFF", "ExifWrapper",
 
 if sys.version_info[0] > 2:
 	basestring = (bytes, str)
+	unicode = str
 	long = int
 
 class TIFF:
@@ -44,7 +45,7 @@ class TIFF:
 				good += [b"IIRO", b"IIU\0"]
 			if d not in good: raise Exception("Not TIFF")
 			self.variant = d[2:4].strip(b"\0")
-		endian = {b"M": ">", b"I": "<"}[d[0]]
+		endian = {b"M": ">", b"I": "<"}[d[:1]]
 		self._up = lambda fmt, *a: unpack(endian + fmt, *a)
 		self._up1 = lambda *a: self._up(*a)[0]
 		if short_header:
@@ -665,12 +666,14 @@ class MakeTIFF:
 	def _one(self, tag, data):
 		from struct import pack
 		type, values = data
-		if isinstance(values, str):
+		if isinstance(values, unicode):
+			values = values.encode("utf-8")
+		if isinstance(values, bytes):
 			d = pack(">HHI", tag, 2, len(values))
 		else:
 			f = self.types[type]
 			z = len(values)
-			if type == 5: z /= 2
+			if type == 5: z //= 2
 			values = pack(">" + (f * len(values)), *values)
 			d = pack(">HHI", tag, type, z)
 			if len(values) <= 4:
@@ -687,7 +690,7 @@ class MakeTIFF:
 		from struct import pack
 		data = pack(">ccHIH", b"M", b"M", 42, 8, len(self.entries))
 		self._datapos = 10 + 12 * len(self.entries) + 4 + offset
-		self._data = ""
+		self._data = b""
 		for tag in sorted(self.entries):
 			data += self._one(tag, self.entries[tag])
 		data += pack(">I", 0)
