@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+import sys
+from importlib import import_module
+
+def main(argv):
+	arg0 = argv[0]
+	argv = argv[1:]
+	def usage(fh):
+		print("Usage:", arg0, "command [args]", file=fh)
+	if len(argv) < 1:
+		usage(sys.stderr)
+		return 1
+	command = argv[0]
+	argv = argv[1:]
+	if command in ('-h', '--help'):
+		usage(sys.stdout)
+		return 0
+	try:
+		mod = import_module('wellpapp.shell.' + command)
+	except ModuleNotFoundError:
+		print("Unknown command", command, file=sys.stderr)
+		return 1
+	return mod.main('%s %s' % (arg0, command), argv)
+
+if __name__ == '__main__':
+	sys.exit(main(sys.argv))
