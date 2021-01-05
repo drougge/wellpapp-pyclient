@@ -626,6 +626,10 @@ class FileMerge:
 	def tell(self):
 		return self.pos
 
+	# IOError instead of AttributeError
+	def readline(self):
+		raise IOError("FileMerge does not support readline")
+
 class _ThinExif(TIFF):
 	"""Pretty minimal TIFF container parser
 	Even more minimal now - just for partial Exif parsing"""
