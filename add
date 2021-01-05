@@ -12,7 +12,7 @@ from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, Exi
 from struct import unpack
 from multiprocessing import Lock, cpu_count, Queue, Process
 from traceback import print_exc
-from sys import version_info
+from sys import version_info, exit
 
 if version_info[0] == 2:
 	from Queue import Empty
@@ -20,11 +20,7 @@ if version_info[0] == 2:
 else:
 	from queue import Empty
 
-lock = Lock()
-
 def determine_filetype(data):
-	if force_filetype:
-		return force_filetype
 	data2 = data[:2]
 	data3 = data[:3]
 	data4 = data[:4]
@@ -79,131 +75,11 @@ def determine_filetype(data):
 	if data.startswith(b"%PDF-"):
 		return "pdf"
 
-def needs_thumbs(m, ft):
-	if force_thumbs: return True
-	jpeg_fns, png_fns = client.thumb_fns(m, ft)
-	for fn, z in jpeg_fns + png_fns:
-		if not exists(fn): return True
-
 def _gpspos(pos, ref):
 	pos = pos[0] + pos[1] / 60 + pos[2] / 3600
 	if ref and ref[0] in "SWsw":
 		pos = -pos
 	return "%.7f" % (pos,)
-
-def exif2tags(exif, tags):
-	cfg = client.cfg
-	if "lenstags" in cfg:
-		lenstags = cfg.lenstags.split()
-		for lt in lenstags:
-			if lt in exif:
-				v = exif[lt]
-				if isinstance(v, tuple) or hasattr(v, "pop"):
-					v = " ".join([str(e) for e in v])
-				lt = "lens:" + lt + ":" + v
-				if lt in cfg:
-					tags.add_spec(cfg[lt])
-	try:
-		make = exif["Exif.Image.Make"].strip()
-		model = exif["Exif.Image.Model"].strip()
-		cam = "camera:" + make + ":" + model
-		if cam in cfg:
-			tags.add_spec(cfg[cam])
-	except Exception:
-		pass
-	if "set_tags" in cfg:
-		for st in cfg.set_tags.split():
-			tn, et = st.split("=", 1)
-			if et in exif:
-				v = exif[et]
-				if ("FocalLength" in et or "FNumber" in et) and not v:
-					continue
-				tags.add_spec(tn + "=" + str(exif[et]))
-	if "Exif.GPSInfo.GPSLatitude" in exif:
-		lat = _gpspos(exif["Exif.GPSInfo.GPSLatitude"], exif["Exif.GPSInfo.GPSLatitudeRef"])
-		lon = _gpspos(exif["Exif.GPSInfo.GPSLongitude"], exif["Exif.GPSInfo.GPSLongitudeRef"])
-		if "Exif.GPSInfo.GPSAltitude" in exif:
-			from fractions import Fraction
-			alt = Fraction(exif["Exif.GPSInfo.GPSAltitude"])
-			if "Exif.GPSInfo.GPSAltitudeRef" in exif and float(exif["Exif.GPSInfo.GPSAltitudeRef"]):
-				alt = -alt
-			gps = VTgps("%s,%s,%.1f" % (lat, lon, alt))
-		else:
-			gps = VTgps("%s,%s" % (lat, lon))
-		tags.add(("aaaaaa-aaaadt-faketg-gpspos", gps))
-	if override_tags:
-		tags.add(("aaaaaa-aaaac8-faketg-bddate", exif.date(tz)))
-
-class tagset(set):
-	def add(self, t):
-		guid, val = t
-		prefix = ""
-		if guid[0] in "~-":
-			prefix = guid[0]
-			guid = guid[1:]
-		chk = (guid, "~" + guid)
-		rem = None
-		for v in self:
-			if v[0] in chk: rem = v
-		if rem: self.remove(rem)
-		if prefix != "-": set.add(self, (prefix + guid, val))
-	
-	def add_spec(self, s):
-		try:
-			with lock:
-				t = client.parse_tag(s)
-		except Exception:
-			print("Failed to parse: " + s)
-			return
-		if t:
-			self.add(t)
-		else:
-			print("Unknown tag " + s)
-	
-	def update(self, l):
-		[self.add_spec(s) for s in l]
-	
-	def update_tags(self, l):
-		[self.add((t.pguid, t.value)) for t in l]
-
-def find_tags(fn):
-	path = "/"
-	tags = tagset()
-	for dir in dirname(fn).split(sep):
-		path = join(path, dir)
-		TAGS = join(path, "TAGS")
-		if exists(TAGS):
-			tags.update(open(TAGS, "r", encoding="utf-8").readline().split())
-	if gen_from_fn:
-		tags.update(basename(fn).split()[:-1])
-	return tags
-
-def record_filename(m, fn):
-	dn = client.image_dir(m)
-	rec_fn = join(dn, "FILENAMES")
-	known = {}
-	if exists(rec_fn):
-		for line in open(rec_fn, "r", encoding="utf-8", errors="backslashreplace"):
-			r_m, r_fn = line[:-1].split(" ", 1)
-			known.setdefault(r_m, []).append(r_fn)
-	if m not in known or fn not in known[m]:
-		with lock:
-			with open(rec_fn, "a", encoding="utf-8", errors="backslashreplace") as fh:
-				fh.write(m + " " + fn + "\n")
-
-def generate_cache(m, fn, jz):
-	cache_fn = client.cfg.image_base + "/cache"
-	if exists(cache_fn):
-		s = stat(fn)
-		z = s.st_size
-		mt = int(s.st_mtime)
-		if jz:
-			l = "1 %s %d %d %d %s\n" % (m, z, mt, jz, fn)
-		else:
-			l = "0 %s %d %d %s\n" % (m, z, mt, fn)
-		with lock:
-			with open(cache_fn, "a", encoding="utf-8") as fh:
-				fh.write(l)
 
 def fmt_tagvalue(v):
 	if not v: return ""
@@ -262,152 +138,272 @@ def pdf_image(fn):
 	]
 	return check_output(cmd, close_fds=True)
 
-def add_image(fn, warn_q):
-	if verbose: print(fn)
-	fn = realpath(fn)
-	data = open(fn, "rb").read()
-	m = md5(data).hexdigest()
-	with lock:
-		post = client.get_post(m, True)
-	if post:
-		ft = post.ext
-	else:
-		ft = determine_filetype(data)
-	assert ft
-	p = client.image_path(m)
-	if lexists(p):
-		ld = readlink(p)
-		is_wpfs = False
+
+def main(arg0, argv):
+	def needs_thumbs(m, ft):
+		if force_thumbs: return True
+		jpeg_fns, png_fns = client.thumb_fns(m, ft)
+		for fn, z in jpeg_fns + png_fns:
+			if not exists(fn): return True
+
+	def exif2tags(exif, tags):
+		cfg = client.cfg
+		if "lenstags" in cfg:
+			lenstags = cfg.lenstags.split()
+			for lt in lenstags:
+				if lt in exif:
+					v = exif[lt]
+					if isinstance(v, tuple) or hasattr(v, "pop"):
+						v = " ".join([str(e) for e in v])
+					lt = "lens:" + lt + ":" + v
+					if lt in cfg:
+						tags.add_spec(cfg[lt])
 		try:
-			dot = fn.rindex(".")
-			if "/" not in fn[dot:]:
-				bare_fn = fn[:fn.rindex(".")]
-				if m == bare_fn[-32:] and readlink(bare_fn)[-32:] == m:
-					is_wpfs = True # probably
-		except (OSError, ValueError):
+			make = exif["Exif.Image.Make"].strip()
+			model = exif["Exif.Image.Model"].strip()
+			cam = "camera:" + make + ":" + model
+			if cam in cfg:
+				tags.add_spec(cfg[cam])
+		except Exception:
 			pass
-		if is_wpfs:
-			if not quiet:
-				print("Not updating", fn, "because this looks like a wellpappfs")
-		elif exists(p):
-			if fn != ld:
-				if not dummy: record_filename(m, fn)
-				if not quiet:
-					print("Not updating", m, fn)
-		else:
-			if dummy:
-				if not quiet: print("Would have updated", m, fn)
+		if "set_tags" in cfg:
+			for st in cfg.set_tags.split():
+				tn, et = st.split("=", 1)
+				if et in exif:
+					v = exif[et]
+					if ("FocalLength" in et or "FNumber" in et) and not v:
+						continue
+					tags.add_spec(tn + "=" + str(exif[et]))
+		if "Exif.GPSInfo.GPSLatitude" in exif:
+			lat = _gpspos(exif["Exif.GPSInfo.GPSLatitude"], exif["Exif.GPSInfo.GPSLatitudeRef"])
+			lon = _gpspos(exif["Exif.GPSInfo.GPSLongitude"], exif["Exif.GPSInfo.GPSLongitudeRef"])
+			if "Exif.GPSInfo.GPSAltitude" in exif:
+				from fractions import Fraction
+				alt = Fraction(exif["Exif.GPSInfo.GPSAltitude"])
+				if "Exif.GPSInfo.GPSAltitudeRef" in exif and float(exif["Exif.GPSInfo.GPSAltitudeRef"]):
+					alt = -alt
+				gps = VTgps("%s,%s,%.1f" % (lat, lon, alt))
 			else:
-				record_filename(m, ld)
-				if not quiet: print("Updating", m, fn)
-				unlink(p)
-	do_cache = False
-	if not lexists(p) and not dummy:
-		make_pdirs(p)
-		symlink(fn, p)
-		do_cache = True
-	if not post or needs_thumbs(m, ft):
-		do_cache = True
-		if ft in movie_ft:
-			if not thumb_source:
-				print("Can't generate " + ft + " thumbnails")
-				exit(1)
-			if not post:
-				if ft == "swf":
-					w, h = flash_dimensions(data)
-				else:
-					w, h = mplayer_dimensions(fn)
-		else:
-			if ft == "pdf":
-				data = pdf_image(fn)
-			datafh = RawWrapper(BytesIO(data))
+				gps = VTgps("%s,%s" % (lat, lon))
+			tags.add(("aaaaaa-aaaadt-faketg-gpspos", gps))
+		if override_tags:
+			tags.add(("aaaaaa-aaaac8-faketg-bddate", exif.date(tz)))
+
+	class tagset(set):
+		def add(self, t):
+			guid, val = t
+			prefix = ""
+			if guid[0] in "~-":
+				prefix = guid[0]
+				guid = guid[1:]
+			chk = (guid, "~" + guid)
+			rem = None
+			for v in self:
+				if v[0] in chk: rem = v
+			if rem: self.remove(rem)
+			if prefix != "-": set.add(self, (prefix + guid, val))
+
+		def add_spec(self, s):
 			try:
-				img = Image.open(datafh)
-			except IOError:
+				with lock:
+					t = client.parse_tag(s)
+			except Exception:
+				print("Failed to parse: " + s)
+				return
+			if t:
+				self.add(t)
+			else:
+				print("Unknown tag " + s)
+
+		def update(self, l):
+			[self.add_spec(s) for s in l]
+
+		def update_tags(self, l):
+			[self.add((t.pguid, t.value)) for t in l]
+
+	def find_tags(fn):
+		path = "/"
+		tags = tagset()
+		for dir in dirname(fn).split(sep):
+			path = join(path, dir)
+			TAGS = join(path, "TAGS")
+			if exists(TAGS):
+				tags.update(open(TAGS, "r", encoding="utf-8").readline().split())
+		if gen_from_fn:
+			tags.update(basename(fn).split()[:-1])
+		return tags
+
+	def record_filename(m, fn):
+		dn = client.image_dir(m)
+		rec_fn = join(dn, "FILENAMES")
+		known = {}
+		if exists(rec_fn):
+			for line in open(rec_fn, "r", encoding="utf-8", errors="backslashreplace"):
+				r_m, r_fn = line[:-1].split(" ", 1)
+				known.setdefault(r_m, []).append(r_fn)
+		if m not in known or fn not in known[m]:
+			with lock:
+				with open(rec_fn, "a", encoding="utf-8", errors="backslashreplace") as fh:
+					fh.write(m + " " + fn + "\n")
+
+	def generate_cache(m, fn, jz):
+		cache_fn = client.cfg.image_base + "/cache"
+		if exists(cache_fn):
+			s = stat(fn)
+			z = s.st_size
+			mt = int(s.st_mtime)
+			if jz:
+				l = "1 %s %d %d %d %s\n" % (m, z, mt, jz, fn)
+			else:
+				l = "0 %s %d %d %s\n" % (m, z, mt, fn)
+			with lock:
+				with open(cache_fn, "a", encoding="utf-8") as fh:
+					fh.write(l)
+
+	def add_image(fn, warn_q):
+		if verbose: print(fn)
+		fn = realpath(fn)
+		data = open(fn, "rb").read()
+		m = md5(data).hexdigest()
+		with lock:
+			post = client.get_post(m, True)
+		if post:
+			ft = post.ext
+		else:
+			ft = force_filetype or determine_filetype(data)
+		assert ft
+		p = client.image_path(m)
+		if lexists(p):
+			ld = readlink(p)
+			is_wpfs = False
+			try:
+				dot = fn.rindex(".")
+				if "/" not in fn[dot:]:
+					bare_fn = fn[:fn.rindex(".")]
+					if m == bare_fn[-32:] and readlink(bare_fn)[-32:] == m:
+						is_wpfs = True # probably
+			except (OSError, ValueError):
+				pass
+			if is_wpfs:
+				if not quiet:
+					print("Not updating", fn, "because this looks like a wellpappfs")
+			elif exists(p):
+				if fn != ld:
+					if not dummy: record_filename(m, fn)
+					if not quiet:
+						print("Not updating", m, fn)
+			else:
+				if dummy:
+					if not quiet: print("Would have updated", m, fn)
+				else:
+					record_filename(m, ld)
+					if not quiet: print("Updating", m, fn)
+					unlink(p)
+		do_cache = False
+		if not lexists(p) and not dummy:
+			make_pdirs(p)
+			symlink(fn, p)
+			do_cache = True
+		if not post or needs_thumbs(m, ft):
+			do_cache = True
+			if ft in movie_ft:
+				if not thumb_source:
+					print("Can't generate " + ft + " thumbnails")
+					exit(1)
+				if not post:
+					if ft == "swf":
+						w, h = flash_dimensions(data)
+					else:
+						w, h = mplayer_dimensions(fn)
+			else:
+				if ft == "pdf":
+					data = pdf_image(fn)
+				datafh = RawWrapper(BytesIO(data))
+				try:
+					img = Image.open(datafh)
+				except IOError:
+					if thumb_source:
+						img = Image.open(RawWrapper(open(thumb_source, "rb")))
+						print("Warning: taking dimensions from thumb source")
+					else:
+						raise
+				w, h = img.size
+		if do_cache and not dummy:
+			if ft in raw_exts:
+				jfh = RawWrapper(BytesIO(data), True)
+				jfh.seek(0, 2)
+				jz = jfh.tell()
+				jfh.close()
+			else:
+				jz = None
+			generate_cache(m, fn, jz)
+		exif = ExifWrapper(fn)
+		if not post:
+			rot = exif.rotation()
+			if rot in (90, 270): w, h = h, w
+			args = {"md5": m, "width": w, "height": h, "ext": ft}
+			if rot >= 0: args["rotate"] = rot
+			date = exif.date(tz)
+			if date:
+				args["imgdate"] = date
+			if dummy:
+				print("Would have created post " + m)
+			else:
+				with lock:
+					client.add_post(**args)
+		if needs_thumbs(m, ft):
+			if dummy:
+				print("Would have generated thumbs for " + m)
+			else:
+				rot = exif.rotation()
 				if thumb_source:
 					img = Image.open(RawWrapper(open(thumb_source, "rb")))
-					print("Warning: taking dimensions from thumb source")
-				else:
-					raise
-			w, h = img.size
-	if do_cache and not dummy:
-		if ft in raw_exts:
-			jfh = RawWrapper(BytesIO(data), True)
-			jfh.seek(0, 2)
-			jz = jfh.tell()
-			jfh.close()
-		else:
-			jz = None
-		generate_cache(m, fn, jz)
-	exif = ExifWrapper(fn)
-	if not post:
-		rot = exif.rotation()
-		if rot in (90, 270): w, h = h, w
-		args = {"md5": m, "width": w, "height": h, "ext": ft}
-		if rot >= 0: args["rotate"] = rot
-		date = exif.date(tz)
-		if date:
-			args["imgdate"] = date
-		if dummy:
-			print("Would have created post " + m)
-		else:
-			with lock:
-				client.add_post(**args)
-	if needs_thumbs(m, ft):
-		if dummy:
-			print("Would have generated thumbs for " + m)
-		else:
-			rot = exif.rotation()
-			if thumb_source:
-				img = Image.open(RawWrapper(open(thumb_source, "rb")))
-			client.save_thumbs(m, img, ft, rot, force_thumbs)
-	full = tagset()
-	weak = tagset()
-	with lock:
-		post = client.get_post(m, True)
-	posttags = tagset()
-	if post:
-		posttags.update_tags(post.tags)
-	filetags = find_tags(fn)
-	try:
-		exif2tags(exif, filetags)
-	except Exception:
-		print_exc()
-		warn_q.put(fn + ": failed to set tags from exif")
-	for guid, val in filetags.difference(posttags):
-		if guid in post.tags and not override_tags:
-			print("Not overriding value on", post.tags[guid].pname)
-		elif guid[0] == "~":
-			weak.add((guid[1:], val))
-		else:
-			full.add((guid, val))
-	if full or weak:
+				client.save_thumbs(m, img, ft, rot, force_thumbs)
+		full = tagset()
+		weak = tagset()
 		with lock:
-			if no_tagging or dummy:
-				full = [client.get_tag(g).name + fmt_tagvalue(v) for g, v in full]
-				weak = ["~" + client.get_tag(g).name + fmt_tagvalue(v) for g, v in weak]
-				print("Would have tagged " + m + " " + " ".join(full + weak))
+			post = client.get_post(m, True)
+		posttags = tagset()
+		if post:
+			posttags.update_tags(post.tags)
+		filetags = find_tags(fn)
+		try:
+			exif2tags(exif, filetags)
+		except Exception:
+			print_exc()
+			warn_q.put(fn + ": failed to set tags from exif")
+		for guid, val in filetags.difference(posttags):
+			if guid in post.tags and not override_tags:
+				print("Not overriding value on", post.tags[guid].pname)
+			elif guid[0] == "~":
+				weak.add((guid[1:], val))
 			else:
-				client.tag_post(m, full, weak)
+				full.add((guid, val))
+		if full or weak:
+			with lock:
+				if no_tagging or dummy:
+					full = [client.get_tag(g).name + fmt_tagvalue(v) for g, v in full]
+					weak = ["~" + client.get_tag(g).name + fmt_tagvalue(v) for g, v in weak]
+					print("Would have tagged " + m + " " + " ".join(full + weak))
+				else:
+					client.tag_post(m, full, weak)
 
-def usage():
-	print("Usage:", argv[0], "[-v] [-q] [-f] [-n] [-d] [-t thumb_source] [-T type] [-z timezone] filename [filename [..]]")
-	print("\t-v Verbose")
-	print("\t-q Quiet")
-	print("\t-f Force thumbnail regeneration")
-	print("\t-n No tagging (prints what would have been tagged)")
-	print("\t-g Generate tags from filename (all words except last)")
-	print("\t-d Dummy, only print what would be done")
-	print("\t-t Post or file to generate thumb from")
-	print("\t-T Override file type detection")
-	print("\t-z Timezone to assume EXIF dates are in (+-HHMM format)")
-	print("\t-o Override existing tag values (from exif, TAGS (and filename))")
-	exit(1)
+	def usage():
+		print("Usage:", arg0, "[-v] [-q] [-f] [-n] [-d] [-t thumb_source] [-T type] [-z timezone] filename [filename [..]]")
+		print("\t-v Verbose")
+		print("\t-q Quiet")
+		print("\t-f Force thumbnail regeneration")
+		print("\t-n No tagging (prints what would have been tagged)")
+		print("\t-g Generate tags from filename (all words except last)")
+		print("\t-d Dummy, only print what would be done")
+		print("\t-t Post or file to generate thumb from")
+		print("\t-T Override file type detection")
+		print("\t-z Timezone to assume EXIF dates are in (+-HHMM format)")
+		print("\t-o Override existing tag values (from exif, TAGS (and filename))")
+		exit(1)
 
-if __name__ == '__main__':
-	from sys import argv, exit
-	if len(argv) < 2: usage()
-	a = 1
+	if len(argv) < 1: usage()
+	a = 0
 	switches = ("-v", "-q", "-f", "-h", "-n", "-d", "-t", "-T", "-z", "-o")
 	quiet = False
 	verbose = False
@@ -452,6 +448,8 @@ if __name__ == '__main__':
 		a += 1
 		if len(argv) == a: usage()
 	client = Client()
+	lock = Lock()
+
 	if thumb_source:
 		if len(argv) > a + 1:
 			print("Only add one post with -t")
@@ -501,3 +499,7 @@ if __name__ == '__main__':
 					break
 	print_q(warn_q, "Files with warnings:")
 	print_q(bad_q, "Failed files:")
+
+if __name__ == '__main__':
+	from sys import argv
+	main(argv[0], argv[1:])
