@@ -44,7 +44,7 @@ _fuzz_ignore = u"".join(map(unichr, range(33))) + u"-_()[]{}.,!/\"'?<>@=+%$#|\\"
 def _completefuzz(word):
 	return filter(lambda c: c not in _fuzz_ignore, word.lower())
 
-def complete(client, word):
+def complete(tw, word):
 	assert u" " not in word
 	pre = prefix(word)
 	word = clean(word)
@@ -54,7 +54,7 @@ def complete(client, word):
 		known_tags.update(clean(g) for g in tw.taglist[tl])
 	for t, get in ("EI", lambda t: t["name"]), ("EAI", lambda t: t["alias"][0]), \
 	              ("FI", lambda t: t["name"]), ("FAI", lambda t: t["alias"][0]):
-		tags = client.find_tags(t, word)
+		tags = tw.client.find_tags(t, word)
 		if pre == "-": tags = [t for t in tags if t.guid in known_tags]
 		if len(tags) == 1:
 			name = get(tags[0])
@@ -86,7 +86,7 @@ def complete(client, word):
 	candidates = [(c, names[c]) for c in candidates]
 	return word, candidates
 
-def complete_entry(client, parent, window, tagfield, event):
+def complete_entry(tw, parent, window, tagfield, event):
 	if gtk.gdk.keyval_name(event.keyval) == "Tab" and \
 	   not event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK):
 		parent.tab_count += 1
@@ -103,7 +103,7 @@ def complete_entry(client, parent, window, tagfield, event):
 		if parent.tab_count == 1:
 			parent.show_alts([])
 			if word:
-				new_word, alts = complete(client, word)
+				new_word, alts = complete(tw, word)
 				parent.tab_alts = alts
 				if alts:
 					parent.show_alts(alts)
@@ -116,7 +116,7 @@ def complete_entry(client, parent, window, tagfield, event):
 			if parent.tab_alts:
 				left = left + prefix(word)
 				word = clean(word)
-				dialog = TagCompletionDialog(client, window, word, parent.tab_alts)
+				dialog = TagCompletionDialog(tw, tw.client, window, word, parent.tab_alts)
 				if dialog.run() == gtk.RESPONSE_ACCEPT:
 					update(dialog.get_tt())
 				dialog.destroy()
@@ -360,7 +360,7 @@ class TagWindow:
 
 	def implications(self, widget, data):
 		parent, guid = data
-		dialog = ImplicationsDialog(self.client, parent, guid)
+		dialog = ImplicationsDialog(self, self.client, parent, guid)
 		dialog.run()
 		self._needs_refresh = dialog.did_something
 		dialog.destroy()
@@ -533,7 +533,7 @@ class TagWindow:
 			m = self.thumbs[path][0]
 			fn = self.client.image_path(m)
 			self.set_msg(u"Loading image")
-			f = FullscreenWindowThread(fn, tw)
+			f = FullscreenWindowThread(fn, self)
 			f.start()
 		except Exception:
 			from traceback import print_exc
@@ -597,7 +597,7 @@ class TagWindow:
 		self.msg.set_markup(mu)
 
 	def tagfield_key(self, tagfield, event):
-		return complete_entry(self.client, self, self.window, tagfield, event)
+		return complete_entry(self, self, self.window, tagfield, event)
 
 	def create_tag(self, name):
 		dialog = TagDialog(self.client, self.window, u"Create tag", name)
@@ -744,8 +744,9 @@ class TagDialog(gtk.Dialog):
 			self._can_enter = True
 
 class ImplicationsDialog(gtk.Dialog):
-	def __init__(self, client, parent, guid):
+	def __init__(self, tw, client, parent, guid):
 		gtk.Dialog.__init__(self, u"Implications", parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.RESPONSE_ACCEPT))
+		self._tw = tw
 		self._client = client
 		self.guid = guid
 		impl = client.tag_implies(self.guid, True)
@@ -884,7 +885,7 @@ class ImplicationsDialog(gtk.Dialog):
 		pass
 
 	def _complete(self, tagfield, event):
-		return complete_entry(self._client, self, self, tagfield, event)
+		return complete_entry(self._tw, self, self, tagfield, event)
 
 class AliasesDialog(gtk.Dialog):
 	def __init__(self, client, parent, guid):
@@ -937,7 +938,7 @@ class AliasesDialog(gtk.Dialog):
 		self._refresh()
 
 class TagCompletionDialog(gtk.Dialog):
-	def __init__(self, client, parent, word, alts):
+	def __init__(self, tw, client, parent, word, alts):
 		gtk.Dialog.__init__(self, u"Completing " + word, parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
 		self.set_default_response(gtk.RESPONSE_ACCEPT)
 		self.word = word
