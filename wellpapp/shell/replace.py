@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from __future__ import print_function
 
 from os.path import lexists, realpath
@@ -70,7 +68,3 @@ def main(arg0, argv):
 	path = client.image_path(m)
 	if lexists(path):
 		unlink(path)
-
-if __name__ == '__main__':
-	from sys import argv
-	main(argv[0], argv[1:])
