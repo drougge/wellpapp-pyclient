@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
+from __future__ import print_function
+
 from sys import argv, exit
 from itertools import chain
 import pygtk
@@ -1152,7 +1154,7 @@ class FileLoader(Thread):
 
 if __name__ == "__main__":
 	if len(argv) < 2:
-		print "Usage:", argv[0], "post-spec [post-spec [...]]"
+		print("Usage:", argv[0], "post-spec [post-spec [...]]")
 		exit(1)
 	client = Client()
 	tw = TagWindow()
