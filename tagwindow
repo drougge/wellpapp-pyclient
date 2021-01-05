@@ -44,7 +44,7 @@ _fuzz_ignore = u"".join(map(unichr, range(33))) + u"-_()[]{}.,!/\"'?<>@=+%$#|\\"
 def _completefuzz(word):
 	return filter(lambda c: c not in _fuzz_ignore, word.lower())
 
-def complete(word):
+def complete(client, word):
 	assert u" " not in word
 	pre = prefix(word)
 	word = clean(word)
@@ -86,7 +86,7 @@ def complete(word):
 	candidates = [(c, names[c]) for c in candidates]
 	return word, candidates
 
-def complete_entry(parent, window, tagfield, event):
+def complete_entry(client, parent, window, tagfield, event):
 	if gtk.gdk.keyval_name(event.keyval) == "Tab" and \
 	   not event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK):
 		parent.tab_count += 1
@@ -103,7 +103,7 @@ def complete_entry(parent, window, tagfield, event):
 		if parent.tab_count == 1:
 			parent.show_alts([])
 			if word:
-				new_word, alts = complete(word)
+				new_word, alts = complete(client, word)
 				parent.tab_alts = alts
 				if alts:
 					parent.show_alts(alts)
@@ -116,7 +116,7 @@ def complete_entry(parent, window, tagfield, event):
 			if parent.tab_alts:
 				left = left + prefix(word)
 				word = clean(word)
-				dialog = TagCompletionDialog(window, word, parent.tab_alts)
+				dialog = TagCompletionDialog(client, window, word, parent.tab_alts)
 				if dialog.run() == gtk.RESPONSE_ACCEPT:
 					update(dialog.get_tt())
 				dialog.destroy()
@@ -169,6 +169,7 @@ taglisttypes = [TYPE_STRING] * 6
 
 class TagWindow:
 	def __init__(self):
+		self.client = Client()
 		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
 		self.window.set_border_width(2)
 		self.window.connect("destroy", self.destroy)
@@ -272,10 +273,10 @@ class TagWindow:
 		self.tagfield.connect("drag_data_received", self.drag_put_tagfield)
 		self.vbox.pack_end(self.tagfield, False, False, 0)
 		self.window.add(self.vbox)
-		self.window.set_default_size(int(client.cfg.tagwindow_width), int(client.cfg.tagwindow_height))
+		self.window.set_default_size(int(self.client.cfg.tagwindow_width), int(self.client.cfg.tagwindow_height))
 		self.window.show_all()
 		self.b_apply.hide()
-		self.type2colour = dict([cs.split("=") for cs in client.cfg.tagcolours.split()])
+		self.type2colour = dict([cs.split("=") for cs in self.client.cfg.tagcolours.split()])
 		self.md5s = set()
 		self.fullscreen_open = False
 		self.taglist = {}
@@ -359,14 +360,14 @@ class TagWindow:
 
 	def implications(self, widget, data):
 		parent, guid = data
-		dialog = ImplicationsDialog(parent, guid)
+		dialog = ImplicationsDialog(self.client, parent, guid)
 		dialog.run()
 		self._needs_refresh = dialog.did_something
 		dialog.destroy()
 
 	def aliases(self, widget, data):
 		parent, guid = data
-		dialog = AliasesDialog(parent, guid)
+		dialog = AliasesDialog(self.client, parent, guid)
 		dialog.run()
 		dialog.destroy()
 
@@ -374,8 +375,8 @@ class TagWindow:
 		model = tv.get_model()
 		pre = prefix(model[row][0])
 		guid = clean(model[row][1])[:27]
-		tag = client.get_tag(guid)
-		dialog = TagDialog(self.window, u"Modify tag", tag.name, tag.type)
+		tag = self.client.get_tag(guid)
+		dialog = TagDialog(self.client, self.window, u"Modify tag", tag.name, tag.type)
 		if tag.valuetype:
 			vt = markup_escape_text(tag.valuetype.encode("utf-8"))
 			mu = "<span color=\"#ff0000\">" + vt + "</span>"
@@ -403,7 +404,7 @@ class TagWindow:
 			if new_name == tag.name: new_name = None
 			if new_type or new_name:
 				try:
-					client.mod_tag(guid, type=new_type, name=new_name)
+					self.client.mod_tag(guid, type=new_type, name=new_name)
 					if new_name:
 						self.ids[guid].name = new_name
 						if new_type:
@@ -437,7 +438,7 @@ class TagWindow:
 		return "#%02x%02x%02x" % tuple([int(ord(c) / 1.6) for c in md5(type).digest()[:3]])
 
 	def tag_colour_guid(self, guid):
-		return self.tag_colour(client.get_tag(guid).type)
+		return self.tag_colour(self.client.get_tag(guid).type)
 
 	def fmt_tag(self, g):
 		t = self.ids[clean(g)]
@@ -473,7 +474,7 @@ class TagWindow:
 			lo.append(t[1:])
 
 	def refresh(self):
-		posts = map(lambda m: client.get_post(m, True), self.md5s)
+		posts = map(lambda m: self.client.get_post(m, True), self.md5s)
 		if None in posts:
 			self.error(u"Post(s) not found")
 			posts = filter(None, posts)
@@ -530,7 +531,7 @@ class TagWindow:
 		try:
 			self.fullscreen_open = True
 			m = self.thumbs[path][0]
-			fn = client.image_path(m)
+			fn = self.client.image_path(m)
 			self.set_msg(u"Loading image")
 			f = FullscreenWindowThread(fn, tw)
 			f.start()
@@ -596,14 +597,14 @@ class TagWindow:
 		self.msg.set_markup(mu)
 
 	def tagfield_key(self, tagfield, event):
-		return complete_entry(self, self.window, tagfield, event)
+		return complete_entry(self.client, self, self.window, tagfield, event)
 
 	def create_tag(self, name):
-		dialog = TagDialog(self.window, u"Create tag", name)
+		dialog = TagDialog(self.client, self.window, u"Create tag", name)
 		if dialog.run() == gtk.RESPONSE_ACCEPT:
 			t = dialog.get_tt()
 			if t:
-				client.add_tag(name, t)
+				self.client.add_tag(name, t)
 		dialog.destroy()
 
 	def apply_action(self, widget, data=None):
@@ -616,10 +617,10 @@ class TagWindow:
 		good = []
 		failed = []
 		for t in orgtext.split():
-			tag = client.parse_tag(t)
+			tag = self.client.parse_tag(t)
 			if not tag and prefix(t) != u"-":
 				self.create_tag(clean(t))
-				tag = client.parse_tag(t)
+				tag = self.client.parse_tag(t)
 			if tag:
 				good.append((tag, t))
 			else:
@@ -665,15 +666,15 @@ class TagWindow:
 				failed.append(t)
 		bad = False
 		todo_m = filter(lambda m: todo[m] != ([], [], []), todo)
-		if todo_m: client.begin_transaction()
+		if todo_m: self.client.begin_transaction()
 		try:
 			for m in todo_m:
 				full, weak, remove = map(set, todo[m])
-				client.tag_post(m, full, weak, remove)
+				self.client.tag_post(m, full, weak, remove)
 		except WellpappError:
 			bad = True
 		finally:
-			if todo_m: client.end_transaction()
+			if todo_m: self.client.end_transaction()
 		self.refresh()
 		return bad
 
@@ -695,9 +696,10 @@ class TagWindow:
 		gtk.main()
 
 class TagDialog(gtk.Dialog):
-	def __init__(self, mainwin, title, tagname, tagtype=None):
+	def __init__(self, client, mainwin, title, tagname, tagtype=None):
 		gtk.Dialog.__init__(self, title, mainwin, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
 		self.set_default_response(gtk.RESPONSE_ACCEPT)
+		self._client = client
 		lab = gtk.Label(tagname)
 		self.vbox.pack_start(lab)
 		# Workaround for it being impossible to have no selected row, but
@@ -714,7 +716,7 @@ class TagDialog(gtk.Dialog):
 	def _make_tt_tv(self, selname, tagname):
 		selpos = None
 		ls = gtk.ListStore(TYPE_STRING)
-		tt = client.metalist(u"tagtypes")
+		tt = self._client.metalist(u"tagtypes")
 		for pos, t in zip(range(len(tt)), tt):
 			ls.append((t,))
 			if t == selname: selpos = pos
@@ -742,8 +744,9 @@ class TagDialog(gtk.Dialog):
 			self._can_enter = True
 
 class ImplicationsDialog(gtk.Dialog):
-	def __init__(self, parent, guid):
+	def __init__(self, client, parent, guid):
 		gtk.Dialog.__init__(self, u"Implications", parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.RESPONSE_ACCEPT))
+		self._client = client
 		self.guid = guid
 		impl = client.tag_implies(self.guid, True)
 		if impl:
@@ -798,7 +801,7 @@ class ImplicationsDialog(gtk.Dialog):
 		self.show_all()
 
 	def _show_impl(self):
-		impl = client.tag_implies(self.guid)
+		impl = self._client.tag_implies(self.guid)
 		[self._ibox.remove(c) for c in self._ibox.get_children()]
 		if impl:
 			lines = map(self._impl_wids, impl)
@@ -816,7 +819,7 @@ class ImplicationsDialog(gtk.Dialog):
 		self._add_name.grab_focus()
 
 	def _impl_wids(self, impl):
-		name = client.get_tag(impl.guid, with_prefix=True).pname
+		name = self._client.get_tag(impl.guid, with_prefix=True).pname
 		lab = gtk.Label(name)
 		if impl.filter or impl.value:
 			# Ideally, we'd have support for updating this too.
@@ -847,12 +850,12 @@ class ImplicationsDialog(gtk.Dialog):
 			prio = int(entry.get_text())
 		except ValueError:
 			prio = 0
-		client.add_implies(self.guid, guid, prio)
+		self._client.add_implies(self.guid, guid, prio)
 		self.did_something = True
 		entry.set_text(unicode(prio))
 
 	def _remove(self, wids, guid):
-		client.remove_implies(self.guid, guid)
+		self._client.remove_implies(self.guid, guid)
 		self.did_something = True
 		for w in wids:
 			w.hide()
@@ -868,9 +871,9 @@ class ImplicationsDialog(gtk.Dialog):
 			prio = 0
 		pre = prefix(name)
 		if pre and pre != u"-": return
-		tag = client.find_tag(name, with_prefix=True)
+		tag = self._client.find_tag(name, with_prefix=True)
 		if not tag: return
-		client.add_implies(self.guid, tag, prio)
+		self._client.add_implies(self.guid, tag, prio)
 		self.did_something = True
 		self._add_name.set_text(u"")
 		self._add_prio.set_text(u"0")
@@ -881,11 +884,12 @@ class ImplicationsDialog(gtk.Dialog):
 		pass
 
 	def _complete(self, tagfield, event):
-		return complete_entry(self, self, tagfield, event)
+		return complete_entry(self._client, self, self, tagfield, event)
 
 class AliasesDialog(gtk.Dialog):
-	def __init__(self, parent, guid):
+	def __init__(self, client, parent, guid):
 		gtk.Dialog.__init__(self, u"Aliases", parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.RESPONSE_ACCEPT))
+		self._client = client
 		self.guid = guid
 		self._add_name = gtk.Entry()
 		self._add_name.connect("activate", self._add)
@@ -897,7 +901,7 @@ class AliasesDialog(gtk.Dialog):
 		self.show_all()
 
 	def _refresh(self):
-		tag = client.get_tag(self.guid)
+		tag = self._client.get_tag(self.guid)
 		[self._list.remove(c) for c in self._list.get_children()]
 		if "alias" in tag:
 			lines = [self._wids(n) for n in sorted(tag.alias)]
@@ -920,7 +924,7 @@ class AliasesDialog(gtk.Dialog):
 		return lab, btn
 
 	def _rm(self, name):
-		client.remove_alias(name)
+		self._client.remove_alias(name)
 		self._refresh()
 
 	def _add(self, *a):
@@ -928,12 +932,12 @@ class AliasesDialog(gtk.Dialog):
 		if not name:
 			self.emit("close")
 			return
-		client.add_alias(name, self.guid)
+		self._client.add_alias(name, self.guid)
 		self._add_name.set_text(u"")
 		self._refresh()
 
 class TagCompletionDialog(gtk.Dialog):
-	def __init__(self, parent, word, alts):
+	def __init__(self, client, parent, word, alts):
 		gtk.Dialog.__init__(self, u"Completing " + word, parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
 		self.set_default_response(gtk.RESPONSE_ACCEPT)
 		self.word = word
@@ -1087,10 +1091,11 @@ class FullscreenWindow(gtk.Window):
 		gtk.Window.destroy(self)
 
 class FileLoaderWorker(Thread):
-	def __init__(self, q_in, d_out, z):
+	def __init__(self, client, q_in, d_out, z):
 		Thread.__init__(self)
 		self.name = "FileLoaderWorker"
 		self.daemon = True
+		self._client = client
 		self._q_in = q_in
 		self._d_out = d_out
 		self._z = z
@@ -1101,12 +1106,12 @@ class FileLoaderWorker(Thread):
 				d = self._q_in.get(False)
 				m = thumb = None
 				try:
-					m = client.postspec2md5(d)
+					m = self._client.postspec2md5(d)
 				except Exception:
 					pass
 				if m:
 					try:
-						fn = client.thumb_path(m, self._z)
+						fn = self._client.thumb_path(m, self._z)
 						thumb = gtk.gdk.pixbuf_new_from_file(fn)
 					except Exception:
 						pass
@@ -1130,7 +1135,7 @@ class FileLoader(Thread):
 		d_out = {}
 		z = int(client.cfg.thumb_sizes.split()[0])
 		for _ in range(cpu_count()):
-			FileLoaderWorker(q_in, d_out, z).start()
+			FileLoaderWorker(client, q_in, d_out, z).start()
 		q_in.join()
 		good = True
 		md5s = [d_out[d][0] for d in self._argv]
@@ -1156,7 +1161,6 @@ if __name__ == "__main__":
 	if len(argv) < 2:
 		print("Usage:", argv[0], "post-spec [post-spec [...]]")
 		exit(1)
-	client = Client()
 	tw = TagWindow()
 	fl = FileLoader(tw, argv[1:])
 	fl.start()
