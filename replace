@@ -4,11 +4,25 @@ from __future__ import print_function
 
 from os.path import lexists, realpath
 from os import unlink, rename, symlink, stat
+from optparse import OptionParser
 from hashlib import md5
 from PIL import Image, PngImagePlugin
-from wellpapp import make_pdirs
+from wellpapp import Client, make_pdirs
 
-def replace(oldfile, newfile, regenerate_thumbs=False):
+def main(arg0, argv):
+	p = OptionParser(usage="Usage: %prog [-t] post-spec new-file", prog=arg0)
+	p.add_option("-t", "--regenerate-thumbs",
+	             action="store_true",
+	             help="Regenerate thumbnails from new-file"
+	            )
+	opts, args = p.parse_args(argv)
+	if len(args) != 2:
+		p.print_help()
+		return 1
+
+	client = Client()
+
+	oldfile, newfile = args
 	m = client.postspec2md5(oldfile)
 	post = client.get_post(m, wanted=(["ext", "rotate"]))
 	if not post:
@@ -25,7 +39,7 @@ def replace(oldfile, newfile, regenerate_thumbs=False):
 		unlink(path)
 	make_pdirs(path)
 	symlink(realpath(newfile), path)
-	if regenerate_thumbs:
+	if opts.regenerate_thumbs:
 #		@@ assumes same ext
 		client.save_thumbs(newm, None, post.ext, post.rotate, True)
 	else:
@@ -36,7 +50,7 @@ def replace(oldfile, newfile, regenerate_thumbs=False):
 	for z in sizes:
 		if isinstance(z, int):
 			oldpath = client.thumb_path(m, z)
-			if regenerate_thumbs:
+			if opts.regenerate_thumbs:
 				unlink(oldpath)
 			else:
 				newpath = client.thumb_path(newm, z)
@@ -44,7 +58,7 @@ def replace(oldfile, newfile, regenerate_thumbs=False):
 				rename(oldpath, newpath)
 		else:
 			oldpath = client.pngthumb_path(m, post.ext, z)
-			if regenerate_thumbs:
+			if opts.regenerate_thumbs:
 				unlink(oldpath)
 			else:
 				t = Image.open(oldpath)
@@ -57,18 +71,6 @@ def replace(oldfile, newfile, regenerate_thumbs=False):
 	if lexists(path):
 		unlink(path)
 
-if __name__ == "__main__":
-	from optparse import OptionParser
-	from wellpapp import Client
-	from sys import exit
-	p = OptionParser(usage="Usage: %prog [-t] post-spec new-file")
-	p.add_option("-t", "--regenerate-thumbs",
-	             action="store_true",
-	             help="Regenerate thumbnails from new-file"
-	            )
-	opts, args = p.parse_args()
-	if len(args) != 2:
-		p.print_help()
-		exit(1)
-	client = Client()
-	exit(replace(*args, **opts.__dict__))
+if __name__ == '__main__':
+	from sys import argv
+	main(argv[0], argv[1:])
