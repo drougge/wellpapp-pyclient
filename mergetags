@@ -2,16 +2,20 @@
 
 from __future__ import print_function
 
-from sys import argv, exit
 from wellpapp import Client
 
-if len(argv) != 3:
-	print("Usage:", argv[0], "into-tag from-tag")
-	exit(1)
+def main(arg0, argv):
+	if len(argv) != 2:
+		print("Usage:", arg0, "into-tag from-tag")
+		return 1
 
-client = Client()
-into_t, from_t = map(client.find_tag, argv[1:])
-if not into_t or not from_t:
-	print("Tag not found")
-	exit(1)
-client.merge_tags(into_t, from_t)
+	client = Client()
+	into_t, from_t = map(client.find_tag, argv)
+	if not into_t or not from_t:
+		print("Tag not found")
+		return 1
+	client.merge_tags(into_t, from_t)
+
+if __name__ == '__main__':
+	from sys import argv
+	main(argv[0], argv[1:])
