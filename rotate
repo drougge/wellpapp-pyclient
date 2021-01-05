@@ -2,44 +2,48 @@
 
 from __future__ import print_function
 
-from sys import argv, exit
 from wellpapp import Client
 
-if len(argv) < 3:
-	print("Usage:", argv[0], "rotation post-spec [post-spec [..]]")
-	exit(1)
+def main(arg0, argv):
+	if len(argv) < 2:
+		print("Usage:", arg0, "rotation post-spec [post-spec [..]]")
+		return 1
 
-new_r = int(argv[1])
-if abs(new_r) not in (90, 180, 270):
-	print("Can only handle 90, 180 or 270 degrees rotation")
-	exit(1)
+	new_r = int(argv[0])
+	if abs(new_r) not in (90, 180, 270):
+		print("Can only handle 90, 180 or 270 degrees rotation")
+		return 1
 
-def rotate(spec):
-	global bad
-	md5 = client.postspec2md5(spec)
-	post = None
-	if md5:
-		post = client.get_post(md5, wanted = ["rotate", "ext", "width", "height"])
-	if not post:
-		print(spec + ": Post not found")
-		bad = 1
-		return
-	r = int(post.get("rotate", 0))
-	if r not in (0, 90, 180, 270):
-		print(spec + ": Invalid current rotation")
-		bad = 1
-		return
-	dest_r = (r + new_r) % 360
-	props = {"rotate": dest_r}
-	if abs(new_r) in (90, 270):
-		props["width"], props["height"] = post["height"], post["width"]
-	client.save_thumbs(md5, None, post.ext, dest_r, True)
-	client.modify_post(md5, **props)
+	def rotate(spec):
+		global bad
+		md5 = client.postspec2md5(spec)
+		post = None
+		if md5:
+			post = client.get_post(md5, wanted = ["rotate", "ext", "width", "height"])
+		if not post:
+			print(spec + ": Post not found")
+			bad = 1
+			return
+		r = int(post.get("rotate", 0))
+		if r not in (0, 90, 180, 270):
+			print(spec + ": Invalid current rotation")
+			bad = 1
+			return
+		dest_r = (r + new_r) % 360
+		props = {"rotate": dest_r}
+		if abs(new_r) in (90, 270):
+			props["width"], props["height"] = post["height"], post["width"]
+		client.save_thumbs(md5, None, post.ext, dest_r, True)
+		client.modify_post(md5, **props)
 
-client = Client()
-client.begin_transaction()
-bad = 0
+	client = Client()
+	client.begin_transaction()
+	bad = 0
 
-for spec in argv[2:]:
-	rotate(spec)
-exit(bad)
+	for spec in argv[1:]:
+		rotate(spec)
+	return bad
+
+if __name__ == '__main__':
+	from sys import argv
+	main(argv[0], argv[1:])
