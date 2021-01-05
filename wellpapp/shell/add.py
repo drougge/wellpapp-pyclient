@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from __future__ import print_function
 from __future__ import unicode_literals
 
@@ -499,7 +497,3 @@ def main(arg0, argv):
 					break
 	print_q(warn_q, "Files with warnings:")
 	print_q(bad_q, "Failed files:")
-
-if __name__ == '__main__':
-	from sys import argv
-	main(argv[0], argv[1:])
