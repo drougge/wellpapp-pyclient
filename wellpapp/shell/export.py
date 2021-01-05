@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from __future__ import print_function
 
 from sys import exit
@@ -270,7 +268,3 @@ def main(arg0, argv):
 		dest_client.order(g, [m for m in order if m in md5s])
 
 	dest_client.end_transaction()
-
-if __name__ == '__main__':
-	from sys import argv
-	main(argv[0], argv[1:])
