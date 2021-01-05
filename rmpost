@@ -2,59 +2,59 @@
 
 from __future__ import print_function
 
-from sys import argv, exit
 from wellpapp import Client
 from os.path import exists, lexists
 from os import unlink
 
-def rmthumbs(post):
-	m = post["md5"]
-	sizes = list(map(int, client.cfg.thumb_sizes.split())) + ["normal", "large"]
-	for z in sizes:
-		if isinstance(z, int):
-			path = client.thumb_path(m, z)
-		else:
-			path = client.pngthumb_path(m, post["ext"], z)
-		if exists(path):
+def main(arg0, argv):
+	if len(argv) < 1:
+		print("Usage:", arg0, "[-f] post-spec [post-spec [..]]")
+		print("\t-f: Force delete, even if post has tags/rels.")
+		return 1
+
+	def rmthumbs(post):
+		m = post["md5"]
+		sizes = list(map(int, client.cfg.thumb_sizes.split())) + ["normal", "large"]
+		for z in sizes:
+			if isinstance(z, int):
+				path = client.thumb_path(m, z)
+			else:
+				path = client.pngthumb_path(m, post["ext"], z)
+			if exists(path):
+				unlink(path)
+
+	def rmimg(m):
+		path = client.image_path(m)
+		if lexists(path):
 			unlink(path)
 
-def rmimg(m):
-	path = client.image_path(m)
-	if lexists(path):
-		unlink(path)
-
-def delete_post(m, force):
-	post = client.get_post(m, True, ["tagguid", "ext", "implied"])
-	if not post:
-		print(m, "post not found")
-		return 1
-	if post.tags:
-		if force:
-			client.tag_post(m, remove_tags=[t.guid for t in post.settags])
-		else:
-			print(m, "post has tags")
+	def delete_post(m, force):
+		post = client.get_post(m, True, ["tagguid", "ext", "implied"])
+		if not post:
+			print(m, "post not found")
 			return 1
-	rels = client.post_rels(m)
-	if rels:
-		if force:
-			client.remove_rels(m, rels)
-		else:
-			print(m, "post has related posts")
-			return 1
-	client.delete_post(m)
-	rmthumbs(post)
-	rmimg(m)
-	return 0
+		if post.tags:
+			if force:
+				client.tag_post(m, remove_tags=[t.guid for t in post.settags])
+			else:
+				print(m, "post has tags")
+				return 1
+		rels = client.post_rels(m)
+		if rels:
+			if force:
+				client.remove_rels(m, rels)
+			else:
+				print(m, "post has related posts")
+				return 1
+		client.delete_post(m)
+		rmthumbs(post)
+		rmimg(m)
+		return 0
 
-if __name__ == "__main__":
-	if len(argv) < 2:
-		print("Usage:", argv[0], "[-f] post-spec [post-spec [..]]")
-		print("\t-f: Force delete, even if post has tags/rels.")
-		exit(1)
 	client = Client()
 	ret = 0
 	force = False
-	for ps in argv[1:]:
+	for ps in argv:
 		if ps == '-f':
 			force = True
 			continue
@@ -64,4 +64,8 @@ if __name__ == "__main__":
 		else:
 			print("Post not found:", ps)
 			ret = 1
-	exit(ret)
+	return ret
+
+if __name__ == '__main__':
+	from sys import argv
+	main(argv[0], argv[1:])
