@@ -2,6 +2,15 @@
 # -*- coding: iso-8859-1 -*-
 
 from __future__ import print_function
+from __future__ import division
+
+from sys import version_info
+if version_info[0] > 2:
+	unicode = str
+	unichr = chr
+	import queue as Queue
+else:
+	import Queue
 
 from itertools import chain
 import pygtk
@@ -15,7 +24,6 @@ from hashlib import md5
 from threading import Thread
 from glib import markup_escape_text
 from multiprocessing import cpu_count
-import Queue
 
 from wellpapp import Client, RawWrapper, WellpappError
 
@@ -1012,7 +1020,7 @@ class FullscreenWindowThread(Thread):
 	def run(self):
 		loader = None
 		try:
-			fh = RawWrapper(file(self._fn, "rb"))
+			fh = RawWrapper(open(self._fn, "rb"))
 			loader = gtk.gdk.PixbufLoader()
 			fh.seek(0, 2)
 			l = fh.tell()
@@ -1066,8 +1074,7 @@ class FullscreenWindow(gtk.Window):
 	def _scale_pixbuf_to_fit_win(self):
 		win_w, win_h = self.get_size()
 		if (win_w < self.pix_w) or (win_h < self.pix_h):
-			scalefactor = min(float(win_w) / self.pix_w,
-			                  float(win_h) / self.pix_h)
+			scalefactor = min(win_w / self.pix_w, win_h / self.pix_h)
 			self.scale_pixbuf_to_scalefactor(scalefactor)
 		else:
 			self.image.set_from_pixbuf(self.pixbuf)
