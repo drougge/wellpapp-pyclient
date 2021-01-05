@@ -3,7 +3,6 @@
 
 from __future__ import print_function
 
-from sys import argv, exit
 from itertools import chain
 import pygtk
 pygtk.require("2.0")
@@ -1158,11 +1157,15 @@ class FileLoader(Thread):
 			idle_add(self._tw.set_msg, u"")
 			idle_add(self._tw.update_thumb_tooltips)
 
-if __name__ == "__main__":
-	if len(argv) < 2:
-		print("Usage:", argv[0], "post-spec [post-spec [...]]")
-		exit(1)
+def main(arg0, argv):
+	if len(argv) < 1:
+		print("Usage:", arg0, "post-spec [post-spec [...]]")
+		return 1
 	tw = TagWindow()
-	fl = FileLoader(tw, argv[1:])
+	fl = FileLoader(tw, argv)
 	fl.start()
 	tw.main()
+
+if __name__ == "__main__":
+	from sys import argv, exit
+	exit(main(argv[0], argv[1:]))
