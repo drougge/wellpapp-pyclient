@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from __future__ import print_function
 
 from wellpapp import Client
@@ -40,7 +38,3 @@ def main(arg0, argv):
 			set_prop(props, prop)
 		if props:
 			client.modify_post(md5, **props)
-
-if __name__ == '__main__':
-	from sys import argv
-	main(argv[0], argv[1:])
