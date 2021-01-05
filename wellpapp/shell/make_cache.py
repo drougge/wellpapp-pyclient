@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from __future__ import print_function
 
 from os import walk, readlink, stat
@@ -60,7 +58,3 @@ def main(arg0, argv):
 			else:
 				print("Failed to convert " + n + " to post")
 	res.close()
-
-if __name__ == '__main__':
-	from sys import argv
-	main(argv[0], argv[1:])
