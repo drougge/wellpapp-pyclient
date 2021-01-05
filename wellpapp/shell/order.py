@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from __future__ import print_function
 
 from wellpapp import Client
@@ -34,7 +32,3 @@ def main(arg0, argv):
 			print("Post " + spec + " doesn't have tag.")
 			return 1
 	client.order(tag, posts)
-
-if __name__ == '__main__':
-	from sys import argv
-	main(argv[0], argv[1:])
