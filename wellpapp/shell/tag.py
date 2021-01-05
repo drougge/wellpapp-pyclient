@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from __future__ import print_function
 
 from wellpapp import Client
@@ -53,7 +51,3 @@ def main(arg0, argv):
 				print("Unknown tag", tag)
 		if full or weak or remove:
 			client.tag_post(md5, full, weak, remove)
-
-if __name__ == '__main__':
-	from sys import argv
-	main(argv[0], argv[1:])
