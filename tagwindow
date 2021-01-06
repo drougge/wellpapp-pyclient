@@ -153,7 +153,7 @@ class FixedTreeView(gtk.TreeView):
 			return
 		if event.button == 2:
 			return
-		ev = map(int, (event.x, event.y))
+		ev = (int(event.x), int(event.y))
 		path = self.get_path_at_pos(*ev)
 		if not path: return True
 		if self.get_selection().path_is_selected(path[0]):
@@ -166,7 +166,7 @@ class FixedTreeView(gtk.TreeView):
 		if self._event:
 			oldev = self._event
 			self._event = None
-			if oldev != map(int, (event.x, event.y)): return True
+			if oldev != (int(event.x), int(event.y)): return True
 			path = self.get_path_at_pos(*oldev)
 			if path: self.set_cursor(path[0], path[1])
 
@@ -483,7 +483,7 @@ class TagWindow:
 			lo.append(t[1:])
 
 	def refresh(self):
-		posts = map(lambda m: self.client.get_post(m, True), self.md5s)
+		posts = [self.client.get_post(m, True) for m in self.md5s]
 		if None in posts:
 			self.error(u"Post(s) not found")
 			posts = filter(None, posts)
@@ -814,7 +814,7 @@ class ImplicationsDialog(gtk.Dialog):
 		impl = self._client.tag_implies(self.guid)
 		[self._ibox.remove(c) for c in self._ibox.get_children()]
 		if impl:
-			lines = map(self._impl_wids, impl)
+			lines = list(map(self._impl_wids, impl))
 			self._ibox.resize(len(lines) + 1, 4)
 			for row, l in enumerate(sorted(lines)):
 				for col, wid in zip(range(4), l[1]):
@@ -1140,7 +1140,8 @@ class FileLoader(Thread):
 	def run(self):
 		client = Client()
 		q_in = Queue.Queue()
-		map(q_in.put, self._argv)
+		for d in self._argv:
+			q_in.put(d)
 		d_out = {}
 		z = int(client.cfg.thumb_sizes.split()[0])
 		for _ in range(cpu_count()):
