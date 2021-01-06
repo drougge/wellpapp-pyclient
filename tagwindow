@@ -85,7 +85,7 @@ def complete(tw, word):
 		inc = lambda n: _completefuzz(n)[:len(word)] == word
 		candidates = filter(inc, tags) + filter(inc, aliases)
 		candidates = map(unicode.lower, candidates)
-		for k in names.keys():
+		for k in list(names):
 			names[k.lower()] = names[k]
 	common = commonprefix(candidates)
 	org_fuzz = _completefuzz(org_word)
@@ -498,8 +498,7 @@ class TagWindow:
 				tt.setdefault("valuelist", []).append(t.value)
 		self.ids = ids
 		self.posts = dict([(p.md5, p) for p in posts])
-		agl = self.ids.keys()
-		self.tag_colours = dict(zip(agl, [self.tag_colour_guid(clean(tg)) for tg in agl]))
+		self.tag_colours = {tg: self.tag_colour_guid(clean(tg)) for tg in self.ids}
 		self._tagcompute(posts, "")
 		self._tagcompute(posts, "impl")
 		self.put_in_list(self.tags_all, "all")
@@ -517,10 +516,11 @@ class TagWindow:
 
 	def _tagcompute(self, posts, pre):
 		def guids(p):
-			tags = p[pre + "fulltags"].values() + p[pre + "weaktags"].values()
-			return [t.pguid for t in tags]
-		self.taglist[pre + "all"] = set(guids(posts[0]))
-		self.taglist[pre + "any"] = set(guids(posts[0]))
+			gs = set(t.pguid for t in p[pre + "fulltags"].values())
+			gs.update(t.pguid for t in p[pre + "weaktags"].values())
+			return gs
+		self.taglist[pre + "all"] = guids(posts[0])
+		self.taglist[pre + "any"] = guids(posts[0])
 		for p in posts:
 			self.taglist[pre + "all"].intersection_update(guids(p))
 			self.taglist[pre + "any"].update(guids(p))
@@ -561,8 +561,9 @@ class TagWindow:
 		all = set()
 		count = 0
 		def guids(p):
-			tags = p[pre + "fulltags"].values() + p[pre + "weaktags"].values()
-			return set(t.pguid for t in tags)
+			gs = set(t.pguid for t in p[pre + "fulltags"].values())
+			gs.update(t.pguid for t in p[pre + "weaktags"].values())
+			return gs
 		for path in self.thumbview.get_selected_items():
 			m = self.thumbs[path][0]
 			g = guids(self.posts[m])
