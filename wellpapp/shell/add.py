@@ -17,6 +17,7 @@ if version_info[0] == 2:
 	from io import open
 else:
 	from queue import Empty
+	unicode = str
 
 def determine_filetype(data):
 	data2 = data[:2]
@@ -73,7 +74,19 @@ def determine_filetype(data):
 	if data.startswith(b"%PDF-"):
 		return "pdf"
 
+def _gpsparse(pos):
+	if isinstance(pos, (str, unicode)):
+		pos = [float(p) for p in pos.split("/")]
+		assert len(pos) in (1, 2), pos
+		if len(pos) == 2:
+			return pos[0] / pos[1]
+		return pos[0]
+	return pos
+
 def _gpspos(pos, ref):
+	if isinstance(pos, (str, unicode)):
+		pos = pos.split()
+	pos = [_gpsparse(v) for v in pos]
 	pos = pos[0] + pos[1] / 60 + pos[2] / 3600
 	if ref and ref[0] in "SWsw":
 		pos = -pos
