@@ -51,7 +51,7 @@ def _uni(s):
 
 _fuzz_ignore = u"".join(map(unichr, range(33))) + u"-_()[]{}.,!/\"'?<>@=+%$#|\\"
 def _completefuzz(word):
-	return filter(lambda c: c not in _fuzz_ignore, word.lower())
+	return list(filter(lambda c: c not in _fuzz_ignore, word.lower()))
 
 def complete(tw, word):
 	assert u" " not in word
@@ -79,12 +79,12 @@ def complete(tw, word):
 	aliases = chain(*aliases)
 	tags = [t["name"] for t in tags]
 	inc = lambda n: n[:len(word)] == word
-	candidates = filter(inc, tags) + filter(inc, aliases)
+	candidates = list(filter(inc, tags)) + list(filter(inc, aliases))
 	if not candidates:
 		word = _completefuzz(word)
 		inc = lambda n: _completefuzz(n)[:len(word)] == word
-		candidates = filter(inc, tags) + filter(inc, aliases)
-		candidates = map(unicode.lower, candidates)
+		candidates = list(filter(inc, tags)) + list(filter(inc, aliases))
+		candidates = list(map(unicode.lower, candidates))
 		for k in list(names):
 			names[k.lower()] = names[k]
 	common = commonprefix(candidates)
@@ -486,7 +486,7 @@ class TagWindow:
 		posts = [self.client.get_post(m, True) for m in self.md5s]
 		if None in posts:
 			self.error(u"Post(s) not found")
-			posts = filter(None, posts)
+			posts = list(filter(None, posts))
 		if not posts:
 			self.error(u"No posts found")
 			return
@@ -675,7 +675,7 @@ class TagWindow:
 				print_exc()
 				failed.append(t)
 		bad = False
-		todo_m = filter(lambda m: todo[m] != ([], [], []), todo)
+		todo_m = list(filter(lambda m: todo[m] != ([], [], []), todo))
 		if todo_m: self.client.begin_transaction()
 		try:
 			for m in todo_m:
@@ -1152,7 +1152,7 @@ class FileLoader(Thread):
 		md5s = [d_out[d][0] for d in self._argv]
 		if None in md5s:
 			idle_add(self._tw.error, u"File(s) not found")
-			md5s = filter(None, md5s)
+			md5s = list(filter(None, md5s))
 			good = False
 		if not md5s:
 			idle_add(self._tw.error, u"No posts found")
