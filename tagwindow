@@ -12,19 +12,19 @@ if version_info[0] > 2:
 else:
 	import Queue
 
-from gi import pygtkcompat
-pygtkcompat.enable()
-pygtkcompat.enable_gtk(version='3.0')
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk as gtk
+from gi.repository import Gdk as gdk
+from gi.repository import GdkPixbuf
+from gi.repository.GObject import TYPE_STRING, TYPE_INT
+from gi.repository import Pango
+from gi.repository.GLib import markup_escape_text, idle_add
 
 from itertools import chain
-import gtk
-from gobject import threads_init, idle_add, TYPE_STRING, TYPE_INT
-from pango import ELLIPSIZE_END
-threads_init()
 from os.path import commonprefix
 from hashlib import md5
 from threading import Thread
-from glib import markup_escape_text
 from multiprocessing import cpu_count
 
 from wellpapp import Client, RawWrapper, WellpappError
@@ -96,8 +96,8 @@ def complete(tw, word):
 	return word, candidates
 
 def complete_entry(tw, parent, window, tagfield, event):
-	if gtk.gdk.keyval_name(event.keyval) == "Tab" and \
-	   not event.state & (gtk.gdk.SHIFT_MASK | gtk.gdk.CONTROL_MASK):
+	if gdk.keyval_name(event.keyval) == "Tab" and \
+	   not event.state & (gdk.ModifierType.SHIFT_MASK | gdk.ModifierType.CONTROL_MASK):
 		parent.tab_count += 1
 		text = _uni(tagfield.get_text())
 		pos = tagfield.get_position()
@@ -126,7 +126,7 @@ def complete_entry(tw, parent, window, tagfield, event):
 				left = left + prefix(word)
 				word = clean(word)
 				dialog = TagCompletionDialog(tw, tw.client, window, word, parent.tab_alts)
-				if dialog.run() == gtk.RESPONSE_ACCEPT:
+				if dialog.run() == gtk.ResponseType.ACCEPT:
 					update(dialog.get_tt())
 				dialog.destroy()
 		return True
@@ -149,7 +149,7 @@ class FixedTreeView(gtk.TreeView):
 
 	def _press(self, tv, event, data=None):
 		self._select_all_state = False
-		if event.state & (gtk.gdk.CONTROL_MASK | gtk.gdk.SHIFT_MASK):
+		if event.state & (gdk.ModifierType.CONTROL_MASK | gdk.ModifierType.SHIFT_MASK):
 			return
 		if event.button == 2:
 			return
@@ -178,7 +178,7 @@ taglisttypes = [TYPE_STRING] * 6
 class TagWindow:
 	def __init__(self):
 		self.client = Client()
-		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+		self.window = gtk.Window(gtk.WindowType.TOPLEVEL)
 		self.window.set_border_width(2)
 		self.window.connect("destroy", self.destroy)
 		self.bbox = gtk.HBox(False, 0)
@@ -189,15 +189,15 @@ class TagWindow:
 		self.bbox.pack_start(self.b_apply, True, True, 0)
 		self.bbox.pack_end(self.b_quit, False, False, 0)
 		self.msg = gtk.Label(u"Starting..")
-		self.msg.set_ellipsize(ELLIPSIZE_END)
+		self.msg.set_ellipsize(Pango.EllipsizeMode.END)
 		self.msgbox = gtk.EventBox()
 		self.msgbox.add(self.msg)
-		self.thumbs = gtk.ListStore(TYPE_STRING, gtk.gdk.Pixbuf, TYPE_STRING)
+		self.thumbs = gtk.ListStore(TYPE_STRING, GdkPixbuf.Pixbuf, TYPE_STRING)
 		self.thumbview = gtk.IconView(self.thumbs)
 		self.thumbview.set_pixbuf_column(1)
 		self.thumbview.set_tooltip_column(2)
 		self.thumbview.set_reorderable(True)
-		self.thumbview.set_selection_mode(gtk.SELECTION_MULTIPLE)
+		self.thumbview.set_selection_mode(gtk.SelectionMode.MULTIPLE)
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.thumbview.connect("item-activated", self.thumb_activated)
 		self.thumbview.connect("button-press-event", self.middle_toggle_select)
@@ -228,7 +228,7 @@ class TagWindow:
 		for tv in self.tags_allview, self.tags_allcurrentview, \
 		          self.tags_currentotherview, self.tags_otherview:
 			sel = tv.get_selection()
-			sel.set_mode(gtk.SELECTION_MULTIPLE)
+			sel.set_mode(gtk.SelectionMode.MULTIPLE)
 			tv.connect("row-activated", self.modify_tag)
 			tv.connect("button-press-event", self.middle_toggle_select)
 		celltext = gtk.CellRendererText()
@@ -242,14 +242,14 @@ class TagWindow:
 		texttypes = [gtk.TargetEntry.new("STRING", 0, 4), gtk.TargetEntry.new("text/plain", 0, 4)]
 		srctypes = texttypes + [nametype, guidtype]
 		for widget in self.tags_allview, self.tags_allcurrentview, self.tags_currentotherview, self.tags_otherview:
-			widget.drag_source_set(gtk.gdk.BUTTON1_MASK, srctypes, gtk.gdk.ACTION_COPY)
+			widget.drag_source_set(gdk.ModifierType.BUTTON1_MASK, srctypes, gdk.DragAction.COPY)
 			widget.connect("drag_data_get", self.drag_get_list)
 		for widget, all in (self.tags_allview, True), (self.tags_allcurrentview, False):
-			widget.drag_dest_set(gtk.DEST_DEFAULT_ALL, [guidtype], gtk.gdk.ACTION_COPY)
+			widget.drag_dest_set(gtk.DestDefaults.ALL, [guidtype], gdk.DragAction.COPY)
 			widget.connect("drag_data_received", self.drag_put, all)
-		self.thumbview.drag_source_set(gtk.gdk.BUTTON1_MASK, [posttype] + texttypes, gtk.gdk.ACTION_COPY)
+		self.thumbview.drag_source_set(gdk.ModifierType.BUTTON1_MASK, [posttype] + texttypes, gdk.DragAction.COPY)
 		self.thumbview.connect("drag_data_get", self.drag_get_icon)
-		self.thumbview.drag_dest_set(gtk.DEST_DEFAULT_ALL, [guidtype, posttype], gtk.gdk.ACTION_COPY)
+		self.thumbview.drag_dest_set(gtk.DestDefaults.ALL, [guidtype, posttype], gdk.DragAction.COPY)
 		self.thumbview.connect("drag_data_received", self.drag_put_thumb)
 		self.tagbox.pack_start(self.tags_allview, False, False, 0)
 		self.tagbox.pack_start(self.tags_allcurrentview, False, False, 0)
@@ -258,11 +258,11 @@ class TagWindow:
 		self.mbox = gtk.HPaned()
 		self.mbox.set_position(650)
 		self.thumbscroll = gtk.ScrolledWindow()
-		self.thumbscroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_ALWAYS)
+		self.thumbscroll.set_policy(gtk.PolicyType.AUTOMATIC, gtk.PolicyType.ALWAYS)
 		self.thumbscroll.add(self.thumbview)
 		self.tagscroll = gtk.ScrolledWindow()
 		self.tagscroll.set_size_request(150, -1)
-		self.tagscroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+		self.tagscroll.set_policy(gtk.PolicyType.AUTOMATIC, gtk.PolicyType.AUTOMATIC)
 		self.tagscroll.add_with_viewport(self.tagbox)
 		self.mbox.pack1(self.thumbscroll, resize=True, shrink=False)
 		self.mbox.pack2(self.tagscroll, resize=True, shrink=False)
@@ -276,8 +276,8 @@ class TagWindow:
 		ag = gtk.AccelGroup()
 		self.window.add_accel_group(ag)
 		key, mod = gtk.accelerator_parse('<Alt>s')
-		ag.connect_group(key, mod, 0, self._focus_tagfield)
-		self.tagfield.drag_dest_set(gtk.DEST_DEFAULT_ALL, [nametype] + texttypes, gtk.gdk.ACTION_COPY)
+		ag.connect(key, mod, 0, self._focus_tagfield)
+		self.tagfield.drag_dest_set(gtk.DestDefaults.ALL, [nametype] + texttypes, gdk.DragAction.COPY)
 		self.tagfield.connect("drag_data_received", self.drag_put_tagfield)
 		self.vbox.pack_end(self.tagfield, False, False, 0)
 		self.window.add(self.vbox)
@@ -387,24 +387,24 @@ class TagWindow:
 		tag = self.client.get_tag(guid)
 		dialog = TagDialog(self.client, self.window, u"Modify tag", tag.name, tag.type)
 		if tag.valuetype:
-			vt = markup_escape_text(tag.valuetype.encode("utf-8"))
+			vt = markup_escape_text(tag.valuetype)
 			mu = "<span color=\"#ff0000\">" + vt + "</span>"
 			vtlab = gtk.Label()
 			vtlab.set_markup(mu)
-			dialog.vbox.pack_start(vtlab)
+			dialog.vbox.pack_start(vtlab, True, True, 0)
 		entry = gtk.Entry()
 		entry.set_text(tag.name)
-		dialog.vbox.pack_start(entry)
+		dialog.vbox.pack_start(entry, True, True, 0)
 		implbutton = gtk.Button.new_with_mnemonic(u"_Implications")
 		implbutton.connect("clicked", self.implications, (dialog, guid))
-		dialog.vbox.pack_start(implbutton)
+		dialog.vbox.pack_start(implbutton, True, True, 0)
 		aliasbutton = gtk.Button.new_with_mnemonic(u"_Aliases")
 		aliasbutton.connect("clicked", self.aliases, (dialog, guid))
-		dialog.vbox.pack_start(aliasbutton)
-		entry.connect("activate", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
+		dialog.vbox.pack_start(aliasbutton, True, True, 0)
+		entry.connect("activate", lambda *a: dialog.response(gtk.ResponseType.ACCEPT))
 		dialog.show_all()
 		self._needs_refresh = False
-		if dialog.run() == gtk.RESPONSE_ACCEPT:
+		if dialog.run() == gtk.ResponseType.ACCEPT:
 			new_type = None
 			t = dialog.get_tt()
 			if t and t != tag.type:
@@ -451,7 +451,7 @@ class TagWindow:
 
 	def fmt_tag(self, g):
 		t = self.ids[clean(g)]
-		name = markup_escape_text(prefix(g) + t.name.encode("utf-8"))
+		name = markup_escape_text(prefix(g) + t.name)
 		if t.valuetype in (None, "none"): return name
 		name = " <span color=\"#ff0000\">\xE2\x98\x85 </span>" + name + " <span color=\"#ff0000\">" + t.valuetype
 		if "valuelist" not in t: return name + "</span>"
@@ -513,7 +513,7 @@ class TagWindow:
 				tip = [post.md5]
 				tags = sorted(post.datatags.names.items())
 				tip += [name + u": " + unicode(tag.value) for name, tag in tags]
-				thumb[2] = u"\n".join(tip).encode("utf-8")
+				thumb[2] = u"\n".join(tip)
 
 	def _tagcompute(self, posts, pre):
 		def guids(p):
@@ -596,7 +596,7 @@ class TagWindow:
 		gtk.main_quit()
 
 	def fmt_tagalt(self, name, t):
-		name = markup_escape_text(name.encode("utf-8"))
+		name = markup_escape_text(name)
 		col = self.tag_colour(t)
 		return "<span color=\"" + col + "\">" + name + "</span>"
 
@@ -610,7 +610,7 @@ class TagWindow:
 
 	def create_tag(self, name):
 		dialog = TagDialog(self.client, self.window, u"Create tag", name)
-		if dialog.run() == gtk.RESPONSE_ACCEPT:
+		if dialog.run() == gtk.ResponseType.ACCEPT:
 			t = dialog.get_tt()
 			if t:
 				self.client.add_tag(name, t)
@@ -693,7 +693,7 @@ class TagWindow:
 		self.b_apply.show()
 
 	def set_msg(self, msg, bg="#FFFFFF"):
-		self.msgbox.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse(bg))
+		self.msgbox.modify_bg(gtk.StateType.NORMAL, gdk.color_parse(bg))
 		self.msg.set_text(msg)
 
 	def error(self, msg):
@@ -706,11 +706,11 @@ class TagWindow:
 
 class TagDialog(gtk.Dialog):
 	def __init__(self, client, mainwin, title, tagname, tagtype=None):
-		gtk.Dialog.__init__(self, title, mainwin, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
-		self.set_default_response(gtk.RESPONSE_ACCEPT)
+		gtk.Dialog.__init__(self, title, mainwin, gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.ResponseType.REJECT, gtk.STOCK_OK, gtk.ResponseType.ACCEPT))
+		self.set_default_response(gtk.ResponseType.ACCEPT)
 		self._client = client
 		lab = gtk.Label(tagname)
-		self.vbox.pack_start(lab)
+		self.vbox.pack_start(lab, True, True, 0)
 		# Workaround for it being impossible to have no selected row, but
 		# I still really don't want an immediate enter to be "ok".
 		# (Because then when I press enter twice with a misspelled tag
@@ -719,7 +719,7 @@ class TagDialog(gtk.Dialog):
 		self._tv = self._make_tt_tv(tagtype, tagname)
 		self._tv.connect("row-activated", self._accept_maybe)
 		self._tv.connect("cursor-changed", self._cursor_changed)
-		self.vbox.pack_end(self._tv)
+		self.vbox.pack_end(self._tv, True, True, 0)
 		self.show_all()
 
 	def _make_tt_tv(self, selname, tagname):
@@ -748,20 +748,20 @@ class TagDialog(gtk.Dialog):
 
 	def _accept_maybe(self, *a):
 		if self._can_enter:
-			self.response(gtk.RESPONSE_ACCEPT)
+			self.response(gtk.ResponseType.ACCEPT)
 		else:
 			self._can_enter = True
 
 class ImplicationsDialog(gtk.Dialog):
 	def __init__(self, tw, client, parent, guid):
-		gtk.Dialog.__init__(self, u"Implications", parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.RESPONSE_ACCEPT))
+		gtk.Dialog.__init__(self, u"Implications", parent, gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.ResponseType.ACCEPT))
 		self._tw = tw
 		self._client = client
 		self.guid = guid
 		impl = client.tag_implies(self.guid, True)
 		if impl:
 			lab = gtk.Label(u"Implied by")
-			self.vbox.pack_start(lab)
+			self.vbox.pack_start(lab, True, True, 0)
 			rev_impl = gtk.ListStore(TYPE_STRING, TYPE_INT, TYPE_STRING, TYPE_STRING)
 			lines = []
 			complex = False
@@ -788,13 +788,13 @@ class ImplicationsDialog(gtk.Dialog):
 				crt = gtk.CellRendererText()
 				tvc = gtk.TreeViewColumn(n, crt, text=i)
 				rev_impl.append_column(tvc)
-			rev_impl.get_selection().set_mode(gtk.SELECTION_NONE)
-			self.vbox.pack_start(rev_impl)
-			self.vbox.pack_start(gtk.HSeparator())
+			rev_impl.get_selection().set_mode(gtk.SelectionMode.NONE)
+			self.vbox.pack_start(rev_impl, True, True, 0)
+			self.vbox.pack_start(gtk.HSeparator(), True, True, 0)
 		lab = gtk.Label(u"Implies")
-		self.vbox.pack_start(lab)
+		self.vbox.pack_start(lab, True, True, 0)
 		self._ibox = gtk.Table(1, 4)
-		self.vbox.pack_start(self._ibox)
+		self.vbox.pack_start(self._ibox, True, True, 0)
 		self._add_name = gtk.Entry()
 		self._add_name.connect("activate", self._add)
 		self._add_name.connect("key-press-event", self._complete)
@@ -898,7 +898,7 @@ class ImplicationsDialog(gtk.Dialog):
 
 class AliasesDialog(gtk.Dialog):
 	def __init__(self, client, parent, guid):
-		gtk.Dialog.__init__(self, u"Aliases", parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.RESPONSE_ACCEPT))
+		gtk.Dialog.__init__(self, u"Aliases", parent, gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.ResponseType.ACCEPT))
 		self._client = client
 		self.guid = guid
 		self._add_name = gtk.Entry()
@@ -906,7 +906,7 @@ class AliasesDialog(gtk.Dialog):
 		self._add_btn = gtk.Button("Add")
 		self._add_btn.connect("clicked", self._add)
 		self._list = gtk.Table(1, 2)
-		self.vbox.pack_start(self._list)
+		self.vbox.pack_start(self._list, True, True, 0)
 		self._refresh()
 		self.show_all()
 
@@ -948,18 +948,18 @@ class AliasesDialog(gtk.Dialog):
 
 class TagCompletionDialog(gtk.Dialog):
 	def __init__(self, tw, client, parent, word, alts):
-		gtk.Dialog.__init__(self, u"Completing " + word, parent, gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
-		self.set_default_response(gtk.RESPONSE_ACCEPT)
+		gtk.Dialog.__init__(self, u"Completing " + word, parent, gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.ResponseType.REJECT, gtk.STOCK_OK, gtk.ResponseType.ACCEPT))
+		self.set_default_response(gtk.ResponseType.ACCEPT)
 		self.word = word
 		self.alts = gtk.ListStore(*taglisttypes)
 		for name, t in sorted(alts):
-			m_name = markup_escape_text(name.encode("utf-8"))
+			m_name = markup_escape_text(name)
 			tooltip = [t.name]
 			if t.alias:
 				tooltip.extend(u"    " + a for a in sorted(t.alias))
 			tooltip.append(t.type)
 			tooltip.append(u"%d posts, %d weak posts" % (t.posts, t.weak_posts))
-			tooltip = [markup_escape_text(l.encode("utf-8")) for l in tooltip]
+			tooltip = [markup_escape_text(l) for l in tooltip]
 			for heading, reverse in (("\nImplies", False), ("\nImplied by", True)):
 				impl = sorted(client.tag_implies(t.guid, reverse))
 				if impl:
@@ -972,10 +972,10 @@ class TagCompletionDialog(gtk.Dialog):
 						dots = False
 					for i in impl:
 						i_t = client.get_tag(i.guid, with_prefix=True)
-						iname = markup_escape_text(i_t.pname.encode("utf-8"))
+						iname = markup_escape_text(i_t.pname)
 						if i.filter or i.value:
 							iname = '<span color="#ff0000">*</span> ' + iname
-						tc = tw.tag_colour(i_t.type).encode("utf-8")
+						tc = tw.tag_colour(i_t.type)
 						tooltip.append('    <span color="%s">%s</span>' % (tc, iname))
 					if dots:
 						tooltip.append("... (%d more)" % (dots,))
@@ -988,17 +988,17 @@ class TagCompletionDialog(gtk.Dialog):
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.altsview.append_column(tvc)
-		self.altsview.connect("row-activated", lambda *a: self.response(gtk.RESPONSE_ACCEPT))
+		self.altsview.connect("row-activated", lambda *a: self.response(gtk.ResponseType.ACCEPT))
 		self.scroll = gtk.ScrolledWindow()
-		self.scroll.set_policy(gtk.POLICY_NEVER, gtk.POLICY_ALWAYS)
+		self.scroll.set_policy(gtk.PolicyType.NEVER, gtk.PolicyType.ALWAYS)
 		self.scroll.add(self.altsview)
-		self.vbox.pack_start(self.scroll)
+		self.vbox.pack_start(self.scroll, True, True, 0)
 		# Isn't there a better way to set my default size while still allowing smaller windows?
 		a_z = self.altsview.size_request()
 		s_z = self.scroll.size_request()
 		w_z = self.size_request()
-		x = min(a_z[0] + s_z[0], w_z[0])
-		y = min(a_z[1] + w_z[1], int(client.cfg.tagwindow_height))
+		x = min(a_z.width + s_z.width, w_z.width)
+		y = min(a_z.height + w_z.height, int(client.cfg.tagwindow_height))
 		self.resize(x, y)
 		self.show_all()
 
@@ -1023,7 +1023,7 @@ class FullscreenWindowThread(Thread):
 		loader = None
 		try:
 			fh = RawWrapper(open(self._fn, "rb"))
-			loader = gtk.gdk.PixbufLoader()
+			loader = GdkPixbuf.PixbufLoader()
 			fh.seek(0, 2)
 			l = fh.tell()
 			fh.seek(0)
@@ -1055,9 +1055,9 @@ class FullscreenWindow(gtk.Window):
 	def _init(self, tw, pixbuf):
 		self._tw = tw
 		self.pixbuf = pixbuf
-		self.set_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.KEY_PRESS_MASK)
+		self.set_events(gdk.EventMask.BUTTON_PRESS_MASK | gdk.EventMask.KEY_PRESS_MASK)
 		self.set_title("Fullscreen window")
-		self.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
+		self.modify_bg(gtk.StateType.NORMAL, gdk.Color(0, 0, 0))
 		self.show()
 		self.fullscreen()
 		self.set_size_request(1, 1)
@@ -1085,12 +1085,12 @@ class FullscreenWindow(gtk.Window):
 	def scale_pixbuf_to_scalefactor(self, scalefactor):
 		new_w = int(round(self.pix_w * scalefactor))
 		new_h = int(round(self.pix_h * scalefactor))
-		new_pixbuf = self.pixbuf.scale_simple(new_w, new_h, gtk.gdk.INTERP_HYPER)
+		new_pixbuf = self.pixbuf.scale_simple(new_w, new_h, GdkPixbuf.InterpType.HYPER)
 		self.image.set_from_pixbuf(new_pixbuf)
 		self.show_all()
 
 	def key_press_event(self, spin, event):
-		key = gtk.gdk.keyval_name(event.keyval).lower()
+		key = gdk.keyval_name(event.keyval).lower()
 		# All normal keys and a few special
 		if len(key) == 1 or key in ("escape", "space", "return"):
 			self.destroy()
@@ -1121,7 +1121,7 @@ class FileLoaderWorker(Thread):
 				if m:
 					try:
 						fn = self._client.thumb_path(m, self._z)
-						thumb = gtk.gdk.pixbuf_new_from_file(fn)
+						thumb = GdkPixbuf.Pixbuf.new_from_file(fn)
 					except Exception:
 						pass
 				self._d_out[d] = (m, thumb, m,)
