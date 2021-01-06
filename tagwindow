@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 from __future__ import print_function
 from __future__ import division
@@ -453,7 +453,7 @@ class TagWindow:
 		t = self.ids[clean(g)]
 		name = markup_escape_text(prefix(g) + t.name)
 		if t.valuetype in (None, "none"): return name
-		name = " <span color=\"#ff0000\">\xE2\x98\x85 </span>" + name + " <span color=\"#ff0000\">" + t.valuetype
+		name = " <span color=\"#ff0000\">★ </span>" + name + " <span color=\"#ff0000\">" + t.valuetype
 		if "valuelist" not in t: return name + "</span>"
 		if t.localcount == len(t.valuelist) and len(set(t.valuelist)) == 1: # all have the same value
 			name += "=" + markup_escape_text(str(t.valuelist[0]))
