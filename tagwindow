@@ -12,9 +12,11 @@ if version_info[0] > 2:
 else:
 	import Queue
 
+from gi import pygtkcompat
+pygtkcompat.enable()
+pygtkcompat.enable_gtk(version='3.0')
+
 from itertools import chain
-import pygtk
-pygtk.require("2.0")
 import gtk
 from gobject import threads_init, idle_add, TYPE_STRING, TYPE_INT
 from pango import ELLIPSIZE_END
@@ -140,9 +142,8 @@ class FixedTreeView(gtk.TreeView):
 		self.connect('button-release-event', self._release)
 		self.connect('select-all', self._select_all)
 
-	def _sel(self, path):
+	def _sel(self, selection, model, path, current):
 		if self._select_all_state:
-			model = self.get_model()
 			return model[path[0]][5] != "impl"
 		return self._event == None
 
@@ -181,9 +182,9 @@ class TagWindow:
 		self.window.set_border_width(2)
 		self.window.connect("destroy", self.destroy)
 		self.bbox = gtk.HBox(False, 0)
-		self.b_apply = gtk.Button(u"_Apply")
+		self.b_apply = gtk.Button.new_with_mnemonic(u"_Apply")
 		self.b_apply.connect("clicked", self.apply_action, None)
-		self.b_quit = gtk.Button(u"_Quit")
+		self.b_quit = gtk.Button.new_with_mnemonic(u"_Quit")
 		self.b_quit.connect("clicked", self.destroy, None)
 		self.bbox.pack_start(self.b_apply, True, True, 0)
 		self.bbox.pack_end(self.b_quit, False, False, 0)
@@ -235,11 +236,11 @@ class TagWindow:
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_otherview.append_column(tvc)
-		guidtype = ("text/x-wellpapp-tagguid", 0, 1)
-		nametype = ("text/x-wellpapp-tagname", 0, 0)
-		posttype = ("text/x-wellpapp-post-id", 0, 0)
-		texttypes = [("STRING", 0, 0), ("text/plain", 0, 0)]
-		srctypes = [(t, n, 4) for t, n, i in texttypes + [nametype]] + [guidtype]
+		guidtype = gtk.TargetEntry.new("text/x-wellpapp-tagguid", 0, 1)
+		nametype = gtk.TargetEntry.new("text/x-wellpapp-tagname", 0, 4)
+		posttype = gtk.TargetEntry.new("text/x-wellpapp-post-id", 0, 0)
+		texttypes = [gtk.TargetEntry.new("STRING", 0, 4), gtk.TargetEntry.new("text/plain", 0, 4)]
+		srctypes = texttypes + [nametype, guidtype]
 		for widget in self.tags_allview, self.tags_allcurrentview, self.tags_currentotherview, self.tags_otherview:
 			widget.drag_source_set(gtk.gdk.BUTTON1_MASK, srctypes, gtk.gdk.ACTION_COPY)
 			widget.connect("drag_data_get", self.drag_get_list)
@@ -302,7 +303,7 @@ class TagWindow:
 		# This gets called twice (why?), so ignore it the second time
 		if self._tagfield_prev_ctx != context:
 			self._tagfield_prev_ctx = context
-			tag = _uni(selection.data) + u" "
+			tag = _uni(selection.get_data()) + u" "
 			text = _uni(self.tagfield.get_text())
 			if text and text[-1] not in (u" ", u"="): text += u" "
 			text += tag
@@ -312,18 +313,18 @@ class TagWindow:
 		widget.emit_stop_by_name("drag_data_received")
 
 	def drag_put_thumb_guid(self, x, y, selection):
-		x += int(self.thumbscroll.get_hadjustment().value)
-		y += int(self.thumbscroll.get_vadjustment().value)
+		x += int(self.thumbscroll.get_hadjustment().get_value())
+		y += int(self.thumbscroll.get_vadjustment().get_value())
 		item = self.thumbview.get_item_at_pos(x, y)
 		if not item: return
 		iter = self.thumbs.get_iter(item[0])
 		m = self.thumbs.get_value(iter, 0)
 		# @@ check for changing tag values?
-		self._apply([((t, None), None) for t in selection.data.split()], [], [m])
+		self._apply([((t, None), None) for t in selection.get_data().split()], [], [m])
 
 	def drag_put_thumb_post(self, selection):
 		try:
-			data = str(selection.data).lower()
+			data = str(selection.get_data()).lower()
 		except Exception:
 			from traceback import print_exc
 			print_exc()
@@ -338,14 +339,15 @@ class TagWindow:
 			fl.start()
 
 	def drag_put_thumb(self, widget, context, x, y, selection, targetType, eventTime):
-		if selection.type == "text/x-wellpapp-tagguid":
+		data_type = str(selection.get_data_type())
+		if data_type == "text/x-wellpapp-tagguid":
 			self.drag_put_thumb_guid(x, y, selection)
-		if selection.type == "text/x-wellpapp-post-id":
+		if data_type == "text/x-wellpapp-post-id":
 			self.drag_put_thumb_post(selection)
 
 	def drag_put(self, widget, context, x, y, selection, targetType, eventTime, all):
 		# @@ check for changing tag values?
-		self.apply([((t, None), None) for t in selection.data.split()], [], all)
+		self.apply([((t, None), None) for t in selection.get_data().split()], [], all)
 
 	def _drag_get_each(self, model, path, iter, data):
 		targetType, l = data
@@ -357,13 +359,13 @@ class TagWindow:
 		sel = widget.get_selection()
 		sel.selected_foreach(self._drag_get_each, (targetType, l))
 		# All the examples pass 8, what does it mean?
-		selection.set(selection.target, 8, " ".join(l))
+		selection.set(selection.get_target(), 8, " ".join(l))
 
 	def drag_get_icon(self, widget, context, selection, targetType, eventTime):
 		data = ""
 		for path in widget.get_selected_items():
 			data += self.thumbs[path][0] + " "
-		selection.set(selection.target, 8, data[:-1])
+		selection.set(selection.get_target(), 8, data[:-1])
 
 	def implications(self, widget, data):
 		parent, guid = data
@@ -393,10 +395,10 @@ class TagWindow:
 		entry = gtk.Entry()
 		entry.set_text(tag.name)
 		dialog.vbox.pack_start(entry)
-		implbutton = gtk.Button(u"_Implications")
+		implbutton = gtk.Button.new_with_mnemonic(u"_Implications")
 		implbutton.connect("clicked", self.implications, (dialog, guid))
 		dialog.vbox.pack_start(implbutton)
-		aliasbutton = gtk.Button(u"_Aliases")
+		aliasbutton = gtk.Button.new_with_mnemonic(u"_Aliases")
 		aliasbutton.connect("clicked", self.aliases, (dialog, guid))
 		dialog.vbox.pack_start(aliasbutton)
 		entry.connect("activate", lambda *a: dialog.response(gtk.RESPONSE_ACCEPT))
