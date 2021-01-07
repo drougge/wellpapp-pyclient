@@ -361,13 +361,13 @@ class TagWindow:
 		sel = widget.get_selection()
 		sel.selected_foreach(self._drag_get_each, (targetType, l))
 		# All the examples pass 8, what does it mean?
-		selection.set(selection.get_target(), 8, " ".join(l))
+		selection.set(selection.get_target(), 8, " ".join(l).encode("utf-8"))
 
 	def drag_get_icon(self, widget, context, selection, targetType, eventTime):
 		data = ""
 		for path in widget.get_selected_items():
 			data += self.thumbs[path][0] + " "
-		selection.set(selection.get_target(), 8, data[:-1])
+		selection.set(selection.get_target(), 8, data[:-1].encode("utf-8"))
 
 	def implications(self, widget, data):
 		parent, guid = data
