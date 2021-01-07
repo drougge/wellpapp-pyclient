@@ -8,6 +8,7 @@ from sys import version_info
 if version_info[0] > 2:
 	unicode = str
 	unichr = chr
+	ord = int
 	import queue as Queue
 else:
 	import Queue
@@ -446,6 +447,8 @@ class TagWindow:
 
 	def tag_colour(self, type):
 		if type in self.type2colour: return self.type2colour[type]
+		if isinstance(type, unicode):
+			type = type.encode("utf-8")
 		return "#%02x%02x%02x" % tuple([int(ord(c) / 1.6) for c in md5(type).digest()[:3]])
 
 	def tag_colour_guid(self, guid):
