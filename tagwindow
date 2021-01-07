@@ -1002,14 +1002,12 @@ class TagCompletionDialog(gtk.Dialog):
 		self.scroll.set_policy(gtk.PolicyType.NEVER, gtk.PolicyType.ALWAYS)
 		self.scroll.add(self.altsview)
 		self.vbox.pack_start(self.scroll, True, True, 0)
-		# Isn't there a better way to set my default size while still allowing smaller windows?
-		a_z = self.altsview.size_request()
-		s_z = self.scroll.size_request()
-		w_z = self.size_request()
-		x = min(a_z.width + s_z.width, w_z.width)
-		y = min(a_z.height + w_z.height, int(client.cfg.tagwindow_height))
-		self.resize(x, y)
-		self.show_all()
+		# This can't be the right way. (Why isn't the size automatically right anyway?)
+		initial_y = self.get_preferred_size().natural_size.height
+		self.show_all() # This changes all reported sizes
+		x = max(el.get_preferred_size().natural_size.width for el in (self.altsview, self.scroll, self))
+		y = self.altsview.get_preferred_height_for_width(x).natural_height + initial_y + 5
+		self.resize(x, min(y, int(client.cfg.tagwindow_height)))
 
 	def get_tt(self):
 		ls, iter = self.altsview.get_selection().get_selected()
