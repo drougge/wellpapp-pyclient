@@ -133,8 +133,8 @@ def complete_entry(tw, parent, window, tagfield, event):
 	parent.tab_count = 0
 
 class FixedTreeView(gtk.TreeView):
-	def __init__(self, *args):
-		gtk.TreeView.__init__(self, *args)
+	def __init__(self, **kw):
+		gtk.TreeView.__init__(self, **kw)
 		self._event = None
 		self._select_all_state = False
 		self.get_selection().set_select_function(self._sel)
@@ -178,22 +178,22 @@ taglisttypes = [TYPE_STRING] * 6
 class TagWindow:
 	def __init__(self):
 		self.client = Client()
-		self.window = gtk.Window(gtk.WindowType.TOPLEVEL)
+		self.window = gtk.Window(type=gtk.WindowType.TOPLEVEL)
 		self.window.set_border_width(2)
 		self.window.connect("destroy", self.destroy)
-		self.bbox = gtk.HBox(False, 0)
+		self.bbox = gtk.HBox(homogeneous=False, spacing=0)
 		self.b_apply = gtk.Button.new_with_mnemonic(u"_Apply")
 		self.b_apply.connect("clicked", self.apply_action, None)
 		self.b_quit = gtk.Button.new_with_mnemonic(u"_Quit")
 		self.b_quit.connect("clicked", self.destroy, None)
 		self.bbox.pack_start(self.b_apply, True, True, 0)
 		self.bbox.pack_end(self.b_quit, False, False, 0)
-		self.msg = gtk.Label(u"Starting..")
+		self.msg = gtk.Label(label=u"Starting..")
 		self.msg.set_ellipsize(Pango.EllipsizeMode.END)
 		self.msgbox = gtk.EventBox()
 		self.msgbox.add(self.msg)
 		self.thumbs = gtk.ListStore(TYPE_STRING, GdkPixbuf.Pixbuf, TYPE_STRING)
-		self.thumbview = gtk.IconView(self.thumbs)
+		self.thumbview = gtk.IconView(model=self.thumbs)
 		self.thumbview.set_pixbuf_column(1)
 		self.thumbview.set_tooltip_column(2)
 		self.thumbview.set_reorderable(True)
@@ -201,30 +201,30 @@ class TagWindow:
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.thumbview.connect("item-activated", self.thumb_activated)
 		self.thumbview.connect("button-press-event", self.middle_toggle_select)
-		self.tagbox = gtk.VBox(False, 0)
+		self.tagbox = gtk.VBox(homogeneous=False, spacing=0)
 		self.tags_all = gtk.ListStore(*taglisttypes)
 		self.tags_allcurrent = gtk.ListStore(*taglisttypes)
 		self.tags_currentother = gtk.ListStore(*taglisttypes)
 		self.tags_other = gtk.ListStore(*taglisttypes)
-		self.tags_allview = FixedTreeView(self.tags_all)
+		self.tags_allview = FixedTreeView(model=self.tags_all)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("ALL", celltext, markup=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_allview.append_column(tvc)
-		self.tags_allcurrentview = FixedTreeView(self.tags_allcurrent)
+		self.tags_allcurrentview = FixedTreeView(model=self.tags_allcurrent)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("All Current", celltext, markup=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_allcurrentview.append_column(tvc)
-		self.tags_currentotherview = FixedTreeView(self.tags_currentother)
+		self.tags_currentotherview = FixedTreeView(model=self.tags_currentother)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("Some Current", celltext, markup=0)
 		tvc.add_attribute(celltext, "cell-background", 2)
 		tvc.add_attribute(celltext, "foreground", 3)
 		self.tags_currentotherview.append_column(tvc)
-		self.tags_otherview = FixedTreeView(self.tags_other)
+		self.tags_otherview = FixedTreeView(model=self.tags_other)
 		for tv in self.tags_allview, self.tags_allcurrentview, \
 		          self.tags_currentotherview, self.tags_otherview:
 			sel = tv.get_selection()
@@ -263,10 +263,12 @@ class TagWindow:
 		self.tagscroll = gtk.ScrolledWindow()
 		self.tagscroll.set_size_request(150, -1)
 		self.tagscroll.set_policy(gtk.PolicyType.AUTOMATIC, gtk.PolicyType.AUTOMATIC)
-		self.tagscroll.add_with_viewport(self.tagbox)
+		tagbox_wp = gtk.Viewport()
+		tagbox_wp.add(self.tagbox)
+		self.tagscroll.add(tagbox_wp)
 		self.mbox.pack1(self.thumbscroll, resize=True, shrink=False)
 		self.mbox.pack2(self.tagscroll, resize=True, shrink=False)
-		self.vbox = gtk.VBox(False, 0)
+		self.vbox = gtk.VBox(homogeneous=False, spacing=0)
 		self.vbox.pack_start(self.msgbox, False, False, 0)
 		self.vbox.pack_start(self.mbox, True, True, 0)
 		self.vbox.pack_end(self.bbox, False, False, 0)
@@ -707,10 +709,12 @@ class TagWindow:
 
 class TagDialog(gtk.Dialog):
 	def __init__(self, client, mainwin, title, tagname, tagtype=None):
-		gtk.Dialog.__init__(self, title, mainwin, gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.ResponseType.REJECT, gtk.STOCK_OK, gtk.ResponseType.ACCEPT))
+		gtk.Dialog.__init__(self, title=title, parent=mainwin, modal=True, destroy_with_parent=True)
+		self.add_button(gtk.STOCK_CANCEL, gtk.ResponseType.REJECT)
+		self.add_button(gtk.STOCK_OK, gtk.ResponseType.ACCEPT)
 		self.set_default_response(gtk.ResponseType.ACCEPT)
 		self._client = client
-		lab = gtk.Label(tagname)
+		lab = gtk.Label(label=tagname)
 		self.vbox.pack_start(lab, True, True, 0)
 		# Workaround for it being impossible to have no selected row, but
 		# I still really don't want an immediate enter to be "ok".
@@ -731,7 +735,7 @@ class TagDialog(gtk.Dialog):
 			ls.append((t,))
 			if t == selname: selpos = pos
 			if selname is None and tagname[:len(t)] == t: selpos = pos
-		tv = gtk.TreeView(ls)
+		tv = gtk.TreeView(model=ls)
 		crt = gtk.CellRendererText()
 		tv.append_column(gtk.TreeViewColumn(u"Type", crt, text=0))
 		if selpos is not None:
@@ -755,13 +759,14 @@ class TagDialog(gtk.Dialog):
 
 class ImplicationsDialog(gtk.Dialog):
 	def __init__(self, tw, client, parent, guid):
-		gtk.Dialog.__init__(self, u"Implications", parent, gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.ResponseType.ACCEPT))
+		gtk.Dialog.__init__(self, title=u"Implications", parent=parent, modal=True, destroy_with_parent=True)
+		self.add_button(gtk.STOCK_CLOSE, gtk.ResponseType.ACCEPT)
 		self._tw = tw
 		self._client = client
 		self.guid = guid
 		impl = client.tag_implies(self.guid, True)
 		if impl:
-			lab = gtk.Label(u"Implied by")
+			lab = gtk.Label(label=u"Implied by")
 			self.vbox.pack_start(lab, True, True, 0)
 			rev_impl = gtk.ListStore(TYPE_STRING, TYPE_INT, TYPE_STRING, TYPE_STRING)
 			lines = []
@@ -780,7 +785,7 @@ class ImplicationsDialog(gtk.Dialog):
 				rev_impl.append(d)
 			if len(impl) > 10:
 				rev_impl.append(("... hidden:", len(impl) - 10, "", ""))
-			rev_impl = gtk.TreeView(rev_impl)
+			rev_impl = gtk.TreeView(model=rev_impl)
 			if complex:
 				headings = ("Tag", "Priority", "Filter", "Value")
 			else:
@@ -792,9 +797,9 @@ class ImplicationsDialog(gtk.Dialog):
 			rev_impl.get_selection().set_mode(gtk.SelectionMode.NONE)
 			self.vbox.pack_start(rev_impl, True, True, 0)
 			self.vbox.pack_start(gtk.HSeparator(), True, True, 0)
-		lab = gtk.Label(u"Implies")
+		lab = gtk.Label(label=u"Implies")
 		self.vbox.pack_start(lab, True, True, 0)
-		self._ibox = gtk.Table(1, 4)
+		self._ibox = gtk.Table(n_rows=1, n_columns=4)
 		self.vbox.pack_start(self._ibox, True, True, 0)
 		self._add_name = gtk.Entry()
 		self._add_name.connect("activate", self._add)
@@ -803,7 +808,7 @@ class ImplicationsDialog(gtk.Dialog):
 		self._add_prio.set_width_chars(5)
 		self._add_prio.set_text(u"0")
 		self._add_prio.connect("activate", self._add)
-		self._add_btn = gtk.Button(u"Add")
+		self._add_btn = gtk.Button.new_with_label(u"Add")
 		self._add_btn.connect("clicked", self._add)
 		self._show_impl()
 		self.did_something = False
@@ -831,27 +836,27 @@ class ImplicationsDialog(gtk.Dialog):
 
 	def _impl_wids(self, impl):
 		name = self._client.get_tag(impl.guid, with_prefix=True).pname
-		lab = gtk.Label(name)
+		lab = gtk.Label(label=name)
 		if impl.filter or impl.value:
 			# Ideally, we'd have support for updating this too.
-			prio = gtk.Label(str(impl.prio))
+			prio = gtk.Label(label=str(impl.prio))
 			if impl.filter:
-				filt = gtk.Label(impl.filter[0] + unicode(impl.filter[1]))
+				filt = gtk.Label(label=impl.filter[0] + unicode(impl.filter[1]))
 			else:
-				filt = gtk.Label("")
+				filt = gtk.Label(label="")
 			if impl.value:
-				val = gtk.Label(unicode(impl.value))
+				val = gtk.Label(label=unicode(impl.value))
 			else:
-				val = gtk.Label("")
+				val = gtk.Label(label="")
 			wids = (lab, prio, filt, val)
 		else:
 			entry = gtk.Entry()
 			entry.set_width_chars(5)
 			entry.set_text(unicode(impl.prio))
 			entry.connect("activate", lambda *a: self._update(entry, impl.guid))
-			update = gtk.Button(u"Update")
+			update = gtk.Button.new_with_label(u"Update")
 			update.connect("clicked", lambda *a: self._update(entry, impl.guid))
-			remove = gtk.Button(u"Remove")
+			remove = gtk.Button.new_with_label(u"Remove")
 			wids = (lab, entry, update, remove)
 			remove.connect("clicked", lambda *a: self._remove(wids, impl.guid))
 		return name, wids
@@ -899,14 +904,15 @@ class ImplicationsDialog(gtk.Dialog):
 
 class AliasesDialog(gtk.Dialog):
 	def __init__(self, client, parent, guid):
-		gtk.Dialog.__init__(self, u"Aliases", parent, gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT, (gtk.STOCK_CLOSE, gtk.ResponseType.ACCEPT))
+		gtk.Dialog.__init__(self, title=u"Aliases", parent=parent, modal=True, destroy_with_parent=True)
+		self.add_button(gtk.STOCK_CLOSE, gtk.ResponseType.ACCEPT)
 		self._client = client
 		self.guid = guid
 		self._add_name = gtk.Entry()
 		self._add_name.connect("activate", self._add)
-		self._add_btn = gtk.Button("Add")
+		self._add_btn = gtk.Button.new_with_label("Add")
 		self._add_btn.connect("clicked", self._add)
-		self._list = gtk.Table(1, 2)
+		self._list = gtk.Table(n_rows=1, n_columns=2)
 		self.vbox.pack_start(self._list, True, True, 0)
 		self._refresh()
 		self.show_all()
@@ -929,8 +935,8 @@ class AliasesDialog(gtk.Dialog):
 		self._add_name.grab_focus()
 
 	def _wids(self, name):
-		lab = gtk.Label(name)
-		btn = gtk.Button("Remove")
+		lab = gtk.Label(label=name)
+		btn = gtk.Button.new_with_label("Remove")
 		btn.connect("clicked", lambda *a: self._rm(name))
 		return lab, btn
 
@@ -949,7 +955,9 @@ class AliasesDialog(gtk.Dialog):
 
 class TagCompletionDialog(gtk.Dialog):
 	def __init__(self, tw, client, parent, word, alts):
-		gtk.Dialog.__init__(self, u"Completing " + word, parent, gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT, (gtk.STOCK_CANCEL, gtk.ResponseType.REJECT, gtk.STOCK_OK, gtk.ResponseType.ACCEPT))
+		gtk.Dialog.__init__(self, title=u"Completing " + word, parent=parent, modal=True, destroy_with_parent=True)
+		self.add_button(gtk.STOCK_CANCEL, gtk.ResponseType.REJECT)
+		self.add_button(gtk.STOCK_OK, gtk.ResponseType.ACCEPT)
 		self.set_default_response(gtk.ResponseType.ACCEPT)
 		self.word = word
 		self.alts = gtk.ListStore(*taglisttypes)
@@ -982,7 +990,7 @@ class TagCompletionDialog(gtk.Dialog):
 						tooltip.append("... (%d more)" % (dots,))
 			tooltip = "\n".join(tooltip)
 			self.alts.append((m_name, t.guid, "#ffffff", tw.tag_colour(t.type), name, tooltip))
-		self.altsview = gtk.TreeView(self.alts)
+		self.altsview = gtk.TreeView(model=self.alts)
 		self.altsview.set_tooltip_column(5)
 		celltext = gtk.CellRendererText()
 		tvc = gtk.TreeViewColumn("Alternatives", celltext, markup=0)
