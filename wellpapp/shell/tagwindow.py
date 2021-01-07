@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
@@ -1185,7 +1184,3 @@ def main(arg0, argv):
 	fl = FileLoader(tw, argv)
 	fl.start()
 	tw.main()
-
-if __name__ == "__main__":
-	from sys import argv, exit
-	exit(main(argv[0], argv[1:]))
