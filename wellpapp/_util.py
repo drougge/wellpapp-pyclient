@@ -27,7 +27,7 @@ def _utf(s, allow_space=False):
 def _enc(s):
 	s = _utf(s, True)
 	while len(s) % 3: s += b"\x00"
-	return b64encode(s, b"_-")
+	return b64encode(s, b"_-").decode("ascii")
 
 def _dec(enc):
 	if not enc: return u""
