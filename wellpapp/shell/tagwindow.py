@@ -432,12 +432,13 @@ class TagWindow:
 		if event.button == 2:
 			pathinfo = widget.get_path_at_pos(int(event.x), int(event.y))
 			if pathinfo:
-				path = pathinfo[0]
 				# Why would lists with text and lists with icons have the same interface? Sigh..
 				if hasattr(widget, "get_selection"):
 					sel = widget.get_selection()
+					path = pathinfo[0]
 				else:
 					sel = widget
+					path = pathinfo
 				if sel.path_is_selected(path):
 					sel.unselect_path(path)
 				else:
