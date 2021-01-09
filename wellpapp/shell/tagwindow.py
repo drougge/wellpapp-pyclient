@@ -196,7 +196,6 @@ class TagWindow:
 		self.thumbview = gtk.IconView(model=self.thumbs)
 		self.thumbview.set_pixbuf_column(1)
 		self.thumbview.set_tooltip_column(2)
-		self.thumbview.set_reorderable(True)
 		self.thumbview.set_selection_mode(gtk.SelectionMode.MULTIPLE)
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.thumbview.connect("item-activated", self.thumb_activated)
