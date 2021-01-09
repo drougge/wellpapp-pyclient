@@ -724,6 +724,7 @@ class TagDialog(gtk.Dialog):
 		# (Because then when I press enter twice with a misspelled tag
 		# I create that tag.)
 		self._can_enter = False
+		self._cursor_count = 0
 		self._tv = self._make_tt_tv(tagtype, tagname)
 		self._tv.connect("row-activated", self._accept_maybe)
 		self._tv.connect("cursor-changed", self._cursor_changed)
@@ -743,7 +744,6 @@ class TagDialog(gtk.Dialog):
 		tv.append_column(gtk.TreeViewColumn(u"Type", crt, text=0))
 		if selpos is not None:
 			tv.get_selection().select_path((selpos,))
-			self._can_enter = True
 		return tv
 
 	def get_tt(self):
@@ -752,7 +752,10 @@ class TagDialog(gtk.Dialog):
 			return ls.get_value(iter, 0)
 
 	def _cursor_changed(self, *a):
-		self._can_enter = bool(self._tv.get_selection().get_selected()[1])
+		# This happens once when the dialog opens, so only set _can_enter the second time
+		if self._cursor_count:
+			self._can_enter = True
+		self._cursor_count += 1
 
 	def _accept_maybe(self, *a):
 		if self._can_enter:
