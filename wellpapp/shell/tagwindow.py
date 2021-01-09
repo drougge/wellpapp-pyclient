@@ -322,11 +322,11 @@ class TagWindow:
 		iter = self.thumbs.get_iter(item[0])
 		m = self.thumbs.get_value(iter, 0)
 		# @@ check for changing tag values?
-		self._apply([((t, None), None) for t in selection.get_data().split()], [], [m])
+		self._apply([((t, None), None) for t in _uni(selection.get_data()).split()], [], [m])
 
 	def drag_put_thumb_post(self, selection):
 		try:
-			data = str(selection.get_data()).lower()
+			data = _uni(selection.get_data()).lower()
 		except Exception:
 			from traceback import print_exc
 			print_exc()
@@ -349,7 +349,7 @@ class TagWindow:
 
 	def drag_put(self, widget, context, x, y, selection, targetType, eventTime, all):
 		# @@ check for changing tag values?
-		self.apply([((t, None), None) for t in selection.get_data().split()], [], all)
+		self.apply([((t, None), None) for t in _uni(selection.get_data()).split()], [], all)
 
 	def _drag_get_each(self, model, path, iter, data):
 		targetType, l = data
