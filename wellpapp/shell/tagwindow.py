@@ -226,8 +226,6 @@ class TagWindow:
 		self.tags_otherview = FixedTreeView(model=self.tags_other)
 		for tv in self.tags_allview, self.tags_allcurrentview, \
 		          self.tags_currentotherview, self.tags_otherview:
-			sel = tv.get_selection()
-			sel.set_mode(gtk.SelectionMode.MULTIPLE)
 			tv.connect("row-activated", self.modify_tag)
 			tv.connect("button-press-event", self.middle_toggle_select)
 		celltext = gtk.CellRendererText()
@@ -383,6 +381,8 @@ class TagWindow:
 
 	def modify_tag(self, tv, row, *a):
 		model = tv.get_model()
+		if not model[row][0]:
+			return
 		pre = prefix(model[row][0])
 		guid = clean(model[row][1])[:27]
 		tag = self.client.get_tag(guid)
@@ -476,15 +476,23 @@ class TagWindow:
 		if not t.valuelist: return g
 		return " ".join([g + "=" + val.format() for val in set(t.valuelist)])
 
-	def put_in_list(self, lo, li):
+	def put_in_list(self, li):
+		lo = getattr(self, "tags_" + li)
+		view = getattr(self, "tags_" + li + "view")
 		data = []
 		for pre, bg in ("", "#ffffff"), ("impl", "#ffd8ee"):
 			# unformatted name first for sorting, not put in lo
 			data.extend((self.ids[clean(t)].name, self.fmt_tag(t), self._guid_with_val(t), bg, self.tag_colours[clean(t)], self.txt_tag(t), pre) for t in self.taglist[pre + li])
 		lo.clear()
-		# gtk.ListStore doesn't have extend
-		for t in sorted(data):
-			lo.append(t[1:])
+		if data:
+			view.get_selection().set_mode(gtk.SelectionMode.MULTIPLE)
+			# gtk.ListStore doesn't have extend
+			for t in sorted(data):
+				lo.append(t[1:])
+		else:
+			# One empty unselectable row to give a bigger drop-target for this group
+			view.get_selection().set_mode(gtk.SelectionMode.NONE)
+			lo.append()
 
 	def refresh(self):
 		posts = [self.client.get_post(m, True) for m in self.md5s]
@@ -505,7 +513,7 @@ class TagWindow:
 		self.tag_colours = {tg: self.tag_colour_guid(clean(tg)) for tg in self.ids}
 		self._tagcompute(posts, "")
 		self._tagcompute(posts, "impl")
-		self.put_in_list(self.tags_all, "all")
+		self.put_in_list("all")
 		self.update_from_selection()
 		self.update_thumb_tooltips()
 
@@ -556,9 +564,9 @@ class TagWindow:
 	def update_from_selection(self):
 		self._update_from_selection("")
 		self._update_from_selection("impl")
-		self.put_in_list(self.tags_allcurrent, "allcurrent")
-		self.put_in_list(self.tags_currentother, "currentother")
-		self.put_in_list(self.tags_other, "other")
+		self.put_in_list("allcurrent")
+		self.put_in_list("currentother")
+		self.put_in_list("other")
 
 	def _update_from_selection(self, pre):
 		common = None
