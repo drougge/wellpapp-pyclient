@@ -27,8 +27,15 @@ def determine_filetype(data):
 	data8 = data[:8]
 	data16 = data[:16]
 	data48 = data[4:8]
-	if data3 == b"\xff\xd8\xff" and data[-2:] == b"\xff\xd9":
-		return "jpeg"
+	if data3 == b"\xff\xd8\xff":
+		# probably jpeg, but I like to be careful.
+		if data[-2:] == b"\xff\xd9":
+			# this is how a jpeg should end
+			return "jpeg"
+		if data[-4:] == b"SEFT" and b"SEFH" in data[-100:] and b"\xff\xd9\x00\x00" in data[-256:]:
+			# samsung phones like to add this crap after the jpeg.
+			# no idea why it's not in a makernote, but here we are.
+			return "jpeg"
 	if data6 in (b"GIF87a", b"GIF89a") and data[-1:] == b";":
 		return "gif"
 	if data8 == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
