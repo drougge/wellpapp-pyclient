@@ -175,6 +175,20 @@ class FixedTreeView(gtk.TreeView):
 
 taglisttypes = [TYPE_STRING] * 6
 
+# In GTK3 the mnemonics are really slow, so I'll fake it with manual
+# underlining and an AccelGroup.
+def button_with_mnemonic(ag, text, func, *args):
+	cb = lambda *a: func(*args)
+	button = gtk.Button.new_with_label(text)
+	apos = text.index(u"_")
+	accel = text[apos + 1]
+	key, mod = gtk.accelerator_parse("<Alt>" + accel)
+	ag.connect(key, mod, 0, cb)
+	text = u"%s<u>%s</u>%s" % (text[:apos], accel, text[apos + 2:])
+	button.get_child().set_markup(text)
+	button.connect("clicked", cb)
+	return button
+
 class TagWindow:
 	def __init__(self):
 		self.client = Client()
@@ -182,10 +196,10 @@ class TagWindow:
 		self.window.set_border_width(2)
 		self.window.connect("destroy", self.destroy)
 		self.bbox = gtk.HBox(homogeneous=False, spacing=0)
-		self.b_apply = gtk.Button.new_with_mnemonic(u"_Apply")
-		self.b_apply.connect("clicked", self.apply_action, None)
-		self.b_quit = gtk.Button.new_with_mnemonic(u"_Quit")
-		self.b_quit.connect("clicked", self.destroy, None)
+		ag = gtk.AccelGroup()
+		self.window.add_accel_group(ag)
+		self.b_apply = button_with_mnemonic(ag, u"_Apply", self.apply_action)
+		self.b_quit = button_with_mnemonic(ag, u"_Quit", self.destroy)
 		self.bbox.pack_start(self.b_apply, True, True, 0)
 		self.bbox.pack_end(self.b_quit, False, False, 0)
 		self.msg = gtk.Label(label=u"Starting..")
@@ -272,8 +286,6 @@ class TagWindow:
 		self.tagfield = gtk.Entry()
 		self.tagfield.connect("activate", self.apply_action, None)
 		self.tagfield.connect("key-press-event", self.tagfield_key)
-		ag = gtk.AccelGroup()
-		self.window.add_accel_group(ag)
 		key, mod = gtk.accelerator_parse('<Alt>s')
 		ag.connect(key, mod, 0, self._focus_tagfield)
 		self.tagfield.drag_dest_set(gtk.DestDefaults.ALL, [nametype] + texttypes, gdk.DragAction.COPY)
@@ -366,15 +378,13 @@ class TagWindow:
 			data += self.thumbs[path][0] + " "
 		selection.set(selection.get_target(), 8, data[:-1].encode("utf-8"))
 
-	def implications(self, widget, data):
-		parent, guid = data
+	def implications(self, parent, guid):
 		dialog = ImplicationsDialog(self, self.client, parent, guid)
 		dialog.run()
 		self._needs_refresh = dialog.did_something
 		dialog.destroy()
 
-	def aliases(self, widget, data):
-		parent, guid = data
+	def aliases(self, parent, guid):
 		dialog = AliasesDialog(self.client, parent, guid)
 		dialog.run()
 		dialog.destroy()
@@ -396,11 +406,11 @@ class TagWindow:
 		entry = gtk.Entry()
 		entry.set_text(tag.name)
 		dialog.vbox.pack_start(entry, True, True, 0)
-		implbutton = gtk.Button.new_with_mnemonic(u"_Implications")
-		implbutton.connect("clicked", self.implications, (dialog, guid))
+		ag = gtk.AccelGroup()
+		dialog.add_accel_group(ag)
+		implbutton = button_with_mnemonic(ag, u"_Implications", self.implications, dialog, guid)
 		dialog.vbox.pack_start(implbutton, True, True, 0)
-		aliasbutton = gtk.Button.new_with_mnemonic(u"_Aliases")
-		aliasbutton.connect("clicked", self.aliases, (dialog, guid))
+		aliasbutton = button_with_mnemonic(ag, u"_Aliases", self.aliases, dialog, guid)
 		dialog.vbox.pack_start(aliasbutton, True, True, 0)
 		entry.connect("activate", lambda *a: dialog.response(gtk.ResponseType.ACCEPT))
 		dialog.show_all()
@@ -605,7 +615,7 @@ class TagWindow:
 		other.difference_update(self.taglist[pre + "all"])
 		self.taglist[pre + "other"] = other
 
-	def destroy(self, widget, data=None):
+	def destroy(self, *a):
 		gtk.main_quit()
 
 	def fmt_tagalt(self, name, t):
@@ -629,7 +639,7 @@ class TagWindow:
 				self.client.add_tag(name, t)
 		dialog.destroy()
 
-	def apply_action(self, widget, data=None):
+	def apply_action(self, *a):
 		self.set_msg(u"")
 		orgtext = _uni(self.tagfield.get_text())
 		if not orgtext:
