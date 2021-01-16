@@ -17,6 +17,8 @@ def main(argv):
 		usage(sys.stdout)
 		return 0
 	modname = 'wellpapp.shell.' + command
+	if command.startswith('_') or '.' in command:
+		modname = 'wellpapp._' # anything that won't be found
 	try:
 		mod = import_module(modname)
 	except ModuleNotFoundError as e:
