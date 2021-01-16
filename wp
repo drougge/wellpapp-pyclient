@@ -16,9 +16,12 @@ def main(argv):
 	if command in ('-h', '--help'):
 		usage(sys.stdout)
 		return 0
+	modname = 'wellpapp.shell.' + command
 	try:
-		mod = import_module('wellpapp.shell.' + command)
-	except ModuleNotFoundError:
+		mod = import_module(modname)
+	except ModuleNotFoundError as e:
+		if e.name != modname:
+			raise
 		print("Unknown command", command, file=sys.stderr)
 		return 1
 	return mod.main('%s %s' % (arg0, command), argv)
