@@ -284,6 +284,7 @@ class TagWindow:
 		self.vbox.pack_start(self.mbox, True, True, 0)
 		self.vbox.pack_end(self.bbox, False, False, 0)
 		self.tagfield = gtk.Entry()
+		self.tagfield.set_placeholder_text('tag tag tag')
 		self.tagfield.connect("activate", self.apply_action, None)
 		self.tagfield.connect("key-press-event", self.tagfield_key)
 		key, mod = gtk.accelerator_parse('<Alt>s')
