@@ -15,7 +15,7 @@ if sys.version_info[0] > 2:
 
 class TIFF:
 	"""Pretty minimal TIFF container parser"""
-	
+
 	types = { 1: (1, "B"),  # BYTE
 	          2: (1, None), # ASCII
 	          3: (2, "H"),  # SHORT
@@ -30,7 +30,7 @@ class TIFF:
 	         12: (8, "d"),  # DOUBLE
 	         13: (4, "I"),  # IFD
 	        }
-	
+
 	def __init__(self, fh, allow_variants=True, short_header=False):
 		from struct import unpack
 		self._fh = fh
@@ -56,7 +56,7 @@ class TIFF:
 		if self.variant == "RO":
 			assert next_ifd == 8
 		self.reinit_from(next_ifd, short_header)
-	
+
 	def reinit_from(self, next_ifd, short_header=False):
 		self.ifd = []
 		self.subifd = []
@@ -75,7 +75,7 @@ class TIFF:
 		assert len(subifd) < 32 # way too many
 		for next_ifd in subifd:
 			self.subifd.append(self._ifdread(next_ifd))
-	
+
 	def ifdget(self, ifd, tag):
 		if tag in ifd:
 			type, vc, off = ifd[tag]
@@ -88,7 +88,7 @@ class TIFF:
 			if type == 2:
 				off = off.rstrip("\0")
 			return off
-	
+
 	def _ifdread(self, next_ifd):
 		ifd = {}
 		self._fh.seek(next_ifd)
@@ -110,7 +110,7 @@ class TIFF:
 
 class FileWindow:
 	"""A read only view of a range of an fh. You should not continue to use fh."""
-	
+
 	def __init__(self, fh, start=None, length=None):
 		if start is None:
 			start = fh.tell()
@@ -125,15 +125,15 @@ class FileWindow:
 		self.closed = False
 		fh.seek(start)
 		assert fh.tell() == start
-	
+
 	def read(self, size=-1):
 		if size < 0: size = self.stop - self.fh.tell()
 		if size <= 0: return ""
 		return self.fh.read(size)
-	
+
 	def tell(self):
 		return self.fh.tell() - self.start
-	
+
 	def seek(self, pos, whence=0):
 		if whence == 0:
 			pos += self.start
@@ -143,7 +143,7 @@ class FileWindow:
 			pos += self.stop
 		pos = max(min(pos, self.stop), self.start)
 		self.fh.seek(pos)
-	
+
 	def close(self):
 		if not self.closed:
 			self.fh.close()
@@ -167,9 +167,9 @@ class ExifWrapper:
 	"""Wrapper for several EXIF libraries.
 	Starts out with an internal parser, falls back to two incompatible
 	versions of pyexiv2 for fields it doesn't know about.
-	
+
 	Never fails, just returns empty data (even if file doesn't exist)."""
-	
+
 	def __init__(self, fn):
 		self._d = {}
 		if isinstance(fn, str):
@@ -191,12 +191,12 @@ class ExifWrapper:
 				self._internal(fn)
 			except Exception:
 				pass
-	
+
 	def _getitem(self, name): # usually overridden from pyexiv2
 		raise KeyError(name)
 	def _contains(self, name): # usually overridden from pyexiv2
 		return False
-	
+
 	def __getitem(self, name):
 		if name in self._d: return self._d[name]
 		return self._getitem(name)
@@ -254,10 +254,10 @@ class ExifWrapper:
 		if hasattr(v, "numerator") and not isinstance(v, (int, long)):
 			return self._fmtrational(v.numerator, v.denominator)
 		return v
-	
+
 	def __contains__(self, name):
 		return name in self._d or self._contains(name)
-	
+
 	def _pyexiv2_old(self, fn):
 		from pyexiv2 import Image
 		exif = Image(fn)
@@ -268,7 +268,7 @@ class ExifWrapper:
 			exif = keys = exif.read_exif()
 		self._getitem = exif.__getitem__
 		self._contains = keys.__contains__
-	
+
 	def _pyexiv2_new(self, fn):
 		from pyexiv2 import ImageMetadata
 		exif = ImageMetadata(fn)
@@ -276,10 +276,10 @@ class ExifWrapper:
 		self._exif = exif
 		self._getitem = self._new_getitem
 		self._contains = exif.__contains__
-	
+
 	def _new_getitem(self, *a):
 		return self._exif.__getitem__(*a).value
-	
+
 	def _internal(self, fh=None):
 		fh = fh or open(self.fn, "rb")
 		try:
@@ -392,7 +392,7 @@ class ExifWrapper:
 						self._d[name] = val
 		finally:
 			fh.close()
-	
+
 	def _get(self, tag, tuple_ok=False):
 		d = self._tiff.ifdget(self._ifd, tag)
 		if type(d) is tuple:
@@ -400,7 +400,7 @@ class ExifWrapper:
 			if not tuple_ok: return None
 			if d == (): return None
 		return d
-	
+
 	def _parse_makernotes(self):
 		fh = self._tiff._fh
 		if 0x927c in self._ifd:
@@ -433,7 +433,7 @@ class ExifWrapper:
 		}.get(mid, lambda _: _)(data, off)
 		if self._d.get("Exif.Image.Make") == "Canon" and data[1:4] == "\x00\x01\x00":
 			self._canon_makernotes(off)
-	
+
 	def _panasonic_makernotes(self, data, offset):
 		# Headerless IFD after "Panasonic\0\0\0"
 		# Offsets relative to EXIF block
@@ -448,7 +448,7 @@ class ExifWrapper:
 				self._d["Exif.Panasonic.LensType"] = lens.strip()
 		finally:
 			tiff.ifd, tiff.subifd = b_ifd, b_subifd
-	
+
 	def _canon_makernotes(self, off):
 		# stupid Canon, no header, and offsets relative to EXIF block.
 		tiff = self._tiff
@@ -460,7 +460,7 @@ class ExifWrapper:
 				self._d["Exif.Canon.LensModel"] = lens
 		finally:
 			tiff.ifd, tiff.subifd = b_ifd, b_subifd
-	
+
 	def _olympus_makernotes(self, data, offset):
 		from io import BytesIO
 		fh = BytesIO(data)
@@ -474,7 +474,7 @@ class ExifWrapper:
 			self._d["Exif.OlympusEq.LensModel"] = data.strip()
 		except Exception:
 			pass
-	
+
 	def _pentax_makernotes(self, data, offset):
 		from io import BytesIO
 		fh = BytesIO(data[data.find(b"\0") + 1:])
@@ -484,7 +484,7 @@ class ExifWrapper:
 			self._d["Exif.Pentax.LensType"] = lens
 		except Exception:
 			pass
-	
+
 	def date(self, tz=None):
 		"""Return some reasonable EXIF date field as VTdatetime, or None
 		Will guess the timezone (based on environment) if not specified.
@@ -515,7 +515,7 @@ class ExifWrapper:
 				return VTdatetime(date)
 			except Exception:
 				pass
-	
+
 	def rotation(self):
 		if "Exif.Image.Orientation" not in self: return -1
 		o = self["Exif.Image.Orientation"]
@@ -633,10 +633,10 @@ class FileMerge:
 class _ThinExif(TIFF):
 	"""Pretty minimal TIFF container parser
 	Even more minimal now - just for partial Exif parsing"""
-	
+
 	def reinit_from(self, next_ifd, short_header=False):
 		self.ifd = self._ifdread(next_ifd)
-	
+
 	def ifdget(self, tag):
 		if tag in self.ifd:
 			type, vc, off = self.ifd[tag]
@@ -762,7 +762,7 @@ class X3F:
 	.jpegs is a list from smallest to largest.
 	.prop is a dict {field: value}
 	"""
-	
+
 	def __init__(self, fh):
 		from collections import defaultdict, namedtuple
 		self.X3F_JPEG = namedtuple("X3F_JPEG", "offset length cols rows")
@@ -790,7 +790,7 @@ class X3F:
 		self.prop = {}
 		for offset, length in sections[b"PROP"]:
 			self._read_prop(fh, offset)
-	
+
 	def _read_img(self, fh, length):
 		from struct import unpack
 		assert fh.read(4) == b"SECi"
@@ -805,7 +805,7 @@ class X3F:
 		offset = fh.tell()
 		length -= 28
 		self.jpegs.append(self.X3F_JPEG(offset=offset, length=length, cols=cols, rows=rows))
-	
+
 	def _read_prop(self, fh, offset):
 		from struct import unpack
 		fh.seek(offset)
@@ -836,7 +836,7 @@ class RawWrapper:
 	"""Wraps (read only) IO to an image, so that RAW images look like JPEGs.
 	Handles DNG, NEF, PEF, CR2, ORF, X3F and RAF.
 	Wraps fh as is if no reasonable embedded JPEG is found."""
-	
+
 	def __init__(self, fh, make_exif=False):
 		self.closed = False
 		self._set_fh(fh)
@@ -886,18 +886,18 @@ class RawWrapper:
 		self.seek(0)
 		if make_exif and self._fh != fh:
 			self._set_fh(_rawexif(fh, self._fh))
-	
+
 	def _set_fh(self, fh):
 		self._fh = fh
 		self.read = fh.read
 		self.seek = fh.seek
 		self.tell = fh.tell
-	
+
 	def close(self):
 		if not self.closed:
 			self._fh.close()
 			self.closed = True
-	
+
 	def _test_pef(self, tiff):
 		for ifd in tiff.ifd[1:]:
 			w, h = tiff.ifdget(ifd, 0x100), tiff.ifdget(ifd, 0x101)
@@ -906,7 +906,7 @@ class RawWrapper:
 				jpeglen = tiff.ifdget(ifd, 0x202)
 				if self._test_jpeg(jpeg, jpeglen):
 					return True
-	
+
 	def _test_cr2(self, tiff):
 		for ifd in tiff.ifd:
 			w, h = tiff.ifdget(ifd, 0x100), tiff.ifdget(ifd, 0x101)
@@ -915,7 +915,7 @@ class RawWrapper:
 				jpeglen = tiff.ifdget(ifd, 0x117)
 				if self._test_jpeg(jpeg, jpeglen):
 					return True
-	
+
 	def _test_orf(self, tiff):
 		try:
 			exif = tiff.ifdget(tiff.ifd[0], 0x8769)[0]
@@ -931,7 +931,7 @@ class RawWrapper:
 			return self._test_jpeg([makernotes + jpegpos], [jpeglen])
 		except Exception:
 			pass
-	
+
 	def _test_rw2(self, tiff):
 		try:
 			type, vc, off = tiff.ifd[0][0x2e]
@@ -939,7 +939,7 @@ class RawWrapper:
 				return self._test_jpeg([off], [vc])
 		except Exception:
 			pass
-	
+
 	def _test_jpeg(self, jpeg, jpeglen):
 		if not jpeg or not jpeglen: return
 		if len(jpeg) != len(jpeglen): return
@@ -948,14 +948,14 @@ class RawWrapper:
 		if self.read(3) == b"\xff\xd8\xff":
 			self._set_fh(FileWindow(self._fh, jpeg, jpeglen))
 			return True
-	
+
 	# This is needed so PIL gives an IOError and not an AttributeError on some files.
 	def readline(self):
 		raise IOError("RawWrapper doesn't support readline.")
 
 def make_pdirs(fn):
 	"""Like mkdir -p `dirname fn`"""
-	
+
 	import os.path
 	dn = os.path.dirname(fn)
 	if not os.path.exists(dn): os.makedirs(dn)
@@ -963,21 +963,21 @@ def make_pdirs(fn):
 class CommentWrapper:
 	"""Wrap a file so readline/iteration skips comments
 	and optionally empty lines"""
-	
+
 	def __init__(self, fh, allow_empty=False):
 		self.fh = fh
 		self.allow_empty = allow_empty
 		self.close = fh.close
-	
+
 	def __iter__(self):
 		return self
-	
+
 	def __next__(self):
 		line = self.readline()
 		if not line: raise StopIteration()
 		return line
 	next = __next__
-	
+
 	def readline(self):
 		while 42:
 			line = self.fh.readline()
@@ -987,16 +987,16 @@ class CommentWrapper:
 				if s[0] != "#": return line
 			elif self.allow_empty:
 				return line
-	
+
 	def __enter__(self):
 		return self
-	
+
 	def __exit__(self, *exc):
 		self.close()
 
 class DotDict(dict):
 	"""Like a dict, but with d.foo as well as d["foo"]."""
-	
+
 	__setattr__ = dict.__setitem__
 	__delattr__ = dict.__delitem__
 	def __getattr__(self, name):

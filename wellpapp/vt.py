@@ -27,32 +27,32 @@ class ValueType(object):
 	v.exact_fuzz is like .exact but for the fuzz.
 	v.str (or str(v)) is a string representation of exact value+-fuzz.
 	v.format() is this value formated for sending to server.
-	
+
 	Comparisons:
 	== and != compare that both value and fuzz match,
 	other comparisons apply the fuzz.
 	Use value.overlap(other) to check for equality with fuzz."""
-	
+
 	__metaclass__ = ABCMeta
-	
+
 	@abstractmethod
 	def __init__(self): pass
-	
+
 	@abstractproperty
 	def type(self): pass
-	
+
 	@abstractproperty
 	def _cmp_t(self): pass
-	
+
 	_repr_extra = ""
 	_repr = None
-	
+
 	str = ""
 	value = 0
 	exact = 0
 	fuzz = None
 	exact_fuzz = None
-	
+
 	def __setattr__(self, name, value):
 		raise AttributeError("ValueTypes are immutable")
 	def __delattr__(self, name):
@@ -92,7 +92,7 @@ class ValueType(object):
 	def __ge__(self, other):
 		other = self.__cmp(other)
 		return self.max >= other.min
-	
+
 	@property
 	def min(self):
 		f = self.fuzz or 0
@@ -100,18 +100,18 @@ class ValueType(object):
 			return self.value + f
 		else:
 			return self.value
-	
+
 	@property
 	def max(self):
 		if self.fuzz:
 			return self.value + abs(self.fuzz)
 		else:
 			return self.value
-	
+
 	def overlap(self, other):
 		other = self.__cmp(other)
 		return self.min <= other.max and other.min <= self.max
-	
+
 	def format(self):
 		return self.str
 
@@ -121,10 +121,10 @@ class VTnull(ValueType):
 	str = ""
 	value = ""
 	exact = ""
-	
+
 	def __init__(self, val=None, human=False):
 		assert val is None or (isinstance(val, basestring) and not val)
-	
+
 	def __nonzero__(self):
 		return False
 
@@ -132,11 +132,11 @@ class VTstring(ValueType):
 	"""Represents the value of a tag with valuetype string.
 	v.value, v.exact and v.str are all the same string.
 	There is no fuzz for strings."""
-	
+
 	type = "string"
 	_cmp_t = "VTstring"
 	_repr_extra = ", True"
-	
+
 	def __init__(self, val, human=False):
 		if human:
 			val = _uni(val)
@@ -158,10 +158,10 @@ class VTword(VTstring):
 	"""Represents the value of a tag with valuetype word.
 	v.value, v.exact and v.str are all the same string.
 	There is no fuzz for words."""
-	
+
 	type = "word"
 	_repr_extra = ""
-	
+
 	def __init__(self, val, human=False):
 		if " " in val: raise ValueError(val)
 		val = _uni(val)
@@ -173,13 +173,13 @@ class VTword(VTstring):
 class VTnumber(ValueType):
 	_cmp_t = "VTnumber or simple number"
 	type = "simple number wrapper"
-	
+
 	def __init__(self, number):
 		if not isinstance(number, (int, long, float)):
 			raise ValueError(number)
 		self.__dict__["value"] = self.__dict__["exact"] = number
 		self.__dict__["fuzz"] = self.__dict__["exact_fuzz"] = 0
-	
+
 	def _parse(self, v, vp, vp2, fp):
 		v = str(v)
 		self.__dict__["str"] = v
@@ -191,7 +191,7 @@ class VTnumber(ValueType):
 			self.__dict__["fuzz"] = vp2(self.exact_fuzz)
 		else:
 			self.__dict__["fuzz"] = self.__dict__["exact_fuzz"] = 0
-	
+
 	def __int__(self):
 		return int(self.exact)
 	def __long__(self):
@@ -202,14 +202,14 @@ class VTnumber(ValueType):
 class VTint(VTnumber):
 	__doc__ = ValueType.__doc__
 	type = "int"
-	
+
 	def __init__(self, val, human=False):
 		self._parse(val, int, int, int)
 
 class VTuint(VTnumber):
 	__doc__ = ValueType.__doc__
 	type = "uint"
-	
+
 	def __init__(self, val, human=False):
 		p = int if human else lambda x: int(x, 16)
 		self._parse(val, p, int, int)
@@ -227,7 +227,7 @@ class VTuint(VTnumber):
 class VTfloat(VTnumber):
 	__doc__ = ValueType.__doc__
 	type = "float"
-	
+
 	def __init__(self, val, human=False):
 		def intfrac(v):
 			try:
@@ -235,7 +235,7 @@ class VTfloat(VTnumber):
 			except ValueError:
 				return Fraction(v)
 		self._parse(val, intfrac, float, intfrac)
-	
+
 	def _ffix(self, value, fuzzyfuzz):
 		if self.fuzz > 0:
 			value -= fuzzyfuzz
@@ -247,7 +247,7 @@ class VTfloat(VTnumber):
 class VTf_stop(VTfloat):
 	__doc__ = ValueType.__doc__
 	type = "f-stop"
-	
+
 	def __init__(self, val, human=False):
 		VTfloat.__init__(self, val, human)
 		self._ffix(2.0 * log(self.value, 2.0), 0.07)
@@ -255,7 +255,7 @@ class VTf_stop(VTfloat):
 class VTstop(VTfloat):
 	__doc__ = ValueType.__doc__
 	type = "stop"
-	
+
 	def __init__(self, val, human=False):
 		VTfloat.__init__(self, val, human)
 		self._ffix(10.0 * log10(self.value) / 3.0, 0.01)
@@ -272,7 +272,7 @@ class VTdatetime(ValueType):
 	                 r")?" * 5 + r"(\+-?(?:\d+(?:\.\d+|/\d+)?[YmdHMS]?))?$")
 	#                                fuzz with unit
 	del fres
-	
+
 	def __init__(self, val, human=False):
 		if isinstance(val, tuple):
 			try:
@@ -366,7 +366,7 @@ class VTdatetime(ValueType):
 			exact_fuzz = implfuzz
 		self._init(parsed, value, offset, exact_fuzz, fuzz, last_fuzz or "", valid_steps, zone, with_steps, steps)
 		self.__dict__["str"] = strval.replace(" ", "T") + (zone or "")
-	
+
 	def _init(self, parsed, value, offset, exact_fuzz, fuzz, _fuzz, valid_steps, zone, with_steps, steps):
 		lt = localtime(value + offset)
 		lts = "%04d-%02d-%02dT%02d:%02d:%02d" % lt[:6]
@@ -385,11 +385,11 @@ class VTdatetime(ValueType):
 		self.__dict__["steps"] = tuple(steps)
 		self.__dict__["with_steps"] = with_steps
 		self.__dict__["valid_steps"] = valid_steps
-	
+
 	def localtimestr(self, include_fuzz=True):
 		if not include_fuzz: return self._lts
 		return self._lts + self._fuzz
-	
+
 	@property
 	def min(self):
 		if self.with_steps:
@@ -399,7 +399,7 @@ class VTdatetime(ValueType):
 		else:
 			value = self.value
 		return value + min(self.fuzz or 0, 0)
-	
+
 	@property
 	def max(self):
 		if self.with_steps:
@@ -409,14 +409,14 @@ class VTdatetime(ValueType):
 		else:
 			value = self.value
 		return value + abs(self.fuzz or 0)
-	
+
 	def overlap(self, other):
 		if not isinstance(other, VTdatetime):
 			raise TypeError("Can only compare to a VTdatetime")
 		if self.min > other.max or other.min > self.max:
 			return False
 		return self._cmp_step(self, other)
-	
+
 	def _cmp_step(self, a, b):
 		if a.with_steps:
 			if self.fuzz < 0:
@@ -450,7 +450,7 @@ class VTdatetime(ValueType):
 			else:
 				return a.min <= b[1] and b[0] <= a.max
 		return False
-	
+
 	def _step_end(self, l, valid_steps):
 		l = list(l)
 		for i in range(valid_steps, len(self._ranges)):
@@ -463,7 +463,7 @@ class VTdatetime(ValueType):
 				l[1] = 1
 				l[0] += 1
 		return timegm(l)
-	
+
 	def __add__(self, other):
 		if hasattr(other, "total_seconds"):
 			other = other.total_seconds()
@@ -475,18 +475,18 @@ class VTdatetime(ValueType):
 		ts = ts[:self.valid_steps * 3 + 1]
 		res.__dict__["str"] = ts + (self.zone or "")
 		return res
-	
+
 	def __sub__(self, other):
 		return self.__add__(-other)
 
 class VTgps(ValueType):
 	"""Represents the value of a tag with valuetype gps."""
-	
+
 	type = "gps"
 	_cmp_t = "VTgps"
 	altitude = None
 	_R = 6371000.0 # Earth's radius in meters (approx)
-	
+
 	def __init__(self, val, human=False):
 		try:
 			strval = str(val)
@@ -518,12 +518,12 @@ class VTgps(ValueType):
 				self.__dict__[n] = float(v)
 		self.__dict__["value"] = (self.lat, self.lon, self.altitude)
 		self.__dict__["str"] = strval
-	
+
 	def __str__(self):
 		return self.str
 	def format(self):
 		return self.str
-	
+
 	@property
 	def _sphere_fuzz_lon(self):
 		if not self.fuzz:
@@ -534,25 +534,25 @@ class VTgps(ValueType):
 			return pi
 		slat = sin(lat)
 		return acos((cos(self._fuzz_R) - slat * slat) / (clat * clat))
-	
+
 	@property
 	def min(self):
 		if not self.fuzz:
 			return self.value[:2]
 		return self.lat - self._fuzz_R, self.lon - self._sphere_fuzz_lon
-	
+
 	@property
 	def max(self):
 		if not self.fuzz:
 			return self.value[:2]
 		return self.lat + self._fuzz_R, self.lon + self._sphere_fuzz_lon
-	
+
 	def distance(self, other):
 		""""""
 		if not isinstance(other, VTgps):
 			raise TypeError("Can only compare to a VTgps")
 		return self._sphere_dist(other) * self._R
-	
+
 	def _sphere_dist(self, other):
 		alat = radians(self.lat)
 		blat = radians(other.lat)
@@ -560,7 +560,7 @@ class VTgps(ValueType):
 			return acos(sin(alat) * sin(blat) + cos(alat) * cos(blat) * cos(radians(other.lon - self.lon)))
 		except ValueError:
 			return pi
-	
+
 	def overlap(self, other):
 		if not isinstance(other, VTgps):
 			raise TypeError("Can only compare to a VTgps")

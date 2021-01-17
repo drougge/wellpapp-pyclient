@@ -95,11 +95,11 @@ class TagDict(dict):
 	Use .names or .guids if you want dicts with just those keys.
 	(Those are normal dicts, iterating over keys.)
 	"""
-	
+
 	def __init__(self):
 		self.names = {}
 		self.guids = {}
-	
+
 	def _add(self, tag, name, guid):
 		if name:
 			if name not in self:
@@ -108,26 +108,26 @@ class TagDict(dict):
 		if guid:
 			dict.__setitem__(self, guid, tag)
 			self.guids[guid] = tag
-	
+
 	def __len__(self):
 		return max(len(self.names), len(self.guids))
-	
+
 	def __iter__(self):
 		if self.guids: return itervalues(self.guids)
 		return itervalues(self.names)
-	
+
 	itervalues = __iter__
-	
+
 	def values(self):
 		if self.guids: return self.guids.values()
 		return self.names.values()
-	
+
 	def __setitem__(self, key, value):
 		raise AttributeError("TagDicts are immutable-ish")
-	
+
 	def __delitem__(self, key):
 		raise AttributeError("TagDicts are immutable-ish")
-	
+
 	def get(self, key, default=_nonetag):
 		"""Just like get on dict, except the default is an empty Tag.
 		This is still False as a bool, but you can do things like
@@ -182,7 +182,7 @@ class Config(DotDict):
 				if os.path.exists(rc): rcs.append(rc)
 		for rc in rcs:
 			self._load(rc)
-	
+
 	def _load(self, fn):
 		with CommentWrapper(open(fn)) as fh:
 			for line in fh:
@@ -193,7 +193,7 @@ class Config(DotDict):
 
 class Client:
 	_prot_max_len = 4096
-	
+
 	def __init__(self, cfg=None):
 		if not cfg:
 			cfg = Config()
@@ -208,7 +208,7 @@ class Client:
 		while base.endswith("/"): base = base[:-1]
 		base = re.escape(base)
 		self._destmd5re = re.compile(r"^" + base + r"/[0-9a-f]/[0-9a-f]{2}/([0-9a-f]{32})$")
-	
+
 	def _reconnect(self):
 		if self.is_connected: return
 		if isinstance(self.server, tuple):
@@ -218,7 +218,7 @@ class Client:
 		self._sock.connect(self.server)
 		self._fh = self._sock.makefile('rb')
 		self.is_connected = True
-	
+
 	def _writeline(self, line, retry=True):
 		assert u"\n" not in line
 		self._reconnect()
@@ -230,10 +230,10 @@ class Client:
 			if retry:
 				self._reconnect()
 				self._sock.sendall(line)
-	
+
 	def _readline(self):
 		return self._fh.readline()[:-1].decode("utf-8")
-	
+
 	def _parse_search(self, line, posts, wanted, props):
 		if line == u"OK": return True
 		if line[0] != u"R": raise ResponseError(line)
@@ -308,13 +308,13 @@ class Client:
 				alltags._add(tag, tag.pname, tag.pguid)
 		f.tags = alltags
 		posts.append(f)
-	
+
 	def _search_post(self, search, wanted=None, props=None):
 		self._writeline(search)
 		posts = []
 		while not self._parse_search(self._readline(), posts, wanted, props): pass
 		return posts
-	
+
 	def get_post(self, md5, separate_implied=False, wanted=None):
 		if wanted is None:
 			wanted = ["tagname", "tagguid", "tagdata", "datatags", "ext", "created", "width", "height"]
@@ -325,19 +325,19 @@ class Client:
 		if not posts: return None
 		assert posts[0].md5 == md5
 		return posts[0]
-	
+
 	def delete_post(self, md5):
 		assert " " not in md5
 		cmd = u"DP" + _uniw(md5)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
-	
+
 	def _list(self, data, converter=_uniw):
 		if not data: return []
 		if isinstance(data, basestring): return [converter(data)]
 		return list(map(converter, data))
-	
+
 	def _guids2posneg(self, guids):
 		pos, neg = [], []
 		for g in guids:
@@ -348,10 +348,10 @@ class Client:
 			else:
 				pos.append(g)
 		return pos, neg
-	
+
 	def _filter_wanted(self, wanted):
 		return [w for w in self._list(wanted, str) if w != "datatags"]
-	
+
 	def _build_search(self, guids=None, excl_guids=None, wanted=None, order=None, range=None):
 		guids = self._list(guids, self._tag2spec)
 		excl_guids = self._list(excl_guids, self._tag2spec)
@@ -369,17 +369,17 @@ class Client:
 		if range != None:
 			search += [u"R%x:%x" % tuple(range)]
 		return u"".join(search)
-	
+
 	def search_post(self, wanted=None, props=None, **kw):
 		search = u"SP" + self._build_search(wanted=wanted, **kw)
 		posts = self._search_post(search, wanted, props)
 		return posts
-	
+
 	def _fieldspec(self, **kwargs):
 		f = [_uniw(f) + u"=" + _field_cparser[f](kwargs[f]) for f in kwargs]
 		if not f: return u""
 		return u" ".join([u""] + f)
-	
+
 	def modify_post(self, md5, **kwargs):
 		fspec = self._fieldspec(**kwargs)
 		if fspec:
@@ -387,7 +387,7 @@ class Client:
 			self._writeline(cmd)
 			res = self._readline()
 			if res != u"OK": raise ResponseError(res)
-	
+
 	def add_post(self, md5, **kwargs):
 		cmd  = u"AP" + _uniw(md5)
 		assert "width" in kwargs
@@ -397,7 +397,7 @@ class Client:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
-	
+
 	def _rels(self, c, md5, rels):
 		cmd = [u"R", c, md5]
 		for rel in self._list(rels, _uniw):
@@ -405,13 +405,13 @@ class Client:
 		self._writeline(u"".join(cmd))
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
-	
+
 	def add_rels(self, md5, rels):
 		self._rels(u"R", md5, rels)
-	
+
 	def remove_rels(self, md5, rels):
 		self._rels(u"r", md5, rels)
-	
+
 	def _parse_rels(self, line, rels):
 		if line == u"OK": return True
 		if line[0] != u"R": raise ResponseError(line)
@@ -420,7 +420,7 @@ class Client:
 		p = a[0]
 		l = rels.setdefault(p, [])
 		l += a[1:]
-	
+
 	def post_rels(self, md5):
 		cmd = u"RS" + _uniw(md5)
 		self._writeline(cmd)
@@ -428,7 +428,7 @@ class Client:
 		while not self._parse_rels(self._readline(), rels): pass
 		if not md5 in rels: return None
 		return rels[md5]
-	
+
 	def add_tag(self, name, type=None, guid=None, valuetype=None):
 		cmd = u"ATN" + _uniw(name)
 		if type:
@@ -440,19 +440,19 @@ class Client:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
-	
+
 	def add_alias(self, name, origin_guid):
 		cmd = u"AAG" + _uniw(origin_guid) + u" N" + _uniw(name)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
-	
+
 	def remove_alias(self, name):
 		cmd = u"DAN" + _uniw(name)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
-	
+
 	def _addrem_implies(self, addrem, set_tag, implied_tag, datastr, filter, value=None):
 		set_tag = self._tag2spec(set_tag)
 		implied_tag = self._tag2spec(implied_tag)
@@ -473,16 +473,16 @@ class Client:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
-	
+
 	def add_implies(self, set_tag, implied_tag, priority=0, filter=None, value=None):
 		datastr = u""
 		if priority:
 			datastr += u" P%d" % (priority,)
 		self._addrem_implies("I", set_tag, implied_tag, datastr, filter, value)
-	
+
 	def remove_implies(self, set_tag, implied_tag, filter=None):
 		self._addrem_implies("i", set_tag, implied_tag, "", filter)
-	
+
 	def _parse_implies(self, data):
 		res = self._readline()
 		if res == u"OK": return
@@ -524,7 +524,7 @@ class Client:
 				raise ResponseError(res)
 		l.append(ImplicationTuple(guid, prio, filter, value))
 		return True
-	
+
 	def tag_implies(self, tag, reverse=False):
 		tag = _uniw(tag)
 		cmd = u"IR" if reverse else u"IS"
@@ -548,13 +548,13 @@ class Client:
 		if tag in data:
 			return data[tag]
 		return []
-	
+
 	def merge_tags(self, into_t, from_t):
 		cmd = u"MTG" + _uniw(into_t) + u" M" + _uniw(from_t)
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
-	
+
 	def mod_tag(self, guid, name=None, type=None, valuetype=None):
 		cmd = u"MTG" + _uniw(guid)
 		for init, field in ((u" N", name), (u" T", type), (u" V", valuetype)):
@@ -563,7 +563,7 @@ class Client:
 		self._writeline(cmd)
 		res = self._readline()
 		if res != u"OK": raise ResponseError(res)
-	
+
 	def _tag2spec(self, t, value_allowed=True):
 		if type(t) in (tuple, list):
 			assert len(t) in (2, 3)
@@ -576,7 +576,7 @@ class Client:
 				return g + t[1] + t[2].format()
 		else:
 			return _uniw(t)
-	
+
 	def tag_post(self, md5, full_tags=None, weak_tags=None, remove_tags=None):
 		tags = self._list(full_tags, lambda s: u" T" + self._tag2spec(s))
 		tags += self._list(weak_tags, lambda s: u" T~" + self._tag2spec(s))
@@ -598,7 +598,7 @@ class Client:
 			self._writeline(u"".join(cmd))
 			res = self._readline()
 			if res != u"OK": raise ResponseError(res)
-	
+
 	def _parse_tagres(self, resdata = None):
 		res = self._readline()
 		if res == u"OK": return
@@ -609,7 +609,7 @@ class Client:
 		t._populate(res[1:])
 		if resdata != None: resdata.append(t)
 		return t
-	
+
 	def find_tags(self, matchtype, name, range=None, order=None, flags=None, **kw):
 		if kw:
 			filter = self._build_search(**kw)
@@ -632,7 +632,7 @@ class Client:
 		tags = []
 		while self._parse_tagres(tags): pass
 		return tags
-	
+
 	def _parse_tag(self, prefix, spec, pos, comparison, is_guid=False):
 		if pos == -1:
 			return None
@@ -674,7 +674,7 @@ class Client:
 			else:
 				val = None
 			return (prefix + tag.guid, val)
-	
+
 	def parse_tag(self, spec, comparison=False):
 		spec = _uni(spec)
 		if not spec: return None
@@ -697,7 +697,7 @@ class Client:
 		else:
 			ppos = spec.rfind(u"=", 0, spec.find(u" "))
 		return self._parse_tag(prefix, spec, ppos, comparison)
-	
+
 	def _find_tag(self, matchtype, name, with_prefix):
 		name = _uniw(name)
 		if with_prefix and name[0] in u"~-!":
@@ -712,46 +712,46 @@ class Client:
 		tag.pname = prefix + tag.name
 		tag.pguid = prefix + tag.guid
 		return tag
-	
+
 	def find_tag(self, name, resdata=None, with_prefix=False):
 		tag = self._find_tag(u"EAN", name, with_prefix)
 		if not tag: return None
 		if resdata != None: resdata.update(tag)
 		return tag.pguid
-	
+
 	def get_tag(self, guid, with_prefix=False):
 		tag = self._find_tag(u"EAG", guid, with_prefix)
 		if not tag: return None
 		assert guid[-27:] == tag.guid
 		return tag
-	
+
 	def begin_transaction(self):
 		self._writeline(u"tB")
 		res = self._readline()
 		return res == u"OK"
-	
+
 	def end_transaction(self):
 		self._writeline(u"tE")
 		res = self._readline()
 		return res == u"OK"
-	
+
 	def thumb_path(self, md5, size):
 		md5 = str(md5)
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
-	
+
 	def pngthumb_path(self, md5, ft, size):
 		fn = _uniw(md5) + u"." + _uniw(ft)
 		md5 = hashlib.md5(fn.encode("utf-8")).hexdigest()
 		return os.path.join(self.cfg.thumb_base, str(size), md5[0], md5[1:3], md5)
-	
+
 	def image_dir(self, md5):
 		md5 = str(md5)
 		return os.path.join(self.cfg.image_base, md5[0], md5[1:3])
-	
+
 	def image_path(self, md5):
 		md5 = str(md5)
 		return os.path.join(self.image_dir(md5), md5)
-	
+
 	def postspec2md5(self, spec, default=None):
 		if os.path.lexists(spec) and not os.path.isdir(spec):
 			# some extra magic to avoid reading the files if possible
@@ -773,7 +773,7 @@ class Client:
 			return hashlib.md5(open(spec, "rb").read()).hexdigest()
 		if self._md5re.match(spec): return spec
 		return default
-	
+
 	def order(self, tag, posts):
 		init = u"OG" + _uniw(tag)
 		cmd = [init]
@@ -795,7 +795,7 @@ class Client:
 			self._writeline(u"".join(cmd))
 			res = self._readline()
 			if res != u"OK": raise ResponseError(res)
-	
+
 	def metalist(self, name):
 		cmd = u"L" + _uniw(name)
 		self._writeline(cmd)
@@ -806,14 +806,14 @@ class Client:
 			names.append(res[2:])
 			res = self._readline()
 		return names
-	
+
 	def thumb_fns(self, m, ft):
 		sizes = self.cfg.thumb_sizes.split()
 		jpeg_fns = map(lambda z: (self.thumb_path(m, int(z)), int(z)), sizes)
 		png_fns = map(lambda n, z: (self.pngthumb_path(m, ft, n), z),
 		              ("normal", "large"), (128, 256))
 		return list(jpeg_fns), list(png_fns)
-	
+
 	def save_thumbs(self, m, img, ft, rot, force=False):
 		from PIL import Image, PngImagePlugin
 		fn = self.image_path(m)
