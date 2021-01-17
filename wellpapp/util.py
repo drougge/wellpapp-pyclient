@@ -166,41 +166,49 @@ def _parse_date(d):
 
 class ExifWrapper:
 	"""Wrapper for several EXIF libraries.
-	Starts out with an internal parser, falls back to two incompatible
-	versions of pyexiv2 for fields it doesn't know about.
+	Starts out with an internal parser, falls back to GExiv2 for fields
+	(and formats) it doesn't know about. (Only works if given a filename.)
 
 	Never fails, just returns empty data (even if file doesn't exist)."""
 
 	def __init__(self, fn):
 		self._d = {}
+		self._gexiv2_loaded = None
 		if isinstance(fn, str):
 			self.fn = fn
-			try:
-				self._pyexiv2_old(fn)
-			except Exception:
-				try:
-					self._pyexiv2_new(fn)
-				except Exception:
-					pass
-			try:
-				self._internal()
-			except Exception:
-				pass
+			fh = None
 		else:
 			self.fn = None
-			try:
-				self._internal(fn)
-			except Exception:
-				pass
+			fh = fn
+		try:
+			self._internal(fh)
+		except Exception:
+			pass
 
-	def _getitem(self, name): # usually overridden from pyexiv2
+	def _getitem(self, name): # usually overridden from gexiv2
 		raise KeyError(name)
-	def _contains(self, name): # usually overridden from pyexiv2
+	def _contains(self, name): # usually overridden from gexiv2
 		return False
 
 	def __getitem(self, name):
 		if name in self._d: return self._d[name]
-		return self._getitem(name)
+		self._gexiv2()
+		v = self._getitem(name)
+		if name in ("Exif.Photo.FNumber", "Exif.Photo.FocalLength"):
+			a, b = map(int, v.split("/"))
+			v = (a, b)
+		elif name in (
+			"Exif.Image.Orientation", "Exif.Photo.ISOSpeedRatings",
+			"Exif.Photo.FocalLengthIn35mmFilm", "Exif.GPSInfo.GPSAltitudeRef",
+		):
+			v = int(v)
+		elif name in ("Exif.GPSInfo.GPSLatitude", "Exif.GPSInfo.GPSLongitude"):
+			from fractions import Fraction
+			v = [Fraction(*map(int, vv.split("/"))) for vv in v.split()]
+		elif name == "Exif.GPSInfo.GPSAltitude":
+			a, b = map(float, v.split("/"))
+			v = a / b
+		return v
 	def _fmtrational(self, n, d, intasint=True):
 		if n == d == 0: return "0"
 		if d == 0: return None # not valid
@@ -257,29 +265,30 @@ class ExifWrapper:
 		return v
 
 	def __contains__(self, name):
-		return name in self._d or self._contains(name)
+		if name in self._d:
+			return True
+		self._gexiv2()
+		return self._contains(name)
 
-	def _pyexiv2_old(self, fn):
-		from pyexiv2 import Image
-		exif = Image(fn)
-		if hasattr(exif, 'readMetadata'):
-			exif.readMetadata()
-			keys = set(exif.exifKeys())
-		else:
-			exif = keys = exif.read_exif()
-		self._getitem = exif.__getitem__
-		self._contains = keys.__contains__
-
-	def _pyexiv2_new(self, fn):
-		from pyexiv2 import ImageMetadata
-		exif = ImageMetadata(fn)
-		exif.read()
-		self._exif = exif
-		self._getitem = self._new_getitem
-		self._contains = exif.__contains__
-
-	def _new_getitem(self, *a):
-		return self._exif.__getitem__(*a).value
+	def _gexiv2(self):
+		if self._gexiv2_loaded is not None or not self.fn:
+			return
+		try:
+			import gi
+			gi.require_version('GExiv2', '0.10')
+			from gi.repository import GExiv2
+		except Exception as e:
+			self._gexiv2_loaded = False
+			print("Failed to load GExiv2:", str(e), file=sys.stderr)
+			print("(Maybe you need to install gir1.2-gexiv2-0.10 or similar?)", file=sys.stderr)
+			return
+		try:
+			exif = GExiv2.Metadata(self.fn)
+			self._getitem = exif.__getitem__
+			self._contains = exif.__contains__
+			self._gexiv2_loaded = True
+		except Exception:
+			self._gexiv2_loaded = False
 
 	def _internal(self, fh=None):
 		fh = fh or open(self.fn, "rb")
