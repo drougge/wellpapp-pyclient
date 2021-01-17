@@ -53,7 +53,7 @@ class TIFF:
 		else:
 			next_ifd = self._up1("I", fh.read(4))
 		# Be conservative with possibly mis-detected ORF
-		if self.variant == "RO":
+		if self.variant == b"RO":
 			assert next_ifd == 8
 		self.reinit_from(next_ifd, short_header)
 
@@ -86,7 +86,8 @@ class TIFF:
 				off = self._fh.read(tl * vc)
 				if fmt: off = self._up(fmt * vc, off)
 			if type == 2:
-				off = off.rstrip("\0")
+				from ._util import _uni
+				off = _uni(off.rstrip(b"\0"))
 			return off
 
 	def _ifdread(self, next_ifd):
