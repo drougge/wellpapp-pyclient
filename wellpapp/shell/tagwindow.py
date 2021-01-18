@@ -39,10 +39,10 @@ def prefix(n):
 	return u""
 
 def ishex(s):
-	return False not in [c in "1234567890abcdef" for c in s.lower()]
+	return all(c in "1234567890abcdef" for c in s.lower())
 
 def _uni(s):
-	if type(s) is not unicode:
+	if not isinstance(s, unicode):
 		try:
 			s = s.decode("utf-8")
 		except UnicodeDecodeError:
@@ -51,7 +51,7 @@ def _uni(s):
 
 _fuzz_ignore = u"".join(map(unichr, range(33))) + u"-_()[]{}.,!/\"'?<>@=+%$#|\\"
 def _completefuzz(word):
-	return list(filter(lambda c: c not in _fuzz_ignore, word.lower()))
+	return [c for c in word.lower() if c not in _fuzz_ignore]
 
 def complete(tw, word):
 	assert u" " not in word
@@ -698,7 +698,7 @@ class TagWindow:
 				print_exc()
 				failed.append(t)
 		bad = False
-		todo_m = list(filter(lambda m: todo[m] != ([], [], []), todo))
+		todo_m = [m for m, t in todo.items() if t != ([], [], [])]
 		if todo_m: self.client.begin_transaction()
 		try:
 			for m in todo_m:
