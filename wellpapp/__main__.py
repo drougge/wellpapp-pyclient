@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
-
 from __future__ import print_function
 
 import sys
 from importlib import import_module
 
-def main(argv):
-	arg0 = argv[0]
-	argv = argv[1:]
+def main():
+	arg0 = sys.argv[0]
+	argv = sys.argv[1:]
 	def usage(fh):
 		print("Usage:", arg0, "command [args]", file=fh)
 	if len(argv) < 1:
@@ -31,4 +29,4 @@ def main(argv):
 	return mod.main('%s %s' % (arg0, command), argv)
 
 if __name__ == '__main__':
-	sys.exit(main(sys.argv))
+	sys.exit(main())
