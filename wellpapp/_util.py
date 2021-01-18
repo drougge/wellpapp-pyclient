@@ -1,5 +1,3 @@
-# -*- coding: iso-8859-1 -*-
-
 from base64 import b64encode, b64decode
 from functools import partial
 import sys

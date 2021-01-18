@@ -1,5 +1,3 @@
-# -*- coding: iso-8859-1 -*-
-
 from wellpapp.client import *
 from wellpapp.vt import *
 from wellpapp.util import *

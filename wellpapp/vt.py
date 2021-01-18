@@ -1,5 +1,3 @@
-# -*- coding: iso-8859-1 -*-
-
 import re
 from fractions import Fraction
 from decimal import Decimal
