@@ -84,9 +84,6 @@ def complete(tw, word):
 		word = _completefuzz(word)
 		inc = lambda n: _completefuzz(n)[:len(word)] == word
 		candidates = list(filter(inc, tags)) + list(filter(inc, aliases))
-		candidates = list(map(unicode.lower, candidates))
-		for k in list(names):
-			names[k.lower()] = names[k]
 	common = commonprefix(candidates)
 	org_fuzz = _completefuzz(org_word)
 	if _completefuzz(common)[:len(org_fuzz)] != org_fuzz:
