@@ -61,12 +61,21 @@ def complete(tw, word):
 	known_tags = set()
 	for tl in ("all", "allcurrent", "currentother", "other"):
 		known_tags.update(clean(g) for g in tw.taglist[tl])
-	for t, get in ("EI", lambda t: t["name"]), ("EAI", lambda t: t["alias"][0]), \
-	              ("FI", lambda t: t["name"]), ("FAI", lambda t: t["alias"][0]):
+	for t in ("EI", "EAI", "FI", "FAI"):
 		tags = tw.client.find_tags(t, word)
 		if pre == "-": tags = [t for t in tags if t.guid in known_tags]
 		if len(tags) == 1:
-			name = get(tags[0])
+			candidates = [tags[0].name] + tags[0].get("alias", [])
+			for name in candidates:
+				if name.startswith(word):
+					break
+			else:
+				word = _completefuzz(word)
+				for name in candidates:
+					if _completefuzz(name)[:len(word)] == word:
+						break
+				else:
+					name = candidates[0]
 			return pre + name, [(name, tags[0])]
 		if len(tags) > 1: break
 	names = {}
