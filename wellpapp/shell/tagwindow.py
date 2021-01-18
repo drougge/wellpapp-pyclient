@@ -57,22 +57,29 @@ def complete(tw, word):
 	assert u" " not in word
 	pre = prefix(word)
 	word = clean(word)
-	org_word = word
-	known_tags = set()
-	for tl in ("all", "allcurrent", "currentother", "other"):
-		known_tags.update(clean(g) for g in tw.taglist[tl])
-	for t in ("EI", "EAI", "FI", "FAI"):
-		tags = tw.client.find_tags(t, word)
-		if pre == "-": tags = [t for t in tags if t.guid in known_tags]
+	fuzz_word = _completefuzz(word)
+	if pre == "-":
+		known_tags = set()
+		for tl in ("all", "allcurrent", "currentother", "other"):
+			known_tags.update(clean(g) for g in tw.taglist[tl])
+		known_tags = [tw.client.get_tag(k) for k in known_tags]
+		def gen():
+			yield [t for t in known_tags if t.name.startswith(word)]
+			yield [t for t in known_tags if any(a.startswith(word) for a in t.get("alias", ()))]
+			yield [t for t in known_tags if _completefuzz(t.name)[:len(fuzz_word)] == fuzz_word]
+			yield [t for t in known_tags if any(_completefuzz(a)[:len(fuzz_word)] == fuzz_word for a in t.get("alias", ()))]
+		tags_gen = gen()
+	else:
+		tags_gen = (tw.client.find_tags(t, word) for t in ("EI", "EAI", "FI", "FAI"))
+	for tags in tags_gen:
 		if len(tags) == 1:
 			candidates = [tags[0].name] + tags[0].get("alias", [])
 			for name in candidates:
 				if name.startswith(word):
 					break
 			else:
-				word = _completefuzz(word)
 				for name in candidates:
-					if _completefuzz(name)[:len(word)] == word:
+					if _completefuzz(name)[:len(fuzz_word)] == fuzz_word:
 						break
 				else:
 					name = candidates[0]
@@ -90,13 +97,11 @@ def complete(tw, word):
 	inc = lambda n: n[:len(word)] == word
 	candidates = list(filter(inc, tags)) + list(filter(inc, aliases))
 	if not candidates:
-		word = _completefuzz(word)
-		inc = lambda n: _completefuzz(n)[:len(word)] == word
+		inc = lambda n: _completefuzz(n)[:len(fuzz_word)] == fuzz_word
 		candidates = list(filter(inc, tags)) + list(filter(inc, aliases))
 	common = commonprefix(candidates)
-	org_fuzz = _completefuzz(org_word)
-	if _completefuzz(common)[:len(org_fuzz)] != org_fuzz:
-		common = org_word
+	if _completefuzz(common)[:len(fuzz_word)] != fuzz_word:
+		common = word
 	word = pre + common
 	candidates = [(c, names[c]) for c in candidates]
 	return word, candidates
