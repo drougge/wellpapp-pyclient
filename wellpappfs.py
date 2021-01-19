@@ -220,8 +220,9 @@ class Wellpapp(fuse.Fuse):
 			                              excl_guids=dontwant, order="-post",
 			                              flags="-datatag")
 		want = [w[0][-27:] for w in want]
-		names = [t.name.encode("utf-8") for t in tags if t.guid not in want]
-		return "\n".join(names) + "\n"
+		names = [t.name for t in tags if t.guid not in want]
+		res = "\n".join(names) + "\n"
+		return res.encode("utf-8")
 
 	def _generate_meta(self, m):
 		data = """<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 4.1.1-Exiv2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:tiff="http://ns.adobe.com/tiff/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" """
