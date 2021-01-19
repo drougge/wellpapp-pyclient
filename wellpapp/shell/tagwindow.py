@@ -1186,7 +1186,7 @@ class FileLoader(Thread):
 			q_in.put(d)
 		d_out = {}
 		z = int(client.cfg.thumb_sizes.split()[0])
-		for _ in range(cpu_count()):
+		for _ in range(min(cpu_count(), len(self._argv))):
 			FileLoaderWorker(client, q_in, d_out, z).start()
 		q_in.join()
 		good = True
