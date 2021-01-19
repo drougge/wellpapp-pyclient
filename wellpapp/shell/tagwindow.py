@@ -1158,14 +1158,14 @@ class FileLoaderWorker(Thread):
 				m = thumb = None
 				try:
 					m = self._client.postspec2md5(d)
-				except Exception:
-					pass
+				except Exception as e:
+					print(e)
 				if m:
 					try:
 						fn = self._client.thumb_path(m, self._z)
 						thumb = GdkPixbuf.Pixbuf.new_from_file(fn)
-					except Exception:
-						pass
+					except Exception as e:
+						print(e)
 				self._d_out[d] = (m, thumb, m,)
 				self._q_in.task_done()
 		except Queue.Empty:
@@ -1196,12 +1196,12 @@ class FileLoader(Thread):
 			md5s = list(filter(None, md5s))
 			good = False
 		if not md5s:
-			idle_add(self._tw.error, u"No posts found")
+			idle_add(self._tw.error, u"No files found")
 			return
 		thumbs = [d_out[d] for d in self._argv if d_out[d][1]]
 		if len(thumbs) != len(md5s):
 			if good:
-				idle_add(self._tw.error, u"Post(s) not found")
+				idle_add(self._tw.error, u"Thumbs(s) not found")
 			good = False
 		idle_add(self._tw.add_md5s, md5s)
 		idle_add(self._tw.add_thumbs, thumbs)
