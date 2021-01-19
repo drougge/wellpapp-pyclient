@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
 
 from __future__ import print_function
 
@@ -245,8 +244,8 @@ class Wellpapp(fuse.Fuse):
 				m = md5re.match(fn)
 				ext = m.group(2)
 				ofn = m.group(1) + "." + _rawext_r.get(ext, ext)
-				tmd5 = md5(fn).hexdigest()
-				pcache[tmd5] = (md5(ofn).hexdigest(), fn)
+				tmd5 = md5(fn.encode("utf-8")).hexdigest()
+				pcache[tmd5] = (md5(ofn.encode("utf-8")).hexdigest(), fn)
 		return pcache.get(thumbmd5)
 
 	def readlink(self, path):
@@ -434,19 +433,19 @@ class Wellpapp(fuse.Fuse):
 				orgmd5, fn = wp._resolve_thumb(search, spath[-1])
 				ext = fn.split(".")[-1]
 				tfn = wp._client.thumb_path(orgmd5, spath[-2])
-				fh = open(tfn)
+				fh = open(tfn, "rb")
 				data = fh.read()
 				fh.close()
 				if not (search.order or ext in _rawext_r):
 					return data
-				data = data.split("tEXtThumb::URI\0")
+				data = data.split(b"tEXtThumb::URI\0")
 				if len(data) != 2: NOTFOUND()
 				pre, post = data
 				clen, = unpack(">I", pre[-4:])
 				if search.order: # It's longer only of search was ordered
 					pre = pre[:-4] + pack(">I", clen + 7)
 				post = post[clen - 7:]
-				tEXt = "tEXtThumb::URI\0" + fn
+				tEXt = b"tEXtThumb::URI\0" + fn.encode("utf-8")
 				crc = crc32(tEXt)
 				if crc < 0: crc += 0x100000000
 				tEXt += pack(">I", crc)
