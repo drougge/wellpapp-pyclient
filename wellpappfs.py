@@ -6,6 +6,7 @@ import fuse
 import stat
 import errno
 import os
+import sys
 from wellpapp import Client, Tag, raw_exts
 import re
 from time import time, sleep
@@ -20,6 +21,15 @@ from collections import namedtuple
 if not hasattr(fuse, "__version__"):
 	raise RuntimeError("No fuse.__version__, too old?")
 fuse.fuse_python_api = (0, 2)
+
+if sys.version_info[0] == 2:
+	PY3 = False
+else:
+	PY3 = True
+	unicode = str
+	if fuse.__version__ < "1.0.0":
+		raise RuntimeError("Needs at least fuse 1.0.0 on python 3")
+
 md5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)$")
 shortmd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})$")
 metamd5re = re.compile(r"^(?:\d{6}\.)?([0-9a-f]{32})\.(\w+)\.gq\.xmp$")
@@ -91,7 +101,10 @@ class Wellpapp(fuse.Fuse):
 		for k, v in cfg.items():
 			if not k.startswith("_"):
 				data.append(k + "=" + v + "\n")
-		return "".join(sorted(data))
+		res = "".join(sorted(data))
+		if PY3:
+			res = res.encode("utf-8")
+		return res
 
 	def _cache_read(self):
 		self._cache_fh.seek(0, 1)
@@ -117,12 +130,12 @@ class Wellpapp(fuse.Fuse):
 		if not exists(fn): return
 		try:
 			print("Loading stat-cache..")
-			self._cache_fh = open(fn, "r")
+			self._cache_fh = open(fn, "r", encoding="utf-8") if PY3 else open(fn, "r")
 			self._stat_cache = {}
 			self._cache_read()
 			self._use_cache = True
-		except Exception:
-			print("Failed to load cache")
+		except Exception as e:
+			print("Failed to load cache:", e)
 
 	# Starting threads doesn't work from __init__.
 	def fsinit(self):
@@ -307,7 +320,9 @@ class Wellpapp(fuse.Fuse):
 				if self._raw2jpeg and ext in _rawext and self._stat(m).jpegsize:
 					r.append(prefix + m + "." + _rawext[ext])
 				r.append(prefix + m + "." + ext)
-		return map(str, r), {}
+		if not PY3:
+			r = map(str, r)
+		return r, {}
 
 	def _path2search(self, path):
 		if path == "/": return None

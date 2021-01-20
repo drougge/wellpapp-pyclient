@@ -1,4 +1,7 @@
-Run as any fuse filesystem. Needs the wellpapp python client lib.
+Run as any fuse filesystem. Needs the wellpapp python client lib and
+fuse-python (at least version 1.0.0 if you use python 3). On python 3
+all paths (both your actual files and search paths in this FS) need to
+be valid utf-8.
 
 Directories are searches.
 
