@@ -432,7 +432,7 @@ class TagWindow:
 			t = dialog.get_tt()
 			if t and t != tag.type:
 				new_type = t
-			new_name = _uni(entry.get_text())
+			new_name = _uni(entry.get_text().strip())
 			if new_name == tag.name: new_name = None
 			if new_type or new_name:
 				try:
@@ -653,7 +653,7 @@ class TagWindow:
 
 	def apply_action(self, *a):
 		self.set_msg(u"")
-		orgtext = _uni(self.tagfield.get_text())
+		orgtext = _uni(self.tagfield.get_text().strip())
 		if not orgtext:
 			gtk.main_quit()
 			return
@@ -980,7 +980,7 @@ class AliasesDialog(gtk.Dialog):
 		self._refresh()
 
 	def _add(self, *a):
-		name = self._add_name.get_text()
+		name = self._add_name.get_text().strip()
 		if not name:
 			self.emit("close")
 			return
