@@ -1198,11 +1198,13 @@ class FileLoader(Thread):
 		if not ordered_out:
 			idle_add(self._tw.error, u"No files found")
 			return
+		fallback = None
 		if any(not tn for _, tn in ordered_out):
 			if good:
 				idle_add(self._tw.error, u"Thumbs(s) not found")
 			good = False
-		thumbs = [(m, tn, m) for m, tn in ordered_out]
+			fallback = gtk.IconTheme().load_icon("image-missing", z, 0)
+		thumbs = [(m, tn or fallback, m) for m, tn in ordered_out]
 		idle_add(self._tw.add_md5s, [v[0] for v in thumbs])
 		idle_add(self._tw.add_thumbs, thumbs)
 		if good:
