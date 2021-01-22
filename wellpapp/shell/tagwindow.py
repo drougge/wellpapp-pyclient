@@ -308,7 +308,6 @@ class TagWindow:
 		self.window.show_all()
 		self.b_apply.hide()
 		self.type2colour = dict([cs.split("=") for cs in self.client.cfg.tagcolours.split()])
-		self.md5s = set()
 		self.fullscreen_open = False
 		self.taglist = {}
 		for pre in ("", "impl"):
@@ -352,11 +351,8 @@ class TagWindow:
 			from traceback import print_exc
 			print_exc()
 			return
-		add = []
-		for m in data.split():
-			if len(m) == 32 and ishex(m) and m not in self.md5s:
-				add.append(m)
-				self.md5s.add(m)
+		md5s = {t[0] for t in self.thumbs}
+		add = [m for m in data.split() if len(m) == 32 and ishex(m) and m not in md5s]
 		if add:
 			fl = FileLoader(self, add)
 			fl.start()
@@ -517,7 +513,7 @@ class TagWindow:
 			lo.append()
 
 	def refresh(self):
-		posts = [self.client.get_post(m, True) for m in self.md5s]
+		posts = [self.client.get_post(t[0], True) for t in self.thumbs]
 		if None in posts:
 			self.error(u"Post(s) not found")
 			posts = list(filter(None, posts))
@@ -562,6 +558,8 @@ class TagWindow:
 	def add_thumbs(self, thumbs):
 		for thumb in thumbs:
 			self.thumbs.append(thumb)
+		self.refresh()
+		self.b_apply.show()
 
 	def known_tag(self, tag):
 		return tag["guid"] in self.ids
@@ -657,7 +655,8 @@ class TagWindow:
 		if not orgtext:
 			gtk.main_quit()
 			return
-		if not self.md5s: return
+		if not len(self.thumbs):
+			return
 		good = []
 		failed = []
 		for t in orgtext.split():
@@ -721,11 +720,6 @@ class TagWindow:
 			if todo_m: self.client.end_transaction()
 		self.refresh()
 		return bad
-
-	def add_md5s(self, md5s):
-		self.md5s.update(md5s)
-		self.refresh()
-		self.b_apply.show()
 
 	def set_msg(self, msg, bg="#FFFFFF"):
 		self.msgbox.modify_bg(gtk.StateType.NORMAL, gdk.color_parse(bg))
@@ -1205,7 +1199,6 @@ class FileLoader(Thread):
 			good = False
 			fallback = gtk.IconTheme().load_icon("image-missing", z, 0)
 		thumbs = [(m, tn or fallback, m) for m, tn in ordered_out]
-		idle_add(self._tw.add_md5s, [v[0] for v in thumbs])
 		idle_add(self._tw.add_thumbs, thumbs)
 		if good:
 			idle_add(self._tw.set_msg, u"")
