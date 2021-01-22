@@ -1166,7 +1166,7 @@ class FileLoaderWorker(Thread):
 						thumb = GdkPixbuf.Pixbuf.new_from_file(fn)
 					except Exception as e:
 						print(e)
-				self._d_out[d] = (m, thumb, m,)
+				self._d_out[d] = (m, thumb,)
 				self._q_in.task_done()
 		except Queue.Empty:
 			pass
@@ -1190,20 +1190,20 @@ class FileLoader(Thread):
 			FileLoaderWorker(client, q_in, d_out, z).start()
 		q_in.join()
 		good = True
-		md5s = [d_out[d][0] for d in self._argv]
-		if None in md5s:
+		ordered_out = [d_out[d] for d in self._argv]
+		if any(not m for m, _ in ordered_out):
 			idle_add(self._tw.error, u"File(s) not found")
-			md5s = list(filter(None, md5s))
+			ordered_out = [v for v in ordered_out if v[0]]
 			good = False
-		if not md5s:
+		if not ordered_out:
 			idle_add(self._tw.error, u"No files found")
 			return
-		thumbs = [d_out[d] for d in self._argv if d_out[d][1]]
-		if len(thumbs) != len(md5s):
+		if any(not tn for _, tn in ordered_out):
 			if good:
 				idle_add(self._tw.error, u"Thumbs(s) not found")
 			good = False
-		idle_add(self._tw.add_md5s, md5s)
+		thumbs = [(m, tn, m) for m, tn in ordered_out]
+		idle_add(self._tw.add_md5s, [v[0] for v in thumbs])
 		idle_add(self._tw.add_thumbs, thumbs)
 		if good:
 			idle_add(self._tw.set_msg, u"")
