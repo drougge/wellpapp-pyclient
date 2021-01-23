@@ -208,6 +208,12 @@ def main(arg0, argv):
 			if rem: self.remove(rem)
 			if prefix != "-": set.add(self, (prefix + guid, val))
 
+		def difference(self, other):
+			other = {(guid, None if val is None else val.format()) for guid, val in other}
+			for guid, val in self:
+				if (guid, None if val is None else val.format()) not in other:
+					yield guid, val
+
 		def add_spec(self, s):
 			try:
 				with lock:
