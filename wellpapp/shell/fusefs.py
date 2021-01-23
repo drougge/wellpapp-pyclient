@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from __future__ import print_function
 
 import fuse
@@ -490,6 +488,7 @@ class Wellpapp(fuse.Fuse):
 		self.file_class = FakeFile
 		return fuse.Fuse.main(self, *a, **kw)
 
-server = Wellpapp()
-server.parse(errex=1, values=server)
-server.main()
+def main(arg0, argv):
+	server = Wellpapp(prog=arg0)
+	server.parse(argv, errex=1, values=server)
+	server.main()
