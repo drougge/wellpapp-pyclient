@@ -7,6 +7,12 @@ fuse_reqs = [
 	'fuse-python >= 1.0.0; python_version > "3"',
 ]
 
+readme = open('README.md', 'r').read()
+readme = readme.replace(
+	'(FUSE.md)',
+	'(https://github.com/drougge/wellpapp-pyclient/blob/master/FUSE.md)'
+)
+
 setup(
 	name='wellpapp',
 	version='CHANGEME.dev', # set this for each release
@@ -35,6 +41,6 @@ setup(
 	url='https://github.com/drougge/wellpapp-pyclient',
 	license='MIT',
 	description='Client library and application for the wellpapp image tagging system.',
-	long_description=open('README.md', 'r').read(),
+	long_description=readme,
 	long_description_content_type='text/markdown',
 )
