@@ -120,3 +120,8 @@ or as an external editor from your image viewer of choice.
 You can tab complete tags in the entry field, and drag and drop stuff in
 the obvious ways where useful. (Dropping a tag on a thumbnail will tag only
 that post, regardless of selection.)
+
+### fusefs
+Pseudo-filesystem where directories are searches.
+Only available with python-fuse (install with [fuse] or [all] to get it).
+See [FUSE.md](FUSE.md) for details.
