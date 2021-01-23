@@ -59,10 +59,7 @@ def complete(tw, word):
 	word = clean(word)
 	fuzz_word = _completefuzz(word)
 	if pre == "-":
-		known_tags = set()
-		for tl in ("all", "allcurrent", "currentother", "other"):
-			known_tags.update(clean(g) for g in tw.taglist[tl])
-		known_tags = [tw.client.get_tag(k) for k in known_tags]
+		known_tags = tw.ids.values()
 		def gen():
 			yield [t for t in known_tags if t.name.startswith(word)]
 			yield [t for t in known_tags if any(a.startswith(word) for a in t.get("alias", ()))]
@@ -471,7 +468,7 @@ class TagWindow:
 		return "#%02x%02x%02x" % tuple([int(ord(c) / 1.6) for c in md5(type).digest()[:3]])
 
 	def tag_colour_guid(self, guid):
-		return self.tag_colour(self.client.get_tag(guid).type)
+		return self.tag_colour(self.ids[guid].type)
 
 	def fmt_tag(self, g):
 		t = self.ids[clean(g)]
