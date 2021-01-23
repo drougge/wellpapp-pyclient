@@ -7,6 +7,8 @@ Requires PyGObject and introspection data for GTK 3. For better EXIF
 parsing you also want introspection data for GExiv2. On Debian the packages
 you want are gir1.2-gtk-3.0 and gir1.2-gexiv2-0.10.
 
+You probably want to install using "`pip install 'wellpapp[all]'`".
+
 Everything here uses .wellpapprc. This is read from ~, from all parents
 of currentdir and finaly from currentdir. The last read version of an
 option takes effect.
