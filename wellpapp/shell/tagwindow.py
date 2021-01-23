@@ -262,12 +262,14 @@ class TagWindow:
 		srctypes = texttypes + [nametype, guidtype]
 		for widget in self.tags_allview, self.tags_allcurrentview, self.tags_currentotherview, self.tags_otherview:
 			widget.drag_source_set(gdk.ModifierType.BUTTON1_MASK, srctypes, gdk.DragAction.COPY)
+			widget.drag_source_set_icon_name("text-x-generic")
 			widget.connect("drag_data_get", self.drag_get_list)
 		for widget, all in (self.tags_allview, True), (self.tags_allcurrentview, False):
 			widget.drag_dest_set(gtk.DestDefaults.ALL, [guidtype], gdk.DragAction.COPY)
 			widget.connect("drag_data_received", self.drag_put, all)
 		self.thumbview.drag_source_set(gdk.ModifierType.BUTTON1_MASK, [posttype] + texttypes, gdk.DragAction.COPY)
 		self.thumbview.connect("drag_data_get", self.drag_get_icon)
+		self.thumbview.connect("drag_begin", self.drag_icon_begin)
 		self.thumbview.drag_dest_set(gtk.DestDefaults.ALL, [guidtype, posttype], gdk.DragAction.COPY)
 		self.thumbview.connect("drag_data_received", self.drag_put_thumb)
 		self.tagbox.pack_start(self.tags_allview, False, False, 0)
@@ -317,6 +319,14 @@ class TagWindow:
 	def _focus_tagfield(self, *a):
 		self.tagfield.grab_focus()
 		self.tagfield.select_region(-1, -1)
+
+	def drag_icon_begin(self, widget, ctx):
+		for path in widget.get_selected_items():
+			pixbuf = widget.get_model()[path][1]
+			widget.drag_source_set_icon_pixbuf(pixbuf)
+			break
+		else:
+			widget.drag_source_set_icon_name("image")
 
 	def drag_put_tagfield(self, widget, context, x, y, selection, targetType, eventTime):
 		# This gets called twice (why?), so ignore it the second time
