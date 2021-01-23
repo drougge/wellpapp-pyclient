@@ -89,7 +89,7 @@ def complete(tw, word):
 			for n in t.alias:
 				names[n] = t
 	aliases = [t["alias"] if "alias" in t else [] for t in tags]
-	aliases = chain(*aliases)
+	aliases = list(chain(*aliases))
 	tags = [t["name"] for t in tags]
 	inc = lambda n: n[:len(word)] == word
 	candidates = list(filter(inc, tags)) + list(filter(inc, aliases))
