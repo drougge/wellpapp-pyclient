@@ -434,10 +434,10 @@ class TagWindow:
 				try:
 					self.client.mod_tag(guid, type=new_type, name=new_name)
 					# Don't refresh, just update this tag without re-sorting
+					if new_type:
+						self.ids[guid].type = new_type
 					if new_name:
 						self.ids[guid].name = new_name
-						if new_type:
-							self.ids[guid].valuetype = new_type
 						model[row][0] = self.fmt_tag(pre + guid)
 						model[row][4] = self.txt_tag(pre + guid)
 					model[row][3] = self.tag_colour_guid(guid)
