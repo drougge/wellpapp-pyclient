@@ -704,7 +704,8 @@ class TagWindow:
 					if p != "-" and tag[0] not in post.settags.guids:
 						do_set = True
 					elif tag[1]:
-						if tag[1] != post.tags[tag[0]].value:
+						v = post.tags[tag[0]].value
+						if v is None or tag[1].format() != v.format():
 							do_set = True
 					if do_set:
 						if p == "~":
