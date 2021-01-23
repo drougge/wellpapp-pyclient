@@ -56,6 +56,12 @@ class WpStat(fuse.Stat):
 		self.st_mtime = time
 		self.st_ctime = time
 
+def _str_tagcmp(t):
+	if t[-1] is not None:
+		return u"".join(t[:-1] + (t[-1].format(),))
+	else:
+		return t[0]
+
 class Cache:
 	def __init__(self, ttl):
 		self._data = {}
@@ -63,12 +69,20 @@ class Cache:
 		self._ttl  = ttl
 		self._lock = RLock()
 
-	def get(self, key, getter):
+	def get(self, get_key, getter):
+		# The VT types in the search are hashable, but compare fuzzily, which is wrong here
+		key = (
+			tuple(_str_tagcmp(tc) for tc in get_key.want),
+			tuple(_str_tagcmp(tc) for tc in get_key.dontwant),
+			get_key.order,
+			get_key.range,
+			get_key.clean,
+		)
 		with self._lock:
 			if self._time < time() - self._ttl:
 				self._clean()
 			if key not in self._data:
-				self._data[key] = (time(), getter(key))
+				self._data[key] = (time(), getter(get_key))
 			return self._data[key][1]
 
 	def _clean(self):
