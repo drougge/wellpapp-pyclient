@@ -1180,12 +1180,17 @@ class PostRefresh(Thread):
 		if not self.tw._progress_total_steps:
 			idle_add(self.tw.progress_begin, len(self.tw.thumbs) + 1)
 		posts = []
-		for t in self.tw.thumbs:
-			posts.append(self.client.get_post(t[0], True))
+		to_remove = []
+		for ix, t in enumerate(self.tw.thumbs):
+			p = self.client.get_post(t[0], True)
+			if p:
+				posts.append(p)
+			else:
+				to_remove.append(ix)
+				idle_add(self.tw.error, u"Post(s) not found")
 			idle_add(self.tw.progress_step)
-		if None in posts:
-			idle_add(self.tw.error, u"Post(s) not found")
-			posts = list(filter(None, posts))
+		for ix in reversed(to_remove):
+			del self.tw.thumbs[ix]
 		if not posts:
 			idle_add(self.tw.error, u"No posts found")
 			return
