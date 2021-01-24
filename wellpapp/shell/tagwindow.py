@@ -59,7 +59,14 @@ def complete(tw, word):
 	word = clean(word)
 	fuzz_word = _completefuzz(word)
 	if pre == "-":
-		known_tags = tw.ids.values()
+		known_tags = set()
+		if tw.thumbview.get_selected_items():
+			lists = ("all", "allcurrent", "currentother")
+		else:
+			lists = ("any",)
+		for li in lists:
+			known_tags.update(clean(t) for t in tw.taglist[li])
+		known_tags = [tw.ids[t] for t in known_tags]
 		def gen():
 			yield [t for t in known_tags if t.name.startswith(word)]
 			yield [t for t in known_tags if any(a.startswith(word) for a in t.get("alias", ()))]
