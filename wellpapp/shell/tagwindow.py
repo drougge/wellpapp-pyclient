@@ -1181,13 +1181,18 @@ class PostRefresh(Thread):
 			idle_add(self.tw.progress_begin, len(self.tw.thumbs) + 1)
 		posts = []
 		to_remove = []
+		seen = set()
 		for ix, t in enumerate(self.tw.thumbs):
-			p = self.client.get_post(t[0], True)
-			if p:
-				posts.append(p)
-			else:
+			if t[0] in seen:
 				to_remove.append(ix)
-				idle_add(self.tw.error, u"Post(s) not found")
+			else:
+				seen.add(t[0])
+				p = self.client.get_post(t[0], True)
+				if p:
+					posts.append(p)
+				else:
+					to_remove.append(ix)
+					idle_add(self.tw.error, u"Post(s) not found")
 			idle_add(self.tw.progress_step)
 		for ix in reversed(to_remove):
 			del self.tw.thumbs[ix]
