@@ -207,6 +207,7 @@ class TagWindow:
 		ag = gtk.AccelGroup()
 		self.window.add_accel_group(ag)
 		self.b_apply = button_with_mnemonic(ag, u"_Apply", self.apply_action)
+		self.b_apply.set_sensitive(False)
 		self.b_quit = button_with_mnemonic(ag, u"_Quit", self.destroy)
 		self.bbox.pack_start(self.b_apply, True, True, 0)
 		self.bbox.pack_end(self.b_quit, False, False, 0)
@@ -214,6 +215,7 @@ class TagWindow:
 		self.msg.set_ellipsize(Pango.EllipsizeMode.END)
 		self.msgbox = gtk.EventBox()
 		self.msgbox.add(self.msg)
+		self.progress_bar = gtk.ProgressBar()
 		self.thumbs = gtk.ListStore(TYPE_STRING, GdkPixbuf.Pixbuf, TYPE_STRING)
 		self.thumbview = gtk.IconView(model=self.thumbs)
 		self.thumbview.set_pixbuf_column(1)
@@ -291,6 +293,7 @@ class TagWindow:
 		self.mbox.pack2(self.tagscroll, resize=True, shrink=False)
 		self.vbox = gtk.VBox(homogeneous=False, spacing=0)
 		self.vbox.pack_start(self.msgbox, False, False, 0)
+		self.vbox.pack_start(self.progress_bar, False, False, 0)
 		self.vbox.pack_start(self.mbox, True, True, 0)
 		self.vbox.pack_end(self.bbox, False, False, 0)
 		self.tagfield = gtk.Entry()
@@ -305,7 +308,12 @@ class TagWindow:
 		self.window.add(self.vbox)
 		self.window.set_default_size(int(self.client.cfg.tagwindow_width), int(self.client.cfg.tagwindow_height))
 		self.window.show_all()
-		self.b_apply.hide()
+		# msgbox and progress_bar occupy the same space (one at a time), so make them the same size
+		widgets = (self.msgbox, self.progress_bar,)
+		y = max(widget.get_preferred_size().natural_size.height for widget in widgets)
+		for widget in widgets:
+			widget.set_size_request(-1, y)
+		self.progress_bar.hide()
 		self.type2colour = dict([cs.split("=") for cs in self.client.cfg.tagcolours.split()])
 		self.fullscreen_open = False
 		self.taglist = {}
@@ -522,6 +530,7 @@ class TagWindow:
 			lo.append()
 
 	def refresh(self):
+		self.b_apply.set_sensitive(False)
 		PostRefresh(self).start()
 
 	def update_thumb_tooltips(self):
@@ -548,7 +557,6 @@ class TagWindow:
 		for thumb in thumbs:
 			self.thumbs.append(thumb)
 		self.refresh()
-		self.b_apply.show()
 
 	def known_tag(self, tag):
 		return tag["guid"] in self.ids
@@ -717,6 +725,24 @@ class TagWindow:
 
 	def error(self, msg):
 		self.set_msg(msg, "#FF4466")
+
+	def progress_begin(self, total_steps):
+		self._progress_step = 0
+		self._progress_total_steps = total_steps
+		self.progress_bar.set_fraction(0.0)
+		self.progress_bar.show()
+		self.msgbox.hide()
+
+	def progress_step(self):
+		if self._progress_step < self._progress_total_steps:
+			self._progress_step += 1
+			self.progress_bar.set_fraction(self._progress_step / self._progress_total_steps)
+
+	def progress_end(self):
+		self._progress_total_steps = 0
+		self.progress_bar.hide()
+		self.msgbox.show()
+		self.b_apply.set_sensitive(True)
 
 	def main(self):
 		self.window.show()
@@ -1134,7 +1160,12 @@ class PostRefresh(Thread):
 		self.tw = tw
 
 	def run(self):
-		posts = [self.client.get_post(t[0], True) for t in self.tw.thumbs]
+		if not self.tw._progress_total_steps:
+			idle_add(self.tw.progress_begin, len(self.tw.thumbs) + 1)
+		posts = []
+		for t in self.tw.thumbs:
+			posts.append(self.client.get_post(t[0], True))
+			idle_add(self.tw.progress_step)
 		if None in posts:
 			idle_add(self.tw.error, u"Post(s) not found")
 			posts = list(filter(None, posts))
@@ -1150,18 +1181,21 @@ class PostRefresh(Thread):
 		self.tw.ids = ids
 		self.tw.posts = {p.md5: p for p in posts}
 		self.tw.tag_colours = {tg: self.tw.tag_colour_guid(clean(tg)) for tg in ids}
+		idle_add(self.tw.progress_step)
 		self.tw._tagcompute(posts, "")
 		self.tw._tagcompute(posts, "impl")
 		idle_add(self.tw.put_in_list, "all")
 		idle_add(self.tw.update_from_selection)
 		idle_add(self.tw.update_thumb_tooltips)
+		idle_add(self.tw.progress_end)
 
 class FileLoaderWorker(Thread):
-	def __init__(self, client, q_in, d_out, z):
+	def __init__(self, client, tw, q_in, d_out, z):
 		Thread.__init__(self)
 		self.name = "FileLoaderWorker"
 		self.daemon = True
 		self._client = client
+		self._tw = tw
 		self._q_in = q_in
 		self._d_out = d_out
 		self._z = z
@@ -1175,6 +1209,7 @@ class FileLoaderWorker(Thread):
 					m = self._client.postspec2md5(d)
 				except Exception as e:
 					print(e)
+				idle_add(self._tw.progress_step)
 				if m:
 					try:
 						fn = self._client.thumb_path(m, self._z)
@@ -1183,6 +1218,7 @@ class FileLoaderWorker(Thread):
 						print(e)
 				self._d_out[d] = (m, thumb,)
 				self._q_in.task_done()
+				idle_add(self._tw.progress_step)
 		except Queue.Empty:
 			pass
 
@@ -1200,18 +1236,24 @@ class FileLoader(Thread):
 		for d in self._argv:
 			q_in.put(d)
 		d_out = {}
+		# 3 per arg: md5, thumb load, post load, plus one extra at the end in tw.refresh
+		idle_add(self._tw.progress_begin, len(self._argv) * 3 + 1)
 		z = int(client.cfg.thumb_sizes.split()[0])
 		for _ in range(min(cpu_count(), len(self._argv))):
-			FileLoaderWorker(client, q_in, d_out, z).start()
+			FileLoaderWorker(client, self._tw, q_in, d_out, z).start()
 		q_in.join()
 		good = True
 		ordered_out = [d_out[d] for d in self._argv]
 		if any(not m for m, _ in ordered_out):
 			idle_add(self._tw.error, u"File(s) not found")
+			org_len = len(ordered_out)
 			ordered_out = [v for v in ordered_out if v[0]]
 			good = False
+			for _ in range(org_len - len(ordered_out)):
+				idle_add(self._tw.progress_step)
 		if not ordered_out:
 			idle_add(self._tw.error, u"No files found")
+			idle_add(self._tw.progress_end)
 			return
 		fallback = None
 		if any(not tn for _, tn in ordered_out):
@@ -1223,6 +1265,8 @@ class FileLoader(Thread):
 		idle_add(self._tw.add_thumbs, thumbs)
 		if good:
 			idle_add(self._tw.set_msg, u"")
+		else:
+			idle_add(self._tw.progress_end)
 
 def main(arg0, argv):
 	if len(argv) < 1:
