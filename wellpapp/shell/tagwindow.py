@@ -522,27 +522,7 @@ class TagWindow:
 			lo.append()
 
 	def refresh(self):
-		posts = [self.client.get_post(t[0], True) for t in self.thumbs]
-		if None in posts:
-			self.error(u"Post(s) not found")
-			posts = list(filter(None, posts))
-		if not posts:
-			self.error(u"No posts found")
-			return
-		ids = {}
-		for t in chain(*[p.tags for p in posts]):
-			tt = ids.setdefault(t.guid, t)
-			tt.localcount = tt.get("localcount", 0) + 1
-			if "value" in t:
-				tt.setdefault("valuelist", []).append(t.value)
-		self.ids = ids
-		self.posts = dict([(p.md5, p) for p in posts])
-		self.tag_colours = {tg: self.tag_colour_guid(clean(tg)) for tg in self.ids}
-		self._tagcompute(posts, "")
-		self._tagcompute(posts, "impl")
-		self.put_in_list("all")
-		self.update_from_selection()
-		self.update_thumb_tooltips()
+		PostRefresh(self).start()
 
 	def update_thumb_tooltips(self):
 		for thumb in self.thumbs:
@@ -1145,6 +1125,37 @@ class FullscreenWindow(gtk.Window):
 		self._tw.fullscreen_open = False
 		gtk.Window.destroy(self)
 
+class PostRefresh(Thread):
+	def __init__(self, tw):
+		Thread.__init__(self)
+		self.name = "PostRefresh"
+		self.daemon = True
+		self.client = Client()
+		self.tw = tw
+
+	def run(self):
+		posts = [self.client.get_post(t[0], True) for t in self.tw.thumbs]
+		if None in posts:
+			idle_add(self.tw.error, u"Post(s) not found")
+			posts = list(filter(None, posts))
+		if not posts:
+			idle_add(self.tw.error, u"No posts found")
+			return
+		ids = {}
+		for t in chain(*[p.tags for p in posts]):
+			tt = ids.setdefault(t.guid, t)
+			tt.localcount = tt.get("localcount", 0) + 1
+			if "value" in t:
+				tt.setdefault("valuelist", []).append(t.value)
+		self.tw.ids = ids
+		self.tw.posts = {p.md5: p for p in posts}
+		self.tw.tag_colours = {tg: self.tw.tag_colour_guid(clean(tg)) for tg in ids}
+		self.tw._tagcompute(posts, "")
+		self.tw._tagcompute(posts, "impl")
+		idle_add(self.tw.put_in_list, "all")
+		idle_add(self.tw.update_from_selection)
+		idle_add(self.tw.update_thumb_tooltips)
+
 class FileLoaderWorker(Thread):
 	def __init__(self, client, q_in, d_out, z):
 		Thread.__init__(self)
@@ -1212,7 +1223,6 @@ class FileLoader(Thread):
 		idle_add(self._tw.add_thumbs, thumbs)
 		if good:
 			idle_add(self._tw.set_msg, u"")
-			idle_add(self._tw.update_thumb_tooltips)
 
 def main(arg0, argv):
 	if len(argv) < 1:
