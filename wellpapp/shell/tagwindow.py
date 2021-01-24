@@ -570,7 +570,6 @@ class TagWindow:
 			self.fullscreen_open = True
 			m = self.thumbs[path][0]
 			fn = self.client.image_path(m)
-			self.set_msg(u"Loading image")
 			f = FullscreenWindowThread(fn, self)
 			f.start()
 		except Exception:
@@ -1070,6 +1069,7 @@ class FullscreenWindowThread(Thread):
 		self.name = "FullscreenWindow"
 		self._fn = fn
 		self._tw = tw
+		self._win = None
 
 	def run(self):
 		loader = None
@@ -1080,13 +1080,21 @@ class FullscreenWindowThread(Thread):
 			l = fh.tell()
 			fh.seek(0)
 			r = 0
-			Z = 1024 * 512
-			data = fh.read(Z)
+			Z = 1024 * 256
+			steps = (l - 1) // Z + 1
+			idle_add(self._tw.progress_begin, steps * 2)
 			while r < l:
+				data = fh.read(Z)
+				if not data:
+					break
+				idle_add(self._tw.progress_step)
 				loader.write(data)
 				r += len(data)
-				# we should have a progressbar with float(r)/l
-				data = fh.read(Z)
+				idle_add(self._tw.progress_step)
+			if r != l:
+				msg = "File changed size while reading (%s)" % (self._fn,)
+				idle_add(self._tw.error, msg)
+				raise RuntimeError(msg)
 			pixbuf = loader.get_pixbuf()
 			self._win = FullscreenWindow()
 			idle_add(self._win._init, self._tw, pixbuf)
@@ -1098,10 +1106,12 @@ class FullscreenWindowThread(Thread):
 		finally:
 			if loader:
 				loader.close()
+			idle_add(self._tw.progress_end)
 
 	def _cleanup(self, *args):
 		self._tw.fullscreen_open = False
-		gtk.Window.destroy(self._win, *args)
+		if self._win:
+			gtk.Window.destroy(self._win, *args)
 
 class FullscreenWindow(gtk.Window):
 	def _init(self, tw, pixbuf):
