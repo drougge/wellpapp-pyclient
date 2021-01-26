@@ -53,12 +53,12 @@ _fuzz_ignore = u"".join(map(unichr, range(33))) + u"-_()[]{}.,!/\"'?<>@=+%$#|\\"
 def _completefuzz(word):
 	return [c for c in word.lower() if c not in _fuzz_ignore]
 
-def complete(tw, word):
+def complete(tw, word, for_posts):
 	assert u" " not in word
 	pre = prefix(word)
 	word = clean(word)
 	fuzz_word = _completefuzz(word)
-	if pre == "-":
+	if for_posts and pre == "-":
 		known_tags = set()
 		if tw.thumbview.get_selected_items():
 			lists = ("all", "allcurrent", "currentother")
@@ -127,7 +127,7 @@ def complete_entry(tw, parent, window, tagfield, event):
 		if parent.tab_count == 1:
 			parent.show_alts([])
 			if word:
-				new_word, alts = complete(tw, word)
+				new_word, alts = complete(tw, word, tw is parent)
 				parent.tab_alts = alts
 				if alts:
 					parent.show_alts(alts)
