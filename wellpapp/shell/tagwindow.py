@@ -321,7 +321,7 @@ class TagWindow:
 		for widget in widgets:
 			widget.set_size_request(-1, y)
 		self.progress_bar.hide()
-		self.type2colour = dict([cs.split("=") for cs in self.client.cfg.tagcolours.split()])
+		self.type2colour = dict(cs.split("=") for cs in (self.client.cfg.tagcolours or '').split())
 		self.fullscreen_open = False
 		self.taglist = {}
 		for pre in ("", "impl"):
