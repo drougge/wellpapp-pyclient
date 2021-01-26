@@ -176,12 +176,13 @@ class Config(DotDict):
 			rcs = [os.path.join(os.environ["HOME"], rc_name)]
 			for dir in os.getcwd().split(os.path.sep):
 				path = os.path.join(path, dir)
-				rc = os.path.join(path, rc_name)
-				if os.path.exists(rc): rcs.append(rc)
+				rcs.append(os.path.join(path, rc_name))
 		for rc in rcs:
 			self._load(rc)
 
 	def _load(self, fn):
+		if not os.path.exists(fn):
+			return
 		with CommentWrapper(open(fn)) as fh:
 			for line in fh:
 				line = line.strip()
