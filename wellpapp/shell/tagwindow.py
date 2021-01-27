@@ -1300,7 +1300,7 @@ class FileLoader(Thread):
 		idle_add(self._tw.set_msg, u"")
 		z = int(client.cfg.thumb_sizes.split()[0])
 		seen = {('m', t[0]) for t in self._tw.thumbs}
-		for _ in range(min(cpu_count(), len(self._argv))):
+		for _ in range(min(cpu_count(), len(self._argv), 8)):
 			FileLoaderWorker(self._tw, q_in, d_out, seen, bad_out, z).start()
 		q_in.join()
 		if bad_out:
