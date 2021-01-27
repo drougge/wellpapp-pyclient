@@ -537,9 +537,9 @@ class TagWindow:
 			view.get_selection().set_mode(gtk.SelectionMode.NONE)
 			lo.append()
 
-	def refresh(self):
+	def refresh(self, reload_posts=True):
 		self.b_apply.set_sensitive(False)
-		PostRefresh(self).start()
+		PostRefresh(self, reload_posts).start()
 
 	def update_thumb_tooltips(self):
 		for thumb in self.thumbs:
@@ -566,7 +566,7 @@ class TagWindow:
 			if post.md5 not in self.posts:
 				self.posts[post.md5] = post
 				self.thumbs.append((post.md5, thumb, post.md5))
-		self.refresh()
+		self.refresh(reload_posts=False)
 
 	def known_tag(self, tag):
 		return tag["guid"] in self.ids
@@ -1176,36 +1176,42 @@ class FullscreenWindow(gtk.Window):
 		gtk.Window.destroy(self)
 
 class PostRefresh(Thread):
-	def __init__(self, tw):
+	def __init__(self, tw, reload_posts):
 		Thread.__init__(self)
 		self.name = "PostRefresh"
 		self.daemon = True
 		self.client = Client()
 		self.tw = tw
+		self.reload_posts = reload_posts
 
 	def run(self):
-		if not self.tw._progress_total_steps:
-			idle_add(self.tw.progress_begin, len(self.tw.thumbs) + 1)
-		posts = []
-		to_remove = []
-		seen = set()
-		for ix, t in enumerate(self.tw.thumbs):
-			if t[0] in seen:
-				to_remove.append(ix)
-			else:
-				seen.add(t[0])
-				p = self.client.get_post(t[0], True)
-				if p:
-					posts.append(p)
-				else:
-					to_remove.append(ix)
-					idle_add(self.tw.error, u"Post(s) not found")
-			idle_add(self.tw.progress_step)
-		for ix in reversed(to_remove):
-			del self.tw.thumbs[ix]
-		if not posts:
-			idle_add(self.tw.error, u"No posts found")
+		if not len(self.tw.thumbs):
 			return
+		if self.reload_posts:
+			idle_add(self.tw.progress_begin, len(self.tw.thumbs) + 1)
+			posts = []
+			to_remove = []
+			seen = set()
+			for ix, t in enumerate(self.tw.thumbs):
+				if t[0] in seen:
+					to_remove.append(ix)
+				else:
+					seen.add(t[0])
+					p = self.client.get_post(t[0], True)
+					if p:
+						posts.append(p)
+					else:
+						to_remove.append(ix)
+						idle_add(self.tw.error, u"Post(s) not found")
+				idle_add(self.tw.progress_step)
+			for ix in reversed(to_remove):
+				del self.tw.thumbs[ix]
+			if not posts:
+				idle_add(self.tw.error, u"No posts found")
+				return
+			self.tw.posts = {p.md5: p for p in posts}
+		else:
+			posts = list(self.tw.posts.values())
 		ids = {}
 		for t in chain(*[p.tags for p in posts]):
 			tt = ids.setdefault(t.guid, t)
@@ -1213,7 +1219,6 @@ class PostRefresh(Thread):
 			if "value" in t:
 				tt.setdefault("valuelist", []).append(t.value)
 		self.tw.ids = ids
-		self.tw.posts = {p.md5: p for p in posts}
 		self.tw.tag_colours = {tg: self.tw.tag_colour_guid(clean(tg)) for tg in ids}
 		idle_add(self.tw.progress_step)
 		self.tw._tagcompute(posts, "")
