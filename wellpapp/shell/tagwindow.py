@@ -207,6 +207,7 @@ def button_with_mnemonic(ag, text, func, *args):
 class TagWindow:
 	def __init__(self):
 		self.client = Client()
+		self.posts = {}
 		self.window = gtk.Window(type=gtk.WindowType.TOPLEVEL)
 		self.window.set_border_width(2)
 		self.window.connect("destroy", self.destroy)
@@ -561,8 +562,10 @@ class TagWindow:
 			self.taglist[pre + "any"].update(guids(p))
 
 	def add_thumbs(self, thumbs):
-		for thumb in thumbs:
-			self.thumbs.append(thumb)
+		for post, thumb in thumbs:
+			if post.md5 not in self.posts:
+				self.posts[post.md5] = post
+				self.thumbs.append((post.md5, thumb, post.md5))
 		self.refresh()
 
 	def known_tag(self, tag):
@@ -1221,33 +1224,49 @@ class PostRefresh(Thread):
 		idle_add(self.tw.progress_end)
 
 class FileLoaderWorker(Thread):
-	def __init__(self, client, tw, q_in, d_out, z):
+	def __init__(self, tw, q_in, d_out, bad_out, z):
 		Thread.__init__(self)
 		self.name = "FileLoaderWorker"
 		self.daemon = True
-		self._client = client
+		self._client = Client()
 		self._tw = tw
 		self._q_in = q_in
 		self._d_out = d_out
+		self._bad_out = bad_out
 		self._z = z
 
 	def run(self):
 		try:
 			while True:
 				d = self._q_in.get(False)
-				m = thumb = None
+				if d in self._d_out:
+					self._q_in.task_done()
+					idle_add(self._tw.progress_step)
+					idle_add(self._tw.progress_step)
+					idle_add(self._tw.progress_step)
+					continue
+				m = post = thumb = None
 				try:
 					m = self._client.postspec2md5(d)
 				except Exception as e:
+					self._bad_out.add('file')
 					print(e)
 				idle_add(self._tw.progress_step)
 				if m:
-					try:
-						fn = self._client.thumb_path(m, self._z)
-						thumb = GdkPixbuf.Pixbuf.new_from_file(fn)
-					except Exception as e:
-						print(e)
-				self._d_out[d] = (m, thumb,)
+					post = self._client.get_post(m, True)
+					idle_add(self._tw.progress_step)
+					if post:
+						try:
+							fn = self._client.thumb_path(m, self._z)
+							thumb = GdkPixbuf.Pixbuf.new_from_file(fn)
+						except Exception as e:
+							self._bad_out.add('thumb')
+							print(e)
+						self._d_out[d] = (post, thumb,)
+					else:
+						self._bad_out.add('post')
+				else:
+					idle_add(self._tw.progress_step)
 				self._q_in.task_done()
 				idle_add(self._tw.progress_step)
 		except Queue.Empty:
@@ -1267,37 +1286,27 @@ class FileLoader(Thread):
 		for d in self._argv:
 			q_in.put(d)
 		d_out = {}
-		# 3 per arg: md5, thumb load, post load, plus one extra at the end in tw.refresh
-		idle_add(self._tw.progress_begin, len(self._argv) * 3 + 1)
+		bad_out = set()
+		# 3 per arg: md5, post load, thumb load
+		idle_add(self._tw.progress_begin, len(self._argv) * 3)
+		idle_add(self._tw.set_msg, u"")
 		z = int(client.cfg.thumb_sizes.split()[0])
 		for _ in range(min(cpu_count(), len(self._argv))):
-			FileLoaderWorker(client, self._tw, q_in, d_out, z).start()
+			FileLoaderWorker(self._tw, q_in, d_out, bad_out, z).start()
 		q_in.join()
-		good = True
-		ordered_out = [d_out[d] for d in self._argv]
-		if any(not m for m, _ in ordered_out):
-			idle_add(self._tw.error, u"File(s) not found")
-			org_len = len(ordered_out)
-			ordered_out = [v for v in ordered_out if v[0]]
-			good = False
-			for _ in range(org_len - len(ordered_out)):
-				idle_add(self._tw.progress_step)
+		if bad_out:
+			idle_add(self._tw.error, u"%s(s) not found" % ("/".join(sorted(bad_out)),))
+		ordered_out = [d_out[d] for d in self._argv if d in d_out]
 		if not ordered_out:
-			idle_add(self._tw.error, u"No files found")
+			idle_add(self._tw.error, u"No %ss found" % (u"s/".join(sorted(bad_out)),))
 			idle_add(self._tw.progress_end)
 			return
 		fallback = None
 		if any(not tn for _, tn in ordered_out):
-			if good:
-				idle_add(self._tw.error, u"Thumbs(s) not found")
-			good = False
 			fallback = gtk.IconTheme().load_icon("image-missing", z, 0)
-		thumbs = [(m, tn or fallback, m) for m, tn in ordered_out]
+		thumbs = [(m, tn or fallback,) for m, tn in ordered_out]
+		idle_add(self._tw.progress_end)
 		idle_add(self._tw.add_thumbs, thumbs)
-		if good:
-			idle_add(self._tw.set_msg, u"")
-		else:
-			idle_add(self._tw.progress_end)
 
 def main(arg0, argv):
 	if len(argv) < 1:
