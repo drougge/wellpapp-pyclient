@@ -543,12 +543,7 @@ class TagWindow:
 
 	def update_thumb_tooltips(self):
 		for thumb in self.thumbs:
-			if thumb[0] in self.posts:
-				post = self.posts[thumb[0]]
-				tip = [post.md5]
-				tags = sorted(post.datatags.names.items())
-				tip += [name + u": " + unicode(tag.value) for name, tag in tags]
-				thumb[2] = u"\n".join(tip)
+			thumb[2] = _mk_tooltip(self.posts[thumb[0]])
 
 	def _tagcompute(self, posts, pre):
 		def guids(p):
@@ -562,10 +557,10 @@ class TagWindow:
 			self.taglist[pre + "any"].update(guids(p))
 
 	def add_thumbs(self, thumbs):
-		for post, thumb in thumbs:
+		for post, thumb, tooltip in thumbs:
 			if post.md5 not in self.posts:
 				self.posts[post.md5] = post
-				self.thumbs.append((post.md5, thumb, post.md5))
+				self.thumbs.append((post.md5, thumb, tooltip,))
 		self.refresh(reload_posts=False)
 
 	def known_tag(self, tag):
@@ -1210,6 +1205,7 @@ class PostRefresh(Thread):
 				idle_add(self.tw.error, u"No posts found")
 				return
 			self.tw.posts = {p.md5: p for p in posts}
+			idle_add(self.tw.update_thumb_tooltips)
 		else:
 			posts = list(self.tw.posts.values())
 		ids = {}
@@ -1225,7 +1221,6 @@ class PostRefresh(Thread):
 		self.tw._tagcompute(posts, "impl")
 		idle_add(self.tw.put_in_list, "all")
 		idle_add(self.tw.update_from_selection)
-		idle_add(self.tw.update_thumb_tooltips)
 		idle_add(self.tw.progress_end)
 
 class FileLoaderWorker(Thread):
@@ -1314,9 +1309,15 @@ class FileLoader(Thread):
 		fallback = None
 		if any(not tn for _, tn in ordered_out):
 			fallback = gtk.IconTheme().load_icon("image-missing", z, 0)
-		thumbs = [(m, tn or fallback,) for m, tn in ordered_out]
+		thumbs = [(post, tn or fallback, _mk_tooltip(post),) for post, tn in ordered_out]
 		idle_add(self._tw.progress_end)
 		idle_add(self._tw.add_thumbs, thumbs)
+
+def _mk_tooltip(post):
+	tip = [post.md5]
+	tags = sorted(post.datatags.names.items())
+	tip += [name + u": " + unicode(tag.value) for name, tag in tags]
+	return u"\n".join(tip)
 
 def main(arg0, argv):
 	if len(argv) < 1:
