@@ -577,7 +577,8 @@ class TagWindow:
 			self.fullscreen_open = True
 			m = self.thumbs[path][0]
 			fn = self.client.image_path(m)
-			f = FullscreenWindowThread(fn, self)
+			rotate = self.posts[m].datatags.get("aaaaaa-aaaade-faketg-rotate")
+			f = FullscreenWindowThread(fn, self, int(rotate.value) if rotate else None)
 			f.start()
 		except Exception:
 			from traceback import print_exc
@@ -1071,11 +1072,12 @@ class TagCompletionDialog(gtk.Dialog):
 # Only the main thread ever touches visible objects, because I don't want to
 # mess with the locking system (thread_enter etc).
 class FullscreenWindowThread(Thread):
-	def __init__(self, fn, tw):
+	def __init__(self, fn, tw, rotate=None):
 		Thread.__init__(self)
 		self.name = "FullscreenWindow"
 		self._fn = fn
 		self._tw = tw
+		self._rotate = rotate
 		self._win = None
 
 	def run(self):
@@ -1103,6 +1105,8 @@ class FullscreenWindowThread(Thread):
 				idle_add(self._tw.error, msg)
 				raise RuntimeError(msg)
 			pixbuf = loader.get_pixbuf()
+			if self._rotate:
+				pixbuf = pixbuf.rotate_simple(360 - self._rotate)
 			self._win = FullscreenWindow()
 			idle_add(self._win._init, self._tw, pixbuf)
 			idle_add(self._tw.set_msg, u"")
