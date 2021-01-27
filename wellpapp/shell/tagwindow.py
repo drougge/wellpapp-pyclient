@@ -1224,7 +1224,7 @@ class PostRefresh(Thread):
 		idle_add(self.tw.progress_end)
 
 class FileLoaderWorker(Thread):
-	def __init__(self, tw, q_in, d_out, bad_out, z):
+	def __init__(self, tw, q_in, d_out, seen, bad_out, z):
 		Thread.__init__(self)
 		self.name = "FileLoaderWorker"
 		self.daemon = True
@@ -1232,6 +1232,7 @@ class FileLoaderWorker(Thread):
 		self._tw = tw
 		self._q_in = q_in
 		self._d_out = d_out
+		self._seen = seen
 		self._bad_out = bad_out
 		self._z = z
 
@@ -1239,12 +1240,13 @@ class FileLoaderWorker(Thread):
 		try:
 			while True:
 				d = self._q_in.get(False)
-				if d in self._d_out:
+				if ('d', d) in self._seen:
 					self._q_in.task_done()
 					idle_add(self._tw.progress_step)
 					idle_add(self._tw.progress_step)
 					idle_add(self._tw.progress_step)
 					continue
+				self._seen.add(('d', d))
 				m = post = thumb = None
 				try:
 					m = self._client.postspec2md5(d)
@@ -1252,7 +1254,8 @@ class FileLoaderWorker(Thread):
 					self._bad_out.add('file')
 					print(e)
 				idle_add(self._tw.progress_step)
-				if m:
+				if m and ('m', m) not in self._seen:
+					self._seen.add(('m', m))
 					post = self._client.get_post(m, True)
 					idle_add(self._tw.progress_step)
 					if post:
@@ -1291,14 +1294,16 @@ class FileLoader(Thread):
 		idle_add(self._tw.progress_begin, len(self._argv) * 3)
 		idle_add(self._tw.set_msg, u"")
 		z = int(client.cfg.thumb_sizes.split()[0])
+		seen = {('m', t[0]) for t in self._tw.thumbs}
 		for _ in range(min(cpu_count(), len(self._argv))):
-			FileLoaderWorker(self._tw, q_in, d_out, bad_out, z).start()
+			FileLoaderWorker(self._tw, q_in, d_out, seen, bad_out, z).start()
 		q_in.join()
 		if bad_out:
 			idle_add(self._tw.error, u"%s(s) not found" % ("/".join(sorted(bad_out)),))
 		ordered_out = [d_out[d] for d in self._argv if d in d_out]
 		if not ordered_out:
-			idle_add(self._tw.error, u"No %ss found" % (u"s/".join(sorted(bad_out)),))
+			if bad_out:
+				idle_add(self._tw.error, u"No %ss found" % (u"s/".join(sorted(bad_out)),))
 			idle_add(self._tw.progress_end)
 			return
 		fallback = None
