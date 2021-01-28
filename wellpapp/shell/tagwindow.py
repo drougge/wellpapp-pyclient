@@ -137,7 +137,9 @@ def complete_entry(tw, parent, window, tagfield, event):
 						update(new_word)
 		elif parent.tab_count == 2:
 			parent.tab_count = 0
-			if parent.tab_alts:
+			if len(parent.tab_alts) > 32768:
+				tw.error(u"%d alternatives would be too slow" % (len(parent.tab_alts),))
+			elif parent.tab_alts:
 				left = left + prefix(word)
 				word = clean(word)
 				dialog = TagCompletionDialog(tw, tw.client, window, word, parent.tab_alts)
