@@ -637,7 +637,9 @@ class TagWindow:
 
 	def show_alts(self, alts):
 		self.set_msg(u"")
-		mu = " ".join(self.fmt_tagalt(name, t.type) for name, t in alts)
+		mu = " ".join(self.fmt_tagalt(name, t.type) for name, t in alts[:256])
+		if len(alts) > 256:
+			mu += " ..."
 		self.msg.set_markup(mu)
 
 	def tagfield_key(self, tagfield, event):
