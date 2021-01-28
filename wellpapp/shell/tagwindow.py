@@ -490,10 +490,11 @@ class TagWindow:
 				return True
 
 	def tag_colour(self, type):
-		if type in self.type2colour: return self.type2colour[type]
-		if isinstance(type, unicode):
-			type = type.encode("utf-8")
-		return "#%02x%02x%02x" % tuple([int(ord(c) / 1.6) for c in md5(type).digest()[:3]])
+		if type not in self.type2colour:
+			m = md5(type.encode("utf-8") if isinstance(type, unicode) else type).digest()
+			v = "#%02x%02x%02x" % tuple(int(ord(c) / 1.6) for c in m[:3])
+			self.type2colour[type] = v
+		return self.type2colour[type]
 
 	def tag_colour_guid(self, guid):
 		return self.tag_colour(self.ids[guid].type)
