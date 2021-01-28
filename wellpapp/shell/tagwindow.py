@@ -1021,25 +1021,28 @@ class TagCompletionDialog(gtk.Dialog):
 			tooltip.append(t.type)
 			tooltip.append(u"%d posts, %d weak posts" % (t.posts, t.weak_posts))
 			tooltip = [markup_escape_text(l) for l in tooltip]
-			for heading, reverse in (("\nImplies", False), ("\nImplied by", True)):
-				impl = sorted(client.tag_implies(t.guid, reverse))
-				if impl:
-					tooltip.append(heading)
-					max_show = 12
-					if len(impl) > max_show:
-						dots = len(impl) - max_show + 1
-						impl = impl[:max_show - 1]
-					else:
-						dots = False
-					for i in impl:
-						i_t = client.get_tag(i.guid, with_prefix=True)
-						iname = markup_escape_text(i_t.pname)
-						if i.filter or i.value:
-							iname = '<span color="#ff0000">*</span> ' + iname
-						tc = tw.tag_colour(i_t.type)
-						tooltip.append('    <span color="%s">%s</span>' % (tc, iname))
-					if dots:
-						tooltip.append("... (%d more)" % (dots,))
+			if len(alts) > 64:
+				tooltip.append(u"\n(implications not shown)")
+			else:
+				for heading, reverse in (("\nImplies", False), ("\nImplied by", True)):
+					impl = sorted(client.tag_implies(t.guid, reverse))
+					if impl:
+						tooltip.append(heading)
+						max_show = 12
+						if len(impl) > max_show:
+							dots = len(impl) - max_show + 1
+							impl = impl[:max_show - 1]
+						else:
+							dots = False
+						for i in impl:
+							i_t = client.get_tag(i.guid, with_prefix=True)
+							iname = markup_escape_text(i_t.pname)
+							if i.filter or i.value:
+								iname = '<span color="#ff0000">*</span> ' + iname
+							tc = tw.tag_colour(i_t.type)
+							tooltip.append('    <span color="%s">%s</span>' % (tc, iname))
+						if dots:
+							tooltip.append("... (%d more)" % (dots,))
 			tooltip = "\n".join(tooltip)
 			self.alts.append((m_name, t.guid, "#ffffff", tw.tag_colour(t.type), name, tooltip))
 		self.altsview = gtk.TreeView(model=self.alts)
