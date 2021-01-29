@@ -197,10 +197,11 @@ class Client:
 		if not cfg:
 			cfg = Config()
 		self.cfg = cfg
-		if cfg.socket:
-			self.server = cfg.socket
+		if cfg.server.startswith("/"):
+			self.server = cfg.server
 		else:
-			self.server = (cfg.server, int(cfg.port))
+			host, port = cfg.server.split()
+			self.server = (host, int(port))
 		self.is_connected = False
 		self._md5re = re.compile(r"^[0-9a-f]{32}$", re.I)
 		base = cfg.image_base

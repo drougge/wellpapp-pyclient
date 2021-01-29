@@ -13,21 +13,19 @@ Everything here uses .wellpapprc. This is read from ~, from all parents
 of currentdir and finaly from currentdir. The last read version of an
 option takes effect.
 
-The following options should be specified:
+The following options need to be specified:
 
-	socket=path to (unix) socket of server
+	server=path to (unix) socket of server (or "host port")
 	image_base=path where you want symlinks to imported images
 	thumb_base=path where you want thumbnails of imported images
 	thumb_sizes=list of max dimensions for thumbnails
 
 Example:
 
-	socket=/wellpapp/socket
+	server=/wellpapp/socket
 	image_base=/wellpapp/images
 	thumb_base=/wellpapp/thumbs
 	thumb_sizes=128 200
-
-you can also user server + port instead of socket.
 
 There are more options, see the add command for some of them (and the
 source for the rest).
