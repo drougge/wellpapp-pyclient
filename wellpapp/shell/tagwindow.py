@@ -312,6 +312,8 @@ class TagWindow:
 		self.tagfield.connect("key-press-event", self.tagfield_key)
 		key, mod = gtk.accelerator_parse('<Alt>s')
 		ag.connect(key, mod, 0, self._focus_tagfield)
+		key, mod = gtk.accelerator_parse('<Alt>r')
+		ag.connect(key, mod, 0, self._user_refresh)
 		self.tagfield.drag_dest_set(gtk.DestDefaults.ALL, [nametype] + texttypes, gdk.DragAction.COPY)
 		self.tagfield.connect("drag_data_received", self.drag_put_tagfield)
 		self.vbox.pack_end(self.tagfield, False, False, 0)
@@ -337,6 +339,9 @@ class TagWindow:
 	def _focus_tagfield(self, *a):
 		self.tagfield.grab_focus()
 		self.tagfield.select_region(-1, -1)
+
+	def _user_refresh(self, *a):
+		self.refresh()
 
 	def drag_icon_begin(self, widget, ctx):
 		for path in widget.get_selected_items():
