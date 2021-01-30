@@ -50,9 +50,10 @@ Creates or removes an implication. First argument is set tag, second is
 implied tag, and third is (optional) priority.
 
 ### add
-Takes filenames. The filename "foo bar blutti.jpg" will recieve the tags
-foo and bar (but not blutti), and all tags specified on the first line of
-files named TAGS in all parent directories of the file.
+Takes filenames. Files will get all tags specified on the first line of
+files named TAGS (or whatever you set tags_filename to in the config) in
+all parent directories of the file. Set tags_filename= to disable this.
+Give -g to also use all words except last in filename as tags.
 
 Also tags with the lens used, if you have configured the lens to map to a tag.
 First set lenstags to include the exif tag you need, then set all the

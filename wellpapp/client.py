@@ -166,7 +166,13 @@ _field_cparser = {
 
 class Config(DotDict):
 	def __init__(self, local_rc=False, **kw):
-		DotDict.__init__(self, tagwindow_width="840", tagwindow_height="600", **kw)
+		DotDict.__init__(
+			self,
+			tagwindow_width="840",
+			tagwindow_height="600",
+			tags_filename="TAGS",
+			**kw
+		)
 		rcs = []
 		rc_name = ".wellpapprc"
 		path = "/"

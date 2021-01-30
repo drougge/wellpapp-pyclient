@@ -235,11 +235,12 @@ def main(arg0, argv):
 	def find_tags(fn):
 		path = "/"
 		tags = tagset()
-		for dir in dirname(fn).split(sep):
-			path = join(path, dir)
-			TAGS = join(path, "TAGS")
-			if exists(TAGS):
-				tags.update(open(TAGS, "r", encoding="utf-8").readline().split())
+		if client.cfg.tags_filename:
+			for dir in dirname(fn).split(sep):
+				path = join(path, dir)
+				TAGS = join(path, client.cfg.tags_filename)
+				if exists(TAGS):
+					tags.update(open(TAGS, "r", encoding="utf-8").readline().split())
 		if gen_from_fn:
 			tags.update(basename(fn).split()[:-1])
 		return tags
