@@ -1,10 +1,11 @@
 from __future__ import print_function
 
 import sys
+import os
 from importlib import import_module
 
 def main():
-	arg0 = sys.argv[0]
+	arg0 = os.path.basename(sys.argv[0])
 	argv = sys.argv[1:]
 	def usage(fh):
 		print("Usage:", arg0, "command [args]", file=fh)
