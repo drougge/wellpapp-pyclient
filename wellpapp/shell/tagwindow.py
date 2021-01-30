@@ -234,6 +234,7 @@ class TagWindow:
 		self.thumbview.connect("selection-changed", self.thumb_selected)
 		self.thumbview.connect("item-activated", self.thumb_activated)
 		self.thumbview.connect("button-press-event", self.middle_toggle_select)
+		self.thumbview.connect("key-press-event", self._thumb_key)
 		self.tagbox = gtk.VBox(homogeneous=False, spacing=0)
 		self.tags_all = gtk.ListStore(*taglisttypes)
 		self.tags_allcurrent = gtk.ListStore(*taglisttypes)
@@ -342,6 +343,16 @@ class TagWindow:
 
 	def _user_refresh(self, *a):
 		self.refresh()
+
+	def _thumb_key(self, widget, event):
+		if gdk.keyval_name(event.keyval) == "Delete":
+			model = widget.get_model()
+			selected = widget.get_selected_items()
+			if selected:
+				for path in selected:
+					del self.posts[model[path][0]]
+					del model[path]
+				self.refresh(False)
 
 	def drag_icon_begin(self, widget, ctx):
 		for path in widget.get_selected_items():
@@ -554,6 +565,10 @@ class TagWindow:
 			thumb[2] = _mk_tooltip(self.posts[thumb[0]])
 
 	def _tagcompute(self, posts, pre):
+		if not posts:
+			self.taglist[pre + "all"] = set()
+			self.taglist[pre + "any"] = set()
+			return
 		def guids(p):
 			gs = set(t.pguid for t in p[pre + "fulltags"].values())
 			gs.update(t.pguid for t in p[pre + "weaktags"].values())
@@ -1193,8 +1208,6 @@ class PostRefresh(Thread):
 		self.reload_posts = reload_posts
 
 	def run(self):
-		if not len(self.tw.thumbs):
-			return
 		if self.reload_posts:
 			idle_add(self.tw.progress_begin, len(self.tw.thumbs) + 1)
 			posts = []
