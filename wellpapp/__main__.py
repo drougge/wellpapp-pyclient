@@ -8,6 +8,35 @@ def main():
 	argv = sys.argv[1:]
 	def usage(fh):
 		print("Usage:", arg0, "command [args]", file=fh)
+		print(file=fh)
+		print("Available commands:", file=fh)
+		commands = dict(
+			add='add posts',
+			findtag='search for tags',
+			fsck='check db',
+			fusefs='mount filesystem',
+			implies='add tag implication',
+			mergetags='merge tags',
+			mkalias='make tag alias',
+			mktag='make tag',
+			modtag='modify tag',
+			order='order tag',
+			replace='replace file',
+			rmalias='delete alias',
+			rmpost='delete post',
+			rotate='rotate post',
+			setprop='set post properties',
+			show='show post/tag',
+			tag='tag post',
+			tagwindow='tagging gui',
+		)
+		try:
+			import fuse; fuse
+		except ImportError:
+			del commands['fusefs']
+		tmpl = '    %%-%ds  %%s' % (max(len(cmd) for cmd in commands),)
+		for cmd, desc in sorted(commands.items()):
+			print(tmpl % (cmd, desc,), file=fh)
 	if len(argv) < 1:
 		usage(sys.stderr)
 		return 1
