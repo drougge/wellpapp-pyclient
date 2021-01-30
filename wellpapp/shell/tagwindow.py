@@ -1278,6 +1278,7 @@ class FileLoaderWorker(Thread):
 				m = post = thumb = None
 				try:
 					m = self._client.postspec2md5(d)
+					assert m, d + " not found"
 				except Exception as e:
 					self._bad_out.add('file')
 					print(e)
