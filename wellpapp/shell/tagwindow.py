@@ -677,6 +677,8 @@ class TagWindow:
 		dialog.destroy()
 
 	def apply_action(self, *a):
+		if not self.b_apply.get_sensitive():
+			return
 		self.set_msg(u"")
 		orgtext = _uni(self.tagfield.get_text().strip())
 		if not orgtext:
