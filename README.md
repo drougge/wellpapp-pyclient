@@ -9,9 +9,10 @@ you want are gir1.2-gtk-3.0 and gir1.2-gexiv2-0.10.
 
 You probably want to install using "`pip install 'wellpapp[all]'`".
 
-Everything here uses .wellpapprc. This is read from ~, from all parents
-of currentdir and finaly from currentdir. The last read version of an
-option takes effect.
+Everything here uses wellpapprc. This is read from ~/.config/wellpapp/rc
+(or whatever your XDG_CONFIG_HOME points to), from .wellpapprc in all
+parents of currentdir and finaly from currentdir. The last read version
+of an option takes effect.
 
 The following options need to be specified:
 

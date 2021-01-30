@@ -179,7 +179,10 @@ class Config(DotDict):
 		if local_rc:
 			rcs = [rc_name]
 		else:
-			rcs = [os.path.join(os.environ["HOME"], rc_name)]
+			cfg_home = os.environ.get("XDG_CONFIG_HOME")
+			if not cfg_home:
+				cfg_home = os.path.join(os.environ["HOME"], ".config")
+			rcs = [os.path.join(cfg_home, "wellpapp", "rc")]
 			for dir in os.getcwd().split(os.path.sep):
 				path = os.path.join(path, dir)
 				rcs.append(os.path.join(path, rc_name))
