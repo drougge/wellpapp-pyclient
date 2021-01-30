@@ -8,7 +8,7 @@ from os.path import basename, dirname, realpath, exists, lexists, join, sep
 from os import readlink, symlink, unlink, stat
 from wellpapp import Client, VTstring, make_pdirs, RawWrapper, identify_raw, ExifWrapper, raw_exts, VTgps
 from struct import unpack
-from multiprocessing import Lock, cpu_count, Queue, Process
+from multiprocessing import Lock, cpu_count, Queue, Process, Manager
 from traceback import print_exc
 from sys import version_info, exit
 
@@ -272,11 +272,8 @@ def main(arg0, argv):
 				with open(cache_fn, "a", encoding="utf-8") as fh:
 					fh.write(l)
 
-	def add_image(fn, warn_q):
-		if verbose: print(fn)
+	def add_image(fn, m, data, warn_q):
 		fn = realpath(fn)
-		data = open(fn, "rb").read()
-		m = md5(data).hexdigest()
 		with lock:
 			post = client.get_post(m, True)
 		if post:
@@ -481,6 +478,7 @@ def main(arg0, argv):
 	warn_q = Queue()
 	for td in todo:
 		q.put(td)
+	in_progress = Manager().dict() # no set available
 	def worker():
 		while True:
 			try:
@@ -488,7 +486,25 @@ def main(arg0, argv):
 			except Empty:
 				break
 			try:
-				add_image(i, warn_q)
+				if isinstance(i, tuple):
+					i, m = i
+				else:
+					if verbose:
+						print(i)
+					data = open(i, "rb").read()
+					m = md5(data).hexdigest()
+				with lock:
+					if m in in_progress:
+						# try again later, keep the md5
+						# (don't just skip it, because tags may be different)
+						q.put((i, m))
+						continue
+					in_progress[m] = True
+				try:
+					add_image(i, m, data, warn_q)
+				finally:
+					with lock:
+						del in_progress[m]
 			except Exception:
 				print_exc()
 				bad_q.put(i)
