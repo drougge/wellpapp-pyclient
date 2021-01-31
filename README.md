@@ -58,13 +58,13 @@ Give -g to also use all words except last in filename as tags.
 
 Also tags with the lens used, if you have configured the lens to map to a tag.
 First set lenstags to include the exif tag you need, then set all the
-lens:exiftag:value=tagname pairs you want. Example:
-lenstags=Exif.Pentax.LensType
+lens:exiftag:value=tagname pairs you want. Example:  
+lenstags=Exif.Pentax.LensType  
 lens:Exif.Pentax.LensType:6 9 0=lens:pentax_fa_20mm_f2.8
 
 You can also set tag values from arbitrary exif tags by specified set_tags in
 .wellpapprc. It's a space separated list of tag=exiftag pairs, and the tag is
-set if that exiftag exists. Example:
+set if that exiftag exists. Example:  
 set_tags=aperture=Exif.Photo.FNumber ISO=Exif.Photo.ISOSpeedRatings shutter=Exif.Photo.ExposureTime
 
 add doesn't create tags, but complains if they don't exist.
