@@ -28,8 +28,8 @@ Example:
 	thumb_base=/wellpapp/thumbs
 	thumb_sizes=128 200
 
-There are more options, see the add command for some of them (and the
-source for the rest).
+There are more options, see the add and tagwindow commands for some of them
+(and the source for the rest).
 
 ## Shell interface
 
@@ -122,6 +122,12 @@ or as an external editor from your image viewer of choice.
 You can tab complete tags in the entry field, and drag and drop stuff in
 the obvious ways where useful. (Dropping a tag on a thumbnail will tag only
 that post, regardless of selection.)
+
+You can override the colour of tags with something like  
+tagcolours=good=#00ff00 bad=#ff0000  
+to make tags of type "good" green and "bad" red.
+
+You can set the size of the window with tagwindow_width and tagwindow_height.
 
 ### fusefs
 Pseudo-filesystem where directories are searches.
