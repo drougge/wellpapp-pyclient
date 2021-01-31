@@ -186,12 +186,18 @@ class Config(DotDict):
 			for dir in os.getcwd().split(os.path.sep):
 				path = os.path.join(path, dir)
 				rcs.append(os.path.join(path, rc_name))
+		suggest_rc = rcs[0]
+		rcs = list(filter(os.path.exists, rcs))
+		if not rcs:
+			raise RuntimeError("No RC files found. Try creating %s" % (suggest_rc,))
 		for rc in rcs:
 			self._load(rc)
+		required = ["server", "image_base", "thumb_base", "thumb_sizes"]
+		missing = set(required) - set(self)
+		if missing:
+			raise RuntimeError("Read configuration from\n    %s\nbut still missing the following options:\n    %s" % ("\n    ".join(rcs), "\n    ".join(k for k in required if k in missing)))
 
 	def _load(self, fn):
-		if not os.path.exists(fn):
-			return
 		with CommentWrapper(open(fn)) as fh:
 			for line in fh:
 				line = line.strip()
