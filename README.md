@@ -128,6 +128,7 @@ tagcolours=good=#00ff00 bad=#ff0000
 to make tags of type "good" green and "bad" red.
 
 You can set the size of the window with tagwindow_width and tagwindow_height.
+You can override the width of the tag list with tagwindow_list_width.
 
 ### fusefs
 Pseudo-filesystem where directories are searches.

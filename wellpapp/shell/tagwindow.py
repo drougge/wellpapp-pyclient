@@ -295,7 +295,9 @@ class TagWindow:
 		self.thumbscroll.set_policy(gtk.PolicyType.AUTOMATIC, gtk.PolicyType.ALWAYS)
 		self.thumbscroll.add(self.thumbview)
 		self.tagscroll = gtk.ScrolledWindow()
-		self.tagscroll.set_size_request(150, -1)
+		taglist_width = int(self.client.cfg.tagwindow_list_width or 0) or \
+		                max(150, int(self.client.cfg.tagwindow_width) // 3)
+		self.tagscroll.set_size_request(taglist_width, -1)
 		self.tagscroll.set_policy(gtk.PolicyType.AUTOMATIC, gtk.PolicyType.AUTOMATIC)
 		tagbox_wp = gtk.Viewport()
 		tagbox_wp.add(self.tagbox)
