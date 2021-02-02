@@ -1140,7 +1140,8 @@ class FullscreenWindowThread(Thread):
 			self._win = FullscreenWindow()
 			idle_add(self._win._init, self._tw, pixbuf)
 			idle_add(self._tw.set_msg, u"")
-		except Exception:
+		except Exception as e:
+			idle_add(self._tw.error, str(e))
 			from traceback import print_exc
 			print_exc()
 			self._cleanup()
