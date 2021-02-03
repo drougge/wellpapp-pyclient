@@ -26,6 +26,7 @@ from os.path import commonprefix
 from hashlib import md5
 from threading import Thread
 from multiprocessing import cpu_count
+import re
 
 from wellpapp import Client, RawWrapper, WellpappError
 
@@ -313,6 +314,8 @@ class TagWindow:
 		self.tagfield.set_placeholder_text('tag tag tag')
 		self.tagfield.connect("activate", self.apply_action, None)
 		self.tagfield.connect("key-press-event", self.tagfield_key)
+		self.tagfield.connect("changed", self.tagfield_changed)
+		self.tagfield_cache = {}
 		key, mod = gtk.accelerator_parse('<Alt>s')
 		ag.connect(key, mod, 0, self._focus_tagfield)
 		key, mod = gtk.accelerator_parse('<Alt>r')
@@ -669,6 +672,27 @@ class TagWindow:
 
 	def tagfield_key(self, tagfield, event):
 		return complete_entry(self, self, self.window, tagfield, event)
+
+	def _tagfield_good(self):
+		text = _uni(self.tagfield.get_text())
+		for m in re.finditer(r'[^\s]+', text):
+			tag_txt = clean(m.group())
+			if tag_txt not in self.tagfield_cache:
+				tag = self.client.parse_tag(tag_txt)
+				self.tagfield_cache[tag_txt] = tag
+			if not self.tagfield_cache[tag_txt]:
+				# position updates after the signal, so we have to be lenient here
+				a, b = m.span()
+				a -= 1
+				if not a <= self.tagfield.get_position() < b:
+					return False
+		return True
+
+	def tagfield_changed(self, widget):
+		if self._tagfield_good():
+			widget.override_background_color(gtk.StateType.NORMAL, None)
+		else:
+			widget.override_background_color(gtk.StateType.NORMAL, gdk.RGBA(1.0, 0.666666, 0.733333))
 
 	def create_tag(self, name):
 		dialog = TagDialog(self.client, self.window, u"Create tag", name)
