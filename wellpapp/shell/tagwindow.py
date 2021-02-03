@@ -673,7 +673,7 @@ class TagWindow:
 	def tagfield_key(self, tagfield, event):
 		return complete_entry(self, self, self.window, tagfield, event)
 
-	def _tagfield_good(self):
+	def _tagfield_problems(self):
 		text = _uni(self.tagfield.get_text())
 		for m in re.finditer(r'[^\s]+', text):
 			tag_txt = clean(m.group())
@@ -683,16 +683,25 @@ class TagWindow:
 			if not self.tagfield_cache[tag_txt]:
 				# position updates after the signal, so we have to be lenient here
 				a, b = m.span()
-				a -= 1
-				if not a <= self.tagfield.get_position() < b:
-					return False
-		return True
+				if not a - 1 <= self.tagfield.get_position() < b:
+					yield a, b
 
 	def tagfield_changed(self, widget):
-		if self._tagfield_good():
-			widget.override_background_color(gtk.StateType.NORMAL, None)
+		# missing (from gi data) until about 1.44
+		if hasattr(Pango, 'attr_background_new'):
+			attrs = Pango.AttrList()
+			for a, b in self._tagfield_problems():
+				attr = Pango.attr_background_new(65535, 43690, 48059)
+				attr.start_index = a
+				attr.end_index = b
+				attrs.insert(attr)
+			widget.set_attributes(attrs)
 		else:
-			widget.override_background_color(gtk.StateType.NORMAL, gdk.RGBA(1.0, 0.666666, 0.733333))
+			if list(self._tagfield_problems()):
+				colour = gdk.RGBA(1.0, 0.666666, 0.733333)
+			else:
+				colour = None
+			widget.override_background_color(gtk.StateType.NORMAL, colour)
 
 	def create_tag(self, name):
 		dialog = TagDialog(self.client, self.window, u"Create tag", name)
