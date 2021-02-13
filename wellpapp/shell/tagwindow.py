@@ -316,6 +316,7 @@ class TagWindow:
 		self.tagfield.connect("key-press-event", self.tagfield_key)
 		self.tagfield.connect("changed", self.tagfield_changed)
 		self.tagfield_cache = {}
+		self.tagfield_problems_prev = []
 		key, mod = gtk.accelerator_parse('<Alt>s')
 		ag.connect(key, mod, 0, self._focus_tagfield)
 		key, mod = gtk.accelerator_parse('<Alt>r')
@@ -687,21 +688,25 @@ class TagWindow:
 					yield a, b
 
 	def tagfield_changed(self, widget):
+		problems = list(self._tagfield_problems())
 		# missing (from gi data) until about 1.44
 		if hasattr(Pango, 'attr_background_new'):
+			if problems == self.tagfield_problems_prev:
+				return
 			attrs = Pango.AttrList()
-			for a, b in self._tagfield_problems():
+			for a, b in problems:
 				attr = Pango.attr_background_new(65535, 43690, 48059)
 				attr.start_index = a
 				attr.end_index = b
 				attrs.insert(attr)
 			widget.set_attributes(attrs)
-		else:
-			if list(self._tagfield_problems()):
+		elif bool(problems) != bool(self.tagfield_problems_prev):
+			if problems:
 				colour = gdk.RGBA(1.0, 0.666666, 0.733333)
 			else:
 				colour = None
 			widget.override_background_color(gtk.StateType.NORMAL, colour)
+		self.tagfield_problems_prev = problems
 
 	def create_tag(self, name):
 		dialog = TagDialog(self.client, self.window, u"Create tag", name)
