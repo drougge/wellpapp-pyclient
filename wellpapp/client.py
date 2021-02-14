@@ -685,7 +685,10 @@ class Client:
 		else:
 			val = spec[pos + 1:]
 			if val:
-				val = vtparse(tag.valuetype, val, True)
+				try:
+					val = vtparse(tag.valuetype, val, True)
+				except ValueError:
+					return None
 			else:
 				val = None
 			return (prefix + tag.guid, val)
