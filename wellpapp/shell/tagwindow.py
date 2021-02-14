@@ -315,6 +315,7 @@ class TagWindow:
 		self.tagfield.connect("activate", self.apply_action, None)
 		self.tagfield.connect("key-press-event", self.tagfield_key)
 		self.tagfield.connect("changed", self.tagfield_changed)
+		self.tagfield.connect("move-cursor", self.tagfield_moved)
 		self.tagfield_cache = {}
 		self.tagfield_problems_prev = []
 		key, mod = gtk.accelerator_parse('<Alt>s')
@@ -685,6 +686,9 @@ class TagWindow:
 				a, b = m.span()
 				if not a <= self.tagfield.get_position() <= b:
 					yield a, b
+
+	def tagfield_moved(self, widget, step, count, extend_selection):
+		idle_add(self._tagfield_changed, widget)
 
 	def tagfield_changed(self, widget):
 		idle_add(self._tagfield_changed, widget)
