@@ -682,12 +682,14 @@ class TagWindow:
 				tag = self.client.parse_tag(tag_txt)
 				self.tagfield_cache[tag_txt] = tag
 			if not self.tagfield_cache[tag_txt]:
-				# position updates after the signal, so we have to be lenient here
 				a, b = m.span()
-				if not a - 1 <= self.tagfield.get_position() < b:
+				if not a <= self.tagfield.get_position() <= b:
 					yield a, b
 
 	def tagfield_changed(self, widget):
+		idle_add(self._tagfield_changed, widget)
+
+	def _tagfield_changed(self, widget):
 		problems = list(self._tagfield_problems())
 		# missing (from gi data) until about 1.44
 		if hasattr(Pango, 'attr_background_new'):
