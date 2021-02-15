@@ -565,6 +565,8 @@ class TagWindow:
 
 	def refresh(self, reload_posts=True):
 		self.b_apply.set_sensitive(False)
+		self.tagfield_cache = {}
+		self._tagfield_changed(self.tagfield)
 		PostRefresh(self, reload_posts).start()
 
 	def update_thumb_tooltips(self):
