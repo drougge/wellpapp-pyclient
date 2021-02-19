@@ -97,6 +97,16 @@ _rawext = dict(zip(raw_exts, ("Jpg", "jPg", "jpG", "JPg", "JPG", "JpG", "jPG", "
 assert len(_rawext) == len(raw_exts)
 _rawext_r = {v: k for k, v in _rawext.items()}
 
+if PY3 and sys.getfilesystemencodeerrors() == 'surrogateescape':
+	def pathfix(path):
+		b = path.encode('utf-8', 'surrogateescape')
+		try:
+			return b.decode('utf-8')
+		except UnicodeDecodeError:
+			return b.decode('iso-8859-1')
+else:
+	pathfix = str
+
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
 		fuse.Fuse.__init__(self, *a, **kw)
@@ -168,6 +178,7 @@ class Wellpapp(fuse.Fuse):
 		return self._stat_cache[m]
 
 	def getattr(self, path):
+		path = pathfix(path)
 		spath = path.split("/")[1:]
 		mode = stat.S_IFDIR | 0o555
 		nlink = 2
@@ -275,6 +286,7 @@ class Wellpapp(fuse.Fuse):
 		return pcache.get(thumbmd5)
 
 	def readlink(self, path):
+		path = pathfix(path)
 		path = path.split("/")[1:]
 		m = md5re.match(path[-1])
 		if m:
@@ -288,6 +300,7 @@ class Wellpapp(fuse.Fuse):
 		NOTFOUND()
 
 	def readdir(self, path, offset):
+		path = pathfix(path)
 		list = [".", ".."]
 		search = self._path2search(path)
 		path = path.split("/")[1:]
@@ -410,6 +423,7 @@ class Wellpapp(fuse.Fuse):
 			def __init__(self, path, flags, *mode):
 				rwflags = flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)
 				if rwflags != os.O_RDONLY: NOTFOUND()
+				path = pathfix(path)
 				if path == _cfgpath:
 					self.data = wp._cfgfile
 					return
