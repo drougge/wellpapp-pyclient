@@ -352,16 +352,14 @@ class VTdatetime(ValueType):
 			valid_steps = datev.index(None)
 			t2 = self._step_end(parsed, valid_steps)
 			implfuzz = t2 - value
+			if not unit: exact_fuzz *= implfuzz * 2
+			exact_fuzz += implfuzz
 		else:
 			implfuzz = 0
 			valid_steps = 6
 		fuzz = int(exact_fuzz)
 		if fuzz != exact_fuzz:
 			fuzz = float(exact_fuzz)
-		if not unit and implfuzz: fuzz *= implfuzz * 2;
-		fuzz += implfuzz
-		if implfuzz and not exact_fuzz:
-			exact_fuzz = implfuzz
 		self._init(parsed, value, offset, exact_fuzz, fuzz, last_fuzz or "", valid_steps, zone, with_steps, steps)
 		self.__dict__["str"] = strval.replace(" ", "T") + (zone or "")
 
