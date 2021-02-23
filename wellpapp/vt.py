@@ -478,6 +478,9 @@ class VTdatetime(ValueType):
 	def __eq__(self, other):
 		return ValueType.__eq__(self, other) and self.steps == other.steps
 
+	def __hash__(self):
+		return ValueType.__hash__(self) ^ hash(self.steps)
+
 class VTgps(ValueType):
 	"""Represents the value of a tag with valuetype gps."""
 
