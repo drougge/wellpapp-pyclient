@@ -327,6 +327,15 @@ class VTdatetime(ValueType):
 		parsed = struct_time(date + [0, 0, 0])
 		unit = None
 		last_fuzz = allval[12]
+		if not last_fuzz and sum(v is not None for v in fuzz) == 1:
+			step_pos = next(ix for ix, v in enumerate(fuzz) if v is not None)
+			if all(v is None for v in datev[step_pos + 1:]):
+				last_fuzz = fuzz[step_pos]
+				if last_fuzz[-1].isdigit():
+					last_fuzz += "YmdHMS"[step_pos]
+				steps[step_pos] = None
+				with_steps = False
+				assert steps ==[None]*5
 		if last_fuzz:
 			if last_fuzz == "+": raise ValueError(val)
 			units = ["Y", "m", "d", "H", "M", "S"]
