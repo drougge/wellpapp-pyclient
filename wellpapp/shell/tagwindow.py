@@ -548,10 +548,13 @@ class TagWindow:
 	def put_in_list(self, li):
 		lo = getattr(self, "tags_" + li)
 		view = getattr(self, "tags_" + li + "view")
-		data = []
-		for pre, bg in ("", "#ffffff"), ("impl", "#ffd8ee"):
+		both = set(self.taglist[li]) & set(self.taglist["impl" + li])
+		def fmt(t, pre, bg):
 			# unformatted name first for sorting, not put in lo
-			data.extend((self.ids[clean(t)].name, self.fmt_tag(t), self._guid_with_val(t), bg, self.tag_colours[clean(t)], self.txt_tag(t), pre) for t in self.taglist[pre + li])
+			return (self.ids[clean(t)].name, self.fmt_tag(t), self._guid_with_val(t), bg, self.tag_colours[clean(t)], self.txt_tag(t), pre)
+		data = [fmt(t, "", "#ebe5ff") for t in both]
+		for pre, bg in ("", "#ffffff"), ("impl", "#ffd8ee"):
+			data.extend(fmt(t, pre, bg) for t in self.taglist[pre + li] if t not in both)
 		lo.clear()
 		if data:
 			view.get_selection().set_mode(gtk.SelectionMode.MULTIPLE)
