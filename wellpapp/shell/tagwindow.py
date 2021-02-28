@@ -375,7 +375,9 @@ class TagWindow:
 			self._tagfield_prev_ctx = context
 			tag = _uni(selection.get_data()) + u" "
 			text = _uni(self.tagfield.get_text())
-			if text and text[-1] not in (u" ", u"="): text += u" "
+			last_word = text.rsplit(u" ", 1)[-1]
+			if last_word not in (u"", u"-", u"~") and last_word[-1] != u"=":
+				text += u" "
 			text += tag
 			self.tagfield.set_text(text)
 		# When recieving standard types, we also have to stop the default handler
