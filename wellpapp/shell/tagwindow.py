@@ -1218,6 +1218,7 @@ class FullscreenWindow(gtk.Window):
 		self.set_size_request(1, 1)
 		self.pix_w = self.pixbuf.get_width()
 		self.pix_h = self.pixbuf.get_height()
+		self.prev_size = None
 		self.image = gtk.Image()
 		self.add(self.image)
 		self.connect("configure_event", self._on_configure)
@@ -1226,10 +1227,11 @@ class FullscreenWindow(gtk.Window):
 		self.show_all()
 
 	def _on_configure(self, *args):
-		self._scale_pixbuf_to_fit_win()
+		if self.get_size() != self.prev_size:
+			self._scale_pixbuf_to_fit_win()
 
 	def _scale_pixbuf_to_fit_win(self):
-		win_w, win_h = self.get_size()
+		win_w, win_h = self.prev_size = self.get_size()
 		if (win_w < self.pix_w) or (win_h < self.pix_h):
 			scalefactor = min(win_w / self.pix_w, win_h / self.pix_h)
 			self.scale_pixbuf_to_scalefactor(scalefactor)
