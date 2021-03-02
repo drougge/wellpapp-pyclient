@@ -1185,11 +1185,9 @@ class FullscreenWindowThread(Thread):
 				msg = "File changed size while reading (%s)" % (self._fn,)
 				idle_add(self._tw.error, msg)
 				raise RuntimeError(msg)
-			pixbuf = loader.get_pixbuf()
-			if self._rotate:
-				pixbuf = pixbuf.rotate_simple(360 - self._rotate)
+			anim = loader.get_animation()
 			self._win = FullscreenWindow()
-			idle_add(self._win._init, self._tw, pixbuf)
+			idle_add(self._win._init, self._tw, anim, self._rotate)
 			idle_add(self._tw.set_msg, u"")
 		except Exception as e:
 			idle_add(self._tw.error, str(e))
@@ -1207,21 +1205,26 @@ class FullscreenWindowThread(Thread):
 			gtk.Window.destroy(self._win, *args)
 
 class FullscreenWindow(gtk.Window):
-	def _init(self, tw, pixbuf):
+	def _init(self, tw, anim, rotate):
 		self._tw = tw
-		self.pixbuf = pixbuf
 		self.set_events(gdk.EventMask.BUTTON_PRESS_MASK | gdk.EventMask.KEY_PRESS_MASK)
 		self.set_title("Fullscreen window")
 		self.modify_bg(gtk.StateType.NORMAL, gdk.Color(0, 0, 0))
 		self.show()
 		self.fullscreen()
 		self.set_size_request(1, 1)
-		self.pix_w = self.pixbuf.get_width()
-		self.pix_h = self.pixbuf.get_height()
-		self.prev_size = None
 		self.image = gtk.Image()
 		self.add(self.image)
-		self.connect("configure_event", self._on_configure)
+		if anim.is_static_image():
+			self.pixbuf = anim.get_static_image()
+			if rotate:
+				self.pixbuf = self.pixbuf.rotate_simple(360 - rotate)
+			self.pix_w = self.pixbuf.get_width()
+			self.pix_h = self.pixbuf.get_height()
+			self.prev_size = None
+			self.connect("configure_event", self._on_configure)
+		else:
+			self.image.set_from_animation(anim)
 		self.connect('key-press-event', self.key_press_event)
 		self.connect("button-press-event", self.destroy)
 		self.show_all()
