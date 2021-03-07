@@ -16,8 +16,7 @@ def main(arg0, argv):
 	if data["weak_posts"]:
 		print("Can't order a tag with weak posts")
 		return 1
-	posts = map(client.postspec2md5, argv[1:])
-	wtag = "~" + tag
+	posts = list(map(client.postspec2md5, argv[1:]))
 	for post, spec in zip(posts, argv[1:]):
 		if post:
 			post = client.get_post(post, True)
