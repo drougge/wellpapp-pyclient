@@ -7,7 +7,7 @@ from calendar import timegm
 from math import log, log10, sin, cos, acos, radians, pi
 import sys
 
-from wellpapp._util import _uni, _enc, _dec
+from wellpapp._util import _uni, _enc, _dec, _strenc, _strdec
 
 __all__ = ("ValueType", 'VTstring', 'VTword', 'VTnumber', 'VTint', 'VTuint',
            'VTfloat', 'VTf_stop', 'VTstop', 'VTdatetime', 'VTgps', 'VTnull',
@@ -25,6 +25,8 @@ class ValueType(object):
 	v.exact_fuzz is like .exact but for the fuzz.
 	v.str (or str(v)) is a string representation of exact value+-fuzz.
 	v.format() is this value formated for sending to server.
+	v.encode() is a "human" encoding, suitable for passing back to the
+	contructor with human=True.
 
 	Comparisons:
 	== and != compare that both value and fuzz match,
@@ -113,6 +115,9 @@ class ValueType(object):
 	def format(self):
 		return self.str
 
+	def encode(self):
+		return self.format()
+
 class VTnull(ValueType):
 	type = "null"
 	_cmp_t = "VTstring"
@@ -138,6 +143,7 @@ class VTstring(ValueType):
 	def __init__(self, val, human=False):
 		if human:
 			val = _uni(val)
+			val = _strdec(val)
 		else:
 			val = _dec(val)
 		for name in ("str", "value", "exact"):
@@ -151,6 +157,8 @@ class VTstring(ValueType):
 			return self.str.encode("utf-8")
 	def format(self):
 		return _enc(self.str)
+	def encode(self):
+		return _strenc(self.str)
 
 class VTword(VTstring):
 	"""Represents the value of a tag with valuetype word.
@@ -163,6 +171,9 @@ class VTword(VTstring):
 	def __init__(self, val, human=False):
 		if " " in val: raise ValueError(val)
 		val = _uni(val)
+		if human:
+			val = _strdec(val)
+		assert not any(c.isspace() for c in val)
 		for name in ("str", "value", "exact"):
 			self.__dict__[name] = val
 	def format(self):

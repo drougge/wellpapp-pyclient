@@ -540,7 +540,7 @@ class TagWindow:
 		t = self.ids[clean(g)]
 		v = prefix(g) + t.name
 		if not t.valuelist: return v
-		return " ".join([v + "=" + val.format() for val in set(t.valuelist)])
+		return " ".join([v + "=" + val.encode() for val in set(t.valuelist)])
 
 	def _guid_with_val(self, g):
 		t = self.ids[clean(g)]
