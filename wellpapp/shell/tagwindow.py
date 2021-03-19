@@ -698,6 +698,10 @@ class TagWindow:
 		idle_add(self._tagfield_changed, widget)
 
 	def tagfield_changed(self, widget):
+		text = widget.get_text()
+		if "\r" in text or "\n" in text:
+			# can happen on paste, and it's always undesirable
+			widget.set_text(text.replace("\r", " ").replace("\n", " "))
 		idle_add(self._tagfield_changed, widget)
 
 	def _tagfield_changed(self, widget):
