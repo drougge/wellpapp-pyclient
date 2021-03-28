@@ -56,3 +56,8 @@ specifying N: ("no default") ignores the whole default search. My use for
 this is having a (word valuetype) tag "replaced" for when I make a new
 version of something, and having default_search=-!replaced (! so I can set
 it weakly if I still want to see the replaced post).
+
+If you have problematic characters in your tag names you can use \uXXXX
+escapes in the path names, e.g "\u002f" for "/". "\" is not special
+unless the tag as written is not found. (You will need to escape it in
+your shell though.)

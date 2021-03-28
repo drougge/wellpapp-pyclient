@@ -25,6 +25,7 @@ if sys.version_info[0] == 2:
 else:
 	PY3 = True
 	unicode = str
+	unichr = chr
 	if fuse.__version__ < "1.0.0":
 		raise RuntimeError("Needs at least fuse 1.0.0 on python 3")
 
@@ -92,6 +93,11 @@ if PY3 and sys.getfilesystemencodeerrors() == 'surrogateescape':
 			return b.decode('iso-8859-1')
 else:
 	pathfix = str
+
+def _un_chr(m):
+	return unichr(int(m.group(0)[2:], 16))
+def unescape(s):
+	return re.sub(r'\\u[a-fA-F0-9]{4}', _un_chr, s)
 
 class Wellpapp(fuse.Fuse):
 	def __init__(self, *a, **kw):
@@ -335,6 +341,14 @@ class Wellpapp(fuse.Fuse):
 			r = map(str, r)
 		return r, {}
 
+	def _escape_wrap(self, f_name, name, *a):
+		f = getattr(self._client, f_name)
+		with self._client_lock:
+			res = f(name, *a)
+			if not res and '\\' in name:
+				res = f(unescape(name), *a)
+		return res
+
 	def _path2search(self, path):
 		if path == "/": return None
 		want = set()
@@ -346,15 +360,13 @@ class Wellpapp(fuse.Fuse):
 		nodefault = False
 		for e in filter(None, sre.split(path[1:])):
 			if e[0] == "-":
-				with self._client_lock:
-					e = self._client.parse_tag(e[1:], True)
+				e = self._escape_wrap('parse_tag', e[1:], True)
 				dontwant.add(e)
 			elif e[:2] == "O:":
 				o = e[2:]
 				if o != "group":
 					t = Tag()
-					with self._client_lock:
-						o = self._client.find_tag(o, t, True)
+					o = self._escape_wrap('find_tag', o, t, True)
 					assert t.valuetype
 				order.append(o)
 			elif e[:2] == "R:":
@@ -364,8 +376,7 @@ class Wellpapp(fuse.Fuse):
 			elif e == "N:":
 				nodefault = True
 			else:
-				with self._client_lock:
-					e = self._client.parse_tag(e, True)
+				e = self._escape_wrap('parse_tag', e, True)
 				want.add(e)
 				if not first: first = e
 		if self._default_search and not nodefault:
