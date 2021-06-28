@@ -297,7 +297,7 @@ def main(arg0, argv):
 			if is_wpfs:
 				if not args.quiet:
 					print("Not updating", fn, "because this looks like a wellpappfs")
-			elif exists(p):
+			elif exists(p) and (fn == ld or md5(open(p, "rb").read()).hexdigest() == m):
 				if fn != ld:
 					if not args.dummy: record_filename(m, fn)
 					if not args.quiet:
