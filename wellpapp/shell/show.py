@@ -75,7 +75,7 @@ def main(arg0, argv):
 			print("Related posts:\n\t" + "\n\t".join(rels))
 		return 0
 
-	def show_tag(name, short=False, show_thumbs=False):
+	def show_tag(name, short=False):
 		guid = client.find_tag(name)
 		if not guid and match(r"(?:\w{6}-){3}\w{6}", name):
 			guid = name
@@ -126,8 +126,8 @@ def main(arg0, argv):
 	for object in args:
 		object = client.postspec2md5(object, object)
 		if match(r"^[0-9a-f]{32}$", object):
-			ret |= show_post(object, **opts.__dict__)
+			ret |= show_post(object, short=opts.short, show_thumbs=opts.show_thumbs)
 		else:
-			ret |= show_tag(object, **opts.__dict__)
+			ret |= show_tag(object, short=opts.short)
 		if len(args) > 1: print()
 	return ret
