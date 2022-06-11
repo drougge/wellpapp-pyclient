@@ -1,12 +1,12 @@
 from __future__ import print_function
 
-from sys import version_info
+import sys
 from wellpapp import Client
 from re import match
 from os import readlink, stat
 from optparse import OptionParser
 
-if version_info[0] > 2:
+if sys.version_info[0] > 2:
 	unicode = str
 
 def main(arg0, argv):
@@ -108,7 +108,16 @@ def main(arg0, argv):
 			print("Flags:\n\t" + "\n\t".join(flags))
 		return 0
 
-	p = OptionParser(usage="Usage: %prog [-qt] post-spec or tagname [...]", prog=arg0)
+	def show_path(m):
+		try:
+			path = readlink(client.image_path(m))
+		except OSError:
+			print("%s has no file" % (m,), file=sys.stderr)
+			return 1
+		print(path)
+		return 0
+
+	p = OptionParser(usage="Usage: %prog [-qtp] post-spec or tagname [...]", prog=arg0)
 	p.add_option("-q", "--short",
 	             action="store_true",
 	             help="Short output format"
@@ -116,6 +125,10 @@ def main(arg0, argv):
 	p.add_option("-t", "--show-thumbs",
 	             action="store_true",
 	             help="Show thumb paths"
+	            )
+	p.add_option("-p", "--just-path",
+	             action="store_true",
+	             help="Show just path to file"
 	            )
 	opts, args = p.parse_args(argv)
 	if not args:
@@ -126,7 +139,10 @@ def main(arg0, argv):
 	for object in args:
 		object = client.postspec2md5(object, object)
 		if match(r"^[0-9a-f]{32}$", object):
-			ret |= show_post(object, short=opts.short, show_thumbs=opts.show_thumbs)
+			if opts.just_path:
+				ret |= show_path(object)
+			else:
+				ret |= show_post(object, short=opts.short, show_thumbs=opts.show_thumbs)
 		else:
 			ret |= show_tag(object, short=opts.short)
 		if len(args) > 1: print()
