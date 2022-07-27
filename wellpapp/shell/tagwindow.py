@@ -1351,12 +1351,15 @@ class FileLoaderWorker(Thread):
 					post = self._client.get_post(m, True)
 					idle_add(self._tw.progress_step)
 					if post:
-						try:
-							fn = self._client.thumb_path(m, self._z)
-							thumb = GdkPixbuf.Pixbuf.new_from_file(fn)
-						except Exception as e:
+						for z in self._z:
+							try:
+								fn = self._client.thumb_path(m, z)
+								thumb = GdkPixbuf.Pixbuf.new_from_file(fn)
+								break
+							except Exception as e:
+								print(e)
+						if not thumb:
 							self._bad_out.add('thumb')
-							print(e)
 						self._d_out[d] = (post, thumb,)
 					else:
 						self._bad_out.add('post')
@@ -1385,7 +1388,7 @@ class FileLoader(Thread):
 		# 3 per arg: md5, post load, thumb load
 		idle_add(self._tw.progress_begin, len(self._argv) * 3)
 		idle_add(self._tw.set_msg, u"")
-		z = int(client.cfg.thumb_sizes.split()[0])
+		z = list(map(int, client.cfg.thumb_sizes.split()))
 		seen = {('m', t[0]) for t in self._tw.thumbs}
 		for _ in range(min(cpu_count(), len(self._argv), 8)):
 			FileLoaderWorker(self._tw, q_in, d_out, seen, bad_out, z).start()
@@ -1400,7 +1403,7 @@ class FileLoader(Thread):
 			return
 		fallback = None
 		if any(not tn for _, tn in ordered_out):
-			fallback = gtk.IconTheme().load_icon("image-missing", z, 0)
+			fallback = gtk.IconTheme().load_icon("image-missing", z[0], 0)
 		thumbs = [(post, tn or fallback, _mk_tooltip(post),) for post, tn in ordered_out]
 		idle_add(self._tw.progress_end)
 		idle_add(self._tw.add_thumbs, thumbs)
