@@ -860,7 +860,7 @@ class Client:
 		png_opts = {"format": "PNG", "pnginfo": meta}
 		jpeg = list(map(lambda t: (t[0], t[1], jpeg_opts), jpeg_fns))
 		png = list(map(lambda t: (t[0], t[1], png_opts), png_fns))
-		z = max(map(lambda d: d[1], jpeg + png)) * 2
+		z = max(map(lambda d: d[1], jpeg + png)) * 3 // 2
 		if w > z or h > z:
 			img = _thumb(img, z)
 		for fn, z, opts in jpeg + png:
