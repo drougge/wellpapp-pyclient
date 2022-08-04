@@ -410,7 +410,7 @@ def main(arg0, argv):
 	parser.add_argument('-z', '--timezone', help='timezone to assume EXIF dates are in (+-HHMM format)')
 	parser.add_argument('-o', '--override-tags', action="store_true", help='override existing tag values (from exif, TAGS (and filename))')
 	parser.add_argument('filename', nargs='+')
-	args = parser.parse_args(argv)
+	args = parser.parse_intermixed_args(argv)
 	if args.thumb_src:
 		args.regenerate_thumbnail = True
 
