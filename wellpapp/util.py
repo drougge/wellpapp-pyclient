@@ -541,7 +541,7 @@ def _identify_raw(fh, tiff):
 		if type == 2:
 			fh.seek(off)
 			make = fh.read(min(count, 10))
-			if tiff.variant == "*":
+			if tiff.variant == b"*":
 				if make[:7] == b"PENTAX ":
 					return "pef"
 				if make[:6] == b"NIKON ":
