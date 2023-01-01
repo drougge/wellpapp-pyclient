@@ -382,7 +382,16 @@ class Client:
 		for o in self._list(order, str):
 			search += [u"O", o, u" "]
 		if range != None:
-			search += [u"R%x:%x" % tuple(range)]
+			if isinstance(range, basestring):
+				range = (range,)
+			if isinstance(range[0], basestring):
+				assert len(range[0]) == 32
+				tmp = u"RM%s:" % (range[0],)
+				if (len(range) > 1 and range[1] is not None):
+					tmp = "%s%x" % (tmp, range[1])
+				search.append(tmp)
+			else:
+				search += [u"R%x:%x" % tuple(range)]
 		return u"".join(search)
 
 	def search_post(self, wanted=None, props=None, **kw):
