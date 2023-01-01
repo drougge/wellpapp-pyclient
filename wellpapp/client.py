@@ -254,7 +254,11 @@ class Client:
 		if line[0] != u"R": raise ResponseError(line)
 		if line[1] == u"E": raise ResponseError(line)
 		if line[1] == u"R":
-			if props != None: props["result_count"] = int(line[2:], 16)
+			if props != None:
+				a = line[2:].split(':')
+				props["result_count"] = int(a[0], 16)
+				if len(a) > 1:
+					props["first_result"] = int(a[1], 16)
 			return
 		f = Post()
 		seen = set()
