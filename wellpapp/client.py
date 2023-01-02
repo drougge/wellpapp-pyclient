@@ -390,9 +390,9 @@ class Client:
 				range = (range,)
 			if isinstance(range[0], basestring):
 				assert len(range[0]) == 32
-				tmp = u"RM%s:" % (range[0],)
-				if (len(range) > 1 and range[1] is not None):
-					tmp = "%s%x" % (tmp, range[1])
+				tmp = u"RM" + range[0]
+				for num in range[1:]:
+					tmp = u"%s:%d" % (tmp, num,)
 				search.append(tmp)
 			else:
 				search += [u"R%x:%x" % tuple(range)]
