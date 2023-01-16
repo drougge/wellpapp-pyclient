@@ -232,6 +232,12 @@ class Client:
 			self._sock.close()
 			self._sock = None
 
+	def __enter__(self):
+		return self
+
+	def __exit__(self, exc_type, exc_value, traceback):
+		self.close()
+
 	def _reconnect(self):
 		if self.is_connected: return
 		if isinstance(self.server, tuple):
