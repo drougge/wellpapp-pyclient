@@ -183,9 +183,12 @@ class Config(DotDict):
 			if not cfg_home:
 				cfg_home = os.path.join(os.environ["HOME"], ".config")
 			rcs = [os.path.join(cfg_home, "wellpapp", "rc")]
-			for dir in os.getcwd().split(os.path.sep):
-				path = os.path.join(path, dir)
-				rcs.append(os.path.join(path, rc_name))
+			try:
+				for dir in os.getcwd().split(os.path.sep):
+					path = os.path.join(path, dir)
+					rcs.append(os.path.join(path, rc_name))
+			except IOError:
+				pass
 		suggest_rc = rcs[0]
 		rcs = list(filter(os.path.exists, rcs))
 		if not rcs:
