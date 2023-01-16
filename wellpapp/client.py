@@ -224,6 +224,14 @@ class Client:
 		base = re.escape(base)
 		self._destmd5re = re.compile(r"^" + base + r"/[0-9a-f]/[0-9a-f]{2}/([0-9a-f]{32})$")
 
+	def close(self):
+		if self.is_connected:
+			self.is_connected = False
+			self._fh.close()
+			self._fh = None
+			self._sock.close()
+			self._sock = None
+
 	def _reconnect(self):
 		if self.is_connected: return
 		if isinstance(self.server, tuple):
@@ -241,7 +249,7 @@ class Client:
 		try:
 			self._sock.sendall(line)
 		except IOError:
-			self.is_connected = False
+			self.close()
 			if retry:
 				self._reconnect()
 				self._sock.sendall(line)
