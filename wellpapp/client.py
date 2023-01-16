@@ -205,6 +205,17 @@ class Config(DotDict):
 				assert(len(a) == 2)
 				self[a[0]] = a[1]
 
+class _Transaction_Ctx:
+	def __init__(self, client):
+		self._client = client
+
+	def __enter__(self):
+		pass
+
+	def __exit__(self, exc_type, exc_value, traceback):
+		self._client.end_transaction()
+
+
 class Client:
 	_prot_max_len = 4096
 
@@ -223,6 +234,7 @@ class Client:
 		while base.endswith("/"): base = base[:-1]
 		base = re.escape(base)
 		self._destmd5re = re.compile(r"^" + base + r"/[0-9a-f]/[0-9a-f]{2}/([0-9a-f]{32})$")
+		self._transaction_ctx = _Transaction_Ctx(self)
 
 	def close(self):
 		if self.is_connected:
@@ -773,12 +785,15 @@ class Client:
 	def begin_transaction(self):
 		self._writeline(u"tB")
 		res = self._readline()
-		return res == u"OK"
+		if res != u"OK":
+			raise ResponseError(res)
+		return self._transaction_ctx
 
 	def end_transaction(self):
 		self._writeline(u"tE")
 		res = self._readline()
-		return res == u"OK"
+		if res != u"OK":
+			raise ResponseError(res)
 
 	def thumb_path(self, md5, size):
 		md5 = str(md5)
